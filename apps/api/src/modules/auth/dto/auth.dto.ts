@@ -66,3 +66,24 @@ export class RefreshDto {
   @IsString()
   refreshToken!: string;
 }
+
+export class FirebaseSignInDto {
+  @ApiProperty({ description: 'Firebase ID token from phone sign-in' })
+  @IsString()
+  @Length(20, 4096)
+  idToken!: string;
+
+  @ApiProperty({ enum: ['ZA', 'ZW'] })
+  @IsIn(['ZA', 'ZW'])
+  countryCode!: 'ZA' | 'ZW';
+
+  @ApiPropertyOptional({ enum: ['ios', 'android', 'web'] })
+  @IsOptional()
+  @IsIn(['ios', 'android', 'web'])
+  platform?: 'ios' | 'android' | 'web';
+
+  @ApiPropertyOptional({ description: 'FCM registration token for dispatch alerts' })
+  @IsOptional()
+  @IsString()
+  pushToken?: string;
+}

@@ -14,6 +14,8 @@ const schema = z.object({
   DATABASE_URL: z.string().min(1),
   DATABASE_SSL: z.coerce.boolean().default(false),
   DATABASE_POOL_MAX: z.coerce.number().int().positive().default(20),
+  /** Optional pooler endpoint for the running API; migrations always use DATABASE_URL. */
+  DATABASE_POOL_URL: z.string().optional(),
 
   REDIS_URL: z.string().min(1),
 
@@ -51,6 +53,11 @@ const schema = z.object({
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
 
+  FIREBASE_ENABLED: z.coerce.boolean().default(false),
+  FIREBASE_PROJECT_ID: z.string().optional(),
+  GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
+  FIREBASE_SERVICE_ACCOUNT_JSON: z.string().optional(),
+
   GOOGLE_API_KEY: z.string().optional(),
   AI_MODEL: z.string().default('gemini-2.5-flash'),
   AI_ENABLED: z.coerce.boolean().default(false),
@@ -85,6 +92,14 @@ export function loadConfiguration(): AppConfig {
     if (cfg.PAYMENTS_ZA_PROVIDER === 'mock') violations.push('PAYMENTS_ZA_PROVIDER must not be mock');
     if (cfg.KYC_PROVIDER === 'mock') violations.push('KYC_PROVIDER must not be mock');
     if (cfg.PII_ENCRYPTION_KEY.startsWith('REPLACE')) violations.push('PII_ENCRYPTION_KEY is a placeholder');
+    if (cfg.FIREBASE_ENABLED && !cfg.FIREBASE_PROJECT_ID) {
+      violations.push('FIREBASE_ENABLED is set but FIREBASE_PROJECT_ID is missing');
+    }
+    // A hosted database over the public internet without TLS would put every
+    // booking, phone number and payment reference on the wire in clear.
+    if (!cfg.DATABASE_SSL && !/localhost|127\.0\.0\.1/.test(cfg.DATABASE_URL)) {
+      violations.push('DATABASE_SSL must be true for a non-local database');
+    }
     if (violations.length) {
       throw new Error(`Refusing to boot in production:\n  ${violations.join('\n  ')}`);
     }

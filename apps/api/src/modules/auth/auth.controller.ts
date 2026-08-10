@@ -1,7 +1,9 @@
 import { Body, Controller, HttpCode, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { CompleteProfileDto, RefreshDto, RequestOtpDto, VerifyOtpDto } from './dto/auth.dto';
+import {
+  CompleteProfileDto, FirebaseSignInDto, RefreshDto, RequestOtpDto, VerifyOtpDto,
+} from './dto/auth.dto';
 import { CurrentUser, Public } from '../../common/decorators';
 
 @ApiTags('auth')
@@ -23,6 +25,17 @@ export class AuthController {
   @ApiOperation({ summary: 'Exchange a one-time code for a session' })
   verifyOtp(@Body() dto: VerifyOtpDto) {
     return this.auth.verifyOtp(dto.phone, dto.countryCode, dto.code, {
+      platform: dto.platform ?? 'android',
+      pushToken: dto.pushToken,
+    });
+  }
+
+  @Public()
+  @Post('firebase')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Exchange a Firebase ID token for a Freshly session' })
+  signInWithFirebase(@Body() dto: FirebaseSignInDto) {
+    return this.auth.signInWithFirebase(dto.idToken, dto.countryCode, {
       platform: dto.platform ?? 'android',
       pushToken: dto.pushToken,
     });

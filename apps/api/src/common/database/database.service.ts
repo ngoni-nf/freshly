@@ -131,8 +131,14 @@ export class TransactionContext {
 }
 
 export function createPool(config: ConfigService): Pool {
+  // Prefer a pooler endpoint when one is configured. Migrations deliberately
+  // do not: they issue DDL and CREATE EXTENSION, which a transaction-mode
+  // pooler such as Supabase's port 6543 will reject.
+  const connectionString =
+    config.get<string>('DATABASE_POOL_URL') ?? config.getOrThrow<string>('DATABASE_URL');
+
   return new Pool({
-    connectionString: config.getOrThrow<string>('DATABASE_URL'),
+    connectionString,
     ssl: config.get<boolean>('DATABASE_SSL') ? { rejectUnauthorized: false } : undefined,
     max: config.get<number>('DATABASE_POOL_MAX') ?? 20,
     idleTimeoutMillis: 30_000,

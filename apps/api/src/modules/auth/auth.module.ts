@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
+import { FirebaseAuthService } from './firebase-auth.service';
 import { AuthController } from './auth.controller';
 
 @Module({
@@ -8,8 +9,8 @@ import { AuthController } from './auth.controller';
   // therefore instantiated in the root injector, where a module-scoped
   // JwtService would not be visible.
   imports: [JwtModule.register({ global: true })],
-  providers: [AuthService],
+  providers: [AuthService, FirebaseAuthService],
   controllers: [AuthController],
-  exports: [AuthService],
+  exports: [AuthService, FirebaseAuthService],
 })
 export class AuthModule {}

@@ -8,6 +8,7 @@ import { PiiCryptoService } from '../../common/crypto/pii-crypto.service';
 import { MarketsService } from '../markets/markets.service';
 import { RateLimitedError } from '../../common/errors/domain.errors';
 import { CommsService } from '../comms/comms.service';
+import { FirebaseAuthService } from './firebase-auth.service';
 import { AccountRole } from '../../common/decorators';
 
 interface UserRow {
@@ -55,7 +56,68 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly markets: MarketsService,
     private readonly comms: CommsService,
+    private readonly firebase: FirebaseAuthService,
   ) {}
+
+  /**
+   * Exchange a verified Firebase ID token for a Freshly session.
+   *
+   * The phone number arrives already proven, so there is no code to check.
+   * Everything after that — finding or creating the user, reading their roles,
+   * refusing a suspended account — is identical to the OTP path, because
+   * those are our decisions, not Firebase's.
+   */
+  async signInWithFirebase(
+    idToken: string,
+    countryCode: 'ZA' | 'ZW',
+    device?: { platform: string; pushToken?: string },
+  ): Promise<AuthResult> {
+    const identity = await this.firebase.verifyIdToken(idToken);
+    const e164 = identity.phoneE164;
+
+    let user = await this.db.queryOne<UserRow>(
+      `SELECT id, phone_e164, full_name, roles, country_code, status, consent_privacy_at
+         FROM users WHERE phone_e164 = $1`,
+      [e164],
+    );
+    const isNewUser = !user;
+
+    if (!user) {
+      user = await this.db.queryOne<UserRow>(
+        `INSERT INTO users (phone_e164, country_code, full_name, email, phone_verified_at, locale)
+         VALUES ($1, $2, $3, $4, now(), $5)
+         RETURNING id, phone_e164, full_name, roles, country_code, status, consent_privacy_at`,
+        [
+          e164,
+          countryCode,
+          identity.name ?? '',
+          identity.email ?? null,
+          countryCode === 'ZA' ? 'en-ZA' : 'en-ZW',
+        ],
+      );
+    } else if (user.status !== 'active') {
+      throw new UnauthorizedException({
+        code: 'account_suspended',
+        message: 'This account is not active. Contact support.',
+      });
+    } else {
+      await this.db.query(
+        'UPDATE users SET phone_verified_at = COALESCE(phone_verified_at, now()), last_seen_at = now() WHERE id = $1',
+        [user.id],
+      );
+    }
+
+    if (device?.platform) {
+      await this.db.query(
+        `INSERT INTO devices (user_id, platform, push_token)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (user_id, push_token) DO UPDATE SET last_seen_at = now()`,
+        [user!.id, device.platform, device.pushToken ?? null],
+      );
+    }
+
+    return this.issueTokens(user!, isNewUser);
+  }
 
   async requestOtp(phone: string, countryCode: 'ZA' | 'ZW'): Promise<{ sent: boolean; retryAfter: number }> {
     const e164 = this.markets.toE164(phone, countryCode);
