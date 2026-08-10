@@ -7,7 +7,11 @@ plugins {
 
 android {
     namespace = "africa.freshly.client"
-    compileSdk = 35
+    // 36 because flutter_plugin_android_lifecycle, geolocator_android,
+    // google_maps_flutter_android and sqflite_android all compile against it.
+    // compileSdk only decides which APIs are available at compile time and is
+    // backward compatible; targetSdk below is what changes runtime behaviour.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -22,9 +26,14 @@ android {
 
     defaultConfig {
         applicationId = "africa.freshly.client"
-        // API 23 covers roughly the entire installed base in South Africa and
-        // Zimbabwe while still giving us runtime permissions.
-        minSdk = 23
+        // Flutter's floor, currently 24. This was 23 to reach a little further
+        // down the installed base in both markets, but the plugin set has moved
+        // past it and fighting that costs more than the handful of Android 6
+        // devices it would win back.
+        minSdk = flutter.minSdkVersion
+        // Held at 35 deliberately. Moving to 36 opts into Android 16's
+        // edge-to-edge and other behaviour changes, which deserve their own
+        // pass rather than arriving as a side effect of a plugin bump.
         targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName

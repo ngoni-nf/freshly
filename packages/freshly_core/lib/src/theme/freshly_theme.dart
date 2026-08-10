@@ -75,7 +75,9 @@ class FreshlyTheme {
           color: isDark ? Colors.white : FreshlyColors.ink,
         ),
       ),
-      cardTheme: CardTheme(
+      // CardThemeData, not CardTheme: ThemeData's *Theme slots moved to their
+      // matching *ThemeData types in Flutter 3.32.
+      cardTheme: CardThemeData(
         elevation: 0,
         color: scheme.surface,
         margin: EdgeInsets.zero,

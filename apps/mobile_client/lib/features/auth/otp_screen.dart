@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,9 +47,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
             platform: Theme.of(context).platform == TargetPlatform.iOS ? 'ios' : 'android',
           );
       ref.read(authStateProvider.notifier).signedIn(session);
-      if (mounted) {
-        unawaited(context.go(session.profileComplete ? '/home' : '/auth/profile'));
-      }
+      // context.go returns void; only context.push returns a Future, so there
+      // is nothing here to await or to mark as unawaited.
+      if (mounted) context.go(session.profileComplete ? '/home' : '/auth/profile');
     } on ApiException catch (e) {
       setState(() { _error = e.message; _controller.clear(); });
       HapticFeedback.heavyImpact();
