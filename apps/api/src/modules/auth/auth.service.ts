@@ -280,6 +280,50 @@ export class AuthService {
     return this.issueTokens(user, false);
   }
 
+  /**
+   * The current user, for restoring a session on app launch.
+   *
+   * Returns roles and profile state from the database rather than decoding
+   * them from the JWT: a provider verified since their token was issued, or
+   * suspended since, must be seen as they are now, not as they were up to
+   * fifteen minutes ago.
+   */
+  async me(userId: string) {
+    const user = await this.db.queryOne<UserRow & { avatar_url: string | null }>(
+      `SELECT id, phone_e164, full_name, roles, country_code, status,
+              consent_privacy_at, avatar_url
+         FROM users WHERE id = $1`,
+      [userId],
+    );
+    if (!user) {
+      throw new UnauthorizedException({ code: 'user_not_found', message: 'Please sign in again' });
+    }
+    if (user.status !== 'active') {
+      throw new UnauthorizedException({
+        code: 'account_suspended',
+        message: 'This account is not active. Contact support.',
+      });
+    }
+
+    const provider = await this.db.queryOne<{ id: string; kyc_status: string; is_online: boolean }>(
+      'SELECT id, kyc_status, is_online FROM providers WHERE user_id = $1 LIMIT 1',
+      [userId],
+    );
+
+    return {
+      id: user.id,
+      fullName: user.full_name,
+      phone: user.phone_e164,
+      roles: user.roles,
+      countryCode: user.country_code,
+      avatarUrl: user.avatar_url,
+      profileComplete: Boolean(user.full_name) && Boolean(user.consent_privacy_at),
+      provider: provider
+        ? { id: provider.id, kycStatus: provider.kyc_status, isOnline: provider.is_online }
+        : null,
+    };
+  }
+
   async logout(userId: string): Promise<{ ok: true }> {
     await this.db.query(
       'UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL',

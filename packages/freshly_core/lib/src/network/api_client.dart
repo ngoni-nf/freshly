@@ -201,6 +201,11 @@ class FreshlyApi {
         (_) {},
       );
 
+  /// The signed-in user. Used to restore a session at launch — the stored
+  /// token proves nothing about the account's current state.
+  Future<CurrentUser> me() =>
+      _unwrap(_dio.get('/auth/me'), (d) => CurrentUser.fromJson(d as Map<String, dynamic>));
+
   Future<void> logout() async {
     await _unwrap(_dio.post('/auth/logout'), (_) {});
     await session.clear();

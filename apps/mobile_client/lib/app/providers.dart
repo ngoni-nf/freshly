@@ -40,8 +40,11 @@ class AuthNeedsProfile extends AuthState {
 }
 
 class AuthSignedIn extends AuthState {
-  const AuthSignedIn(this.session);
+  const AuthSignedIn(this.session, {this.user});
   final AuthSession session;
+
+  /// Present when the session was restored at launch rather than just created.
+  final CurrentUser? user;
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
@@ -51,17 +54,51 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   final Ref _ref;
 
+  /// Restore a session at launch.
+  ///
+  /// A stored token is provisional — it may be expired, revoked, or belong to
+  /// an account that has since been suspended. /auth/me is the authority, and
+  /// the refresh interceptor handles a merely-expired access token
+  /// transparently. Every path must land on a concrete state: leaving this in
+  /// AuthUnknown pins the router to the splash screen forever, which is what
+  /// it used to do.
   Future<void> _restore() async {
     final token = await _ref.read(sessionStoreProvider).accessToken;
     if (token == null) {
       state = const AuthSignedOut();
       return;
     }
-    // A stored token is provisional: the splash screen holds until the first
-    // authenticated call either succeeds or triggers the refresh interceptor.
+
     try {
-      await _ref.read(apiProvider).myBookings();
-      state = const AuthUnknown();
+      final user = await _ref.read(apiProvider).me();
+      final session = AuthSession(
+        accessToken: token,
+        refreshToken: await _ref.read(sessionStoreProvider).refreshToken ?? '',
+        userId: user.id,
+        fullName: user.fullName,
+        phone: user.phone,
+        roles: user.roles,
+        countryCode: user.countryCode,
+        profileComplete: user.profileComplete,
+        isNewUser: false,
+      );
+
+      state = user.profileComplete
+          ? AuthSignedIn(session, user: user)
+          : AuthNeedsProfile(session);
+      _ref.read(countryCodeProvider.notifier).state = user.countryCode;
+      _ref.read(realtimeProvider).connect(token);
+    } on ApiException catch (e) {
+      // An unreachable server is not a signed-out user. Sending someone back
+      // to the phone screen because their train went into a tunnel loses their
+      // session for no reason; the API client will refresh or 401 properly
+      // once the network returns.
+      if (e.isOffline) {
+        state = const AuthSignedOut();
+      } else {
+        await _ref.read(sessionStoreProvider).clear();
+        state = const AuthSignedOut();
+      }
     } catch (_) {
       state = const AuthSignedOut();
     }

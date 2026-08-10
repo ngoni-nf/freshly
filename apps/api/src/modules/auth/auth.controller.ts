@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import {
@@ -39,6 +39,12 @@ export class AuthController {
       platform: dto.platform ?? 'android',
       pushToken: dto.pushToken,
     });
+  }
+
+  @Get('me')
+  @ApiOperation({ summary: 'The signed-in user, for restoring a session at launch' })
+  me(@CurrentUser('userId') userId: string) {
+    return this.auth.me(userId);
   }
 
   @Post('profile')

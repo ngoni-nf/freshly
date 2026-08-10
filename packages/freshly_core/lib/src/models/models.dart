@@ -414,3 +414,53 @@ class GridStatus {
             : null,
       );
 }
+
+/// The signed-in user as the server currently sees them.
+///
+/// Distinct from [AuthSession], which is what a sign-in returned at a point in
+/// time. Roles and verification state can change while a token is still valid,
+/// so anything that gates behaviour reads this rather than the stored session.
+class CurrentUser {
+  const CurrentUser({
+    required this.id,
+    required this.fullName,
+    required this.phone,
+    required this.roles,
+    required this.countryCode,
+    required this.profileComplete,
+    this.avatarUrl,
+    this.providerId,
+    this.kycStatus,
+    this.isOnline = false,
+  });
+
+  final String id;
+  final String fullName;
+  final String phone;
+  final List<String> roles;
+  final String countryCode;
+  final bool profileComplete;
+  final String? avatarUrl;
+  final String? providerId;
+  final String? kycStatus;
+  final bool isOnline;
+
+  bool get isProvider => roles.contains('provider');
+  bool get isVerifiedProvider => isProvider && kycStatus == 'verified';
+
+  factory CurrentUser.fromJson(Map<String, dynamic> j) {
+    final provider = j['provider'] as Map<String, dynamic>?;
+    return CurrentUser(
+      id: j['id'] as String,
+      fullName: j['fullName'] as String? ?? '',
+      phone: j['phone'] as String,
+      roles: (j['roles'] as List? ?? const []).cast<String>(),
+      countryCode: j['countryCode'] as String? ?? 'ZA',
+      profileComplete: j['profileComplete'] as bool? ?? false,
+      avatarUrl: j['avatarUrl'] as String?,
+      providerId: provider?['id'] as String?,
+      kycStatus: provider?['kycStatus'] as String?,
+      isOnline: provider?['isOnline'] as bool? ?? false,
+    );
+  }
+}

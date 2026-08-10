@@ -54,9 +54,52 @@ class PartnerAuthNotifier extends StateNotifier<PartnerAuthState> {
 
   final Ref _ref;
 
+  /// Restore a session at launch.
+  ///
+  /// The previous version left a stored token in PartnerUnknown, which the
+  /// router treats as signed out — so a provider who had signed in yesterday
+  /// was asked to sign in again every single morning. /auth/me settles it,
+  /// and also tells us whether they have been verified since, which decides
+  /// whether the online toggle is usable.
   Future<void> _restore() async {
     final token = await _ref.read(sessionStoreProvider).accessToken;
-    state = token == null ? const PartnerSignedOut() : const PartnerUnknown();
+    if (token == null) {
+      state = const PartnerSignedOut();
+      return;
+    }
+
+    try {
+      final user = await _ref.read(apiProvider).me();
+      if (!user.isProvider) {
+        await _ref.read(sessionStoreProvider).clear();
+        state = const PartnerSignedOut();
+        return;
+      }
+
+      final session = AuthSession(
+        accessToken: token,
+        refreshToken: await _ref.read(sessionStoreProvider).refreshToken ?? '',
+        userId: user.id,
+        fullName: user.fullName,
+        phone: user.phone,
+        roles: user.roles,
+        countryCode: user.countryCode,
+        profileComplete: user.profileComplete,
+        isNewUser: false,
+      );
+
+      state = user.isVerifiedProvider
+          ? PartnerReady(session)
+          : PartnerPendingVerification(session, user.kycStatus ?? 'pending');
+      _ref.read(realtimeProvider).connect(token);
+
+      // Presence is server state, not local state. A provider who was online
+      // when the app was killed is still online as far as dispatch is
+      // concerned, and the toggle must say so.
+      if (user.isOnline) _ref.read(presenceProvider.notifier).restoreOnline();
+    } catch (_) {
+      state = const PartnerSignedOut();
+    }
   }
 
   void signedIn(AuthSession session, {String kycStatus = 'verified'}) {
@@ -131,6 +174,12 @@ class PresenceNotifier extends StateNotifier<bool> {
   Future<void> _stopStreaming() async {
     await _positionSub?.cancel();
     _positionSub = null;
+  }
+
+  /// Reflect presence the server already believes, without re-posting it.
+  void restoreOnline() {
+    state = true;
+    unawaited(_startStreaming());
   }
 
   void forceOffline() {
