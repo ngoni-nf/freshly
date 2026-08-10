@@ -10,6 +10,7 @@ import '../features/auth/permissions_screen.dart';
 import '../features/home/dashboard_screen.dart';
 import '../features/discovery/feed_screen.dart';
 import '../features/discovery/provider_screen.dart';
+import '../features/booking/booking_draft.dart';
 import '../features/booking/logistics_screen.dart';
 import '../features/booking/checkout_screen.dart';
 import '../features/booking/escrow_screen.dart';

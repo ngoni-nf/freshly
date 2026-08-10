@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Freshly Partner</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleName</key>
+	<string>freshly_partner</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>MinimumOSVersion</key>
+	<string>13.0</string>
+
+	<!-- Permission strings. App Review rejects vague copy here, and users who
+	     do not understand why we want location simply deny it. Each string
+	     states the benefit to the person being asked. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Freshly Partner uses your location to match you with nearby jobs and to show clients that you are on the way.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Freshly Partner keeps your location updated while you are on a job so the client can track your arrival, and so emergency response can find you if you use SOS.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Freshly Partner uses your camera to verify your identity during sign-up and to photograph your work for your portfolio.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Freshly needs access to your photos so you can attach reference images to a booking or a review.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Freshly uses your microphone for voice search and for masked calls with your pro.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Freshly uses speech recognition so you can search for a service by speaking instead of typing.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Freshly can use your contacts so you can add an emergency contact quickly.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Freshly uses Face ID to protect your saved payment methods.</string>
+
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>remote-notification</string>
+		<string>fetch</string>
+	</array>
+
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+</dict>
+</plist>

@@ -24,13 +24,11 @@ dependencies:
   permission_handler: ^11.3.1
   cached_network_image: ^3.4.1
   hive_flutter: ^1.1.0
-  intl: ^0.19.0
 
-# Deliberately not yet included: firebase_core and firebase_messaging need a
-# google-services.json before Gradle will build, and image/speech/connectivity
-# plugins are not referenced by any screen yet. Every unused native plugin is
-# another way for a first build to fail, so they get added when the feature
-# that needs them lands.
+# Every entry above is imported by a screen. Nothing is declared "for later" —
+# an unused native plugin still runs its Gradle and CocoaPods work on every
+# build and can fail resolution on its own, so it earns its place or it goes.
+# intl arrives transitively through freshly_core, which is where it is used.
 
 dev_dependencies:
   flutter_test:

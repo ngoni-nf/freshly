@@ -45,7 +45,7 @@ class _SosButtonState extends ConsumerState<SosButton> {
             accuracyM: position.accuracy,
           );
       if (mounted) {
-        showDialog<void>(
+        unawaited(showDialog<void>(
           context: context,
           builder: (_) => AlertDialog(
             icon: const Icon(Icons.check_circle, color: FreshlyColors.mint, size: 40),
@@ -58,7 +58,7 @@ class _SosButtonState extends ConsumerState<SosButton> {
               TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
             ],
           ),
-        );
+        ));
       }
     } on ApiException catch (e) {
       if (mounted) {

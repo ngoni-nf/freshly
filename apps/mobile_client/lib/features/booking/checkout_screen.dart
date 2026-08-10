@@ -161,16 +161,24 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 const Text('Pay with',
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                 const SizedBox(height: FreshlySpacing.sm),
-                ...methods.map((m) => Card(
-                      margin: const EdgeInsets.only(bottom: FreshlySpacing.sm),
-                      child: RadioListTile<String>(
-                        value: m.$1,
-                        groupValue: _method,
-                        onChanged: (v) => setState(() => _method = v!),
-                        secondary: Icon(m.$3),
-                        title: Text(m.$2),
-                      ),
-                    )),
+                // RadioGroup replaced per-tile groupValue/onChanged in Flutter
+                // 3.32; the group now owns the selection.
+                RadioGroup<String>(
+                  groupValue: _method,
+                  onChanged: (v) => setState(() => _method = v!),
+                  child: Column(
+                    children: methods
+                        .map((m) => Card(
+                              margin: const EdgeInsets.only(bottom: FreshlySpacing.sm),
+                              child: RadioListTile<String>(
+                                value: m.$1,
+                                secondary: Icon(m.$3),
+                                title: Text(m.$2),
+                              ),
+                            ))
+                        .toList(),
+                  ),
+                ),
                 if (_error != null) ...[
                   const SizedBox(height: FreshlySpacing.md),
                   Text(_error!, style: const TextStyle(color: FreshlyColors.crimson)),

@@ -5,20 +5,21 @@
   "description": "On-demand beauty & grooming marketplace \u2014 South Africa & Zimbabwe",
   "workspaces": [
     "apps/api",
-    "apps/admin",
     "packages/contracts"
   ],
   "scripts": {
+    "doctor": "node scripts/doctor.mjs",
+    "setup": "npm install && npm run infra:up && npm run db:reset && npm run doctor",
     "infra:up": "docker compose -f infra/docker-compose.yml up -d",
     "infra:down": "docker compose -f infra/docker-compose.yml down",
     "infra:logs": "docker compose -f infra/docker-compose.yml logs -f",
+    "db:bootstrap": "psql -U postgres -f scripts/setup-local-db.sql",
     "db:migrate": "node infra/db/migrate.mjs up",
     "db:reset": "node infra/db/migrate.mjs reset",
     "db:seed": "node infra/db/migrate.mjs seed",
     "api:dev": "npm run start:dev -w @freshly/api",
     "api:test": "npm run test -w @freshly/api",
-    "admin:dev": "npm run dev -w @freshly/admin",
-    "build": "npm run build -w @freshly/contracts && npm run build -w @freshly/api && npm run build -w @freshly/admin",
+    "build": "npm run build -w @freshly/contracts && npm run build -w @freshly/api",
     "lint": "npm run lint -w @freshly/api",
     "smoke": "bash scripts/smoke.sh",
     "test": "npm run test -w @freshly/api",
@@ -26,5 +27,8 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
   }
 }

@@ -340,6 +340,7 @@ class DispatchOffer {
     required this.destinationAddress,
     required this.expiresAt,
     required this.clientRating,
+    this.scheduledStart,
   });
 
   final String offerId;
@@ -352,6 +353,11 @@ class DispatchOffer {
   final String destinationAddress;
   final DateTime expiresAt;
   final double clientRating;
+
+  /// Null for an instant job. The dispatch service sends this for scheduled
+  /// bookings and the offer overlay shows it, so a provider knows whether they
+  /// are being asked to leave now or to hold a slot on Thursday.
+  final DateTime? scheduledStart;
 
   Duration get remaining => expiresAt.difference(DateTime.now());
 
@@ -366,6 +372,9 @@ class DispatchOffer {
         destinationAddress: j['destinationAddress'] as String? ?? '',
         expiresAt: DateTime.parse(j['expiresAt'] as String),
         clientRating: (j['clientRating'] as num?)?.toDouble() ?? 5,
+        scheduledStart: j['scheduledStart'] != null
+            ? DateTime.parse(j['scheduledStart'] as String)
+            : null,
       );
 }
 

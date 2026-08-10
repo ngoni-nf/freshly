@@ -1,0 +1,37 @@
+name: freshly_partner
+description: Freshly Partner — take bookings, get paid, run your chair from your phone.
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  freshly_core:
+    path: ../../packages/freshly_core
+
+  flutter_riverpod: ^2.6.1
+  go_router: ^14.6.1
+  geolocator: ^13.0.1
+  hive_flutter: ^1.1.0
+  url_launcher: ^6.3.1
+
+# Location permissions are handled by geolocator's own request flow, so
+# permission_handler is not needed here. Maps are not needed either: the job
+# screen hands navigation to whatever maps app the provider already uses,
+# which is both better than anything we would build and one less native
+# dependency in the release binary.
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true

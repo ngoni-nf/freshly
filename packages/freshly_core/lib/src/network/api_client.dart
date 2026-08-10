@@ -354,6 +354,18 @@ class FreshlyApi {
   Future<void> verifyPin(String bookingId, String pin) =>
       _unwrap(_dio.post('/bookings/$bookingId/verify-pin', data: {'pin': pin}), (_) {});
 
+  /// Finish a job and release escrow.
+  ///
+  /// Deliberately not part of advanceBooking: completion captures the client's
+  /// money, so it is a distinct endpoint carrying an idempotency key. A
+  /// retried network call must never capture twice.
+  Future<void> completeBooking(String bookingId, {required String idempotencyKey}) =>
+      _unwrap(
+        _dio.post('/bookings/$bookingId/complete',
+            options: Options(headers: {'Idempotency-Key': idempotencyKey})),
+        (_) {},
+      );
+
   Future<Map<String, dynamic>> wallet() =>
       _unwrap(_dio.get('/payouts/wallet'), (d) => d as Map<String, dynamic>);
 

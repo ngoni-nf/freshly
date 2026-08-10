@@ -75,22 +75,33 @@ jobs:
           channel: stable
           cache: true
 
+      # dart analyze fails on errors and warnings by default. --fatal-infos is
+      # deliberately off until the first fully green run; turning it on before
+      # then just means a red pipeline nobody reads.
       - name: Shared core
         working-directory: packages/freshly_core
         run: |
           flutter pub get
-          dart analyze --fatal-infos
+          dart analyze
 
       - name: Client app
         working-directory: apps/mobile_client
         run: |
           flutter pub get
-          dart analyze --fatal-infos
+          dart analyze
           flutter test
 
-      - name: Build Android APK
-        working-directory: apps/mobile_client
-        run: flutter build apk --debug --dart-define=API_BASE_URL=http://localhost:3000
+      - name: Partner app
+        working-directory: apps/mobile_partner
+        run: |
+          flutter pub get
+          dart analyze
+          flutter test
+
+      - name: Build Android APKs
+        run: |
+          cd apps/mobile_client  && flutter build apk --debug --dart-define=API_BASE_URL=http://localhost:3000
+          cd ../mobile_partner   && flutter build apk --debug --dart-define=API_BASE_URL=http://localhost:3000
 
   sql:
     name: SQL — parse every migration

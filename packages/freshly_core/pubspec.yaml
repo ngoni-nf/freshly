@@ -1,5 +1,5 @@
 name: freshly_core
-description: Shared domain models, API client, realtime transport and design system for the Freshly iOS/Android apps.
+description: Shared domain models, API client, realtime transport and design system for the Freshly iOS and Android apps.
 version: 0.1.0
 publish_to: none
 
@@ -13,18 +13,22 @@ dependencies:
   dio: ^5.7.0
   socket_io_client: ^2.0.3+1
   flutter_secure_storage: ^9.2.2
-  freezed_annotation: ^2.4.4
-  json_annotation: ^4.9.0
-  intl: ^0.19.0
-  geolocator: ^13.0.1
+  # flutter_localizations pins intl exactly, so this range must include the
+  # version the installed SDK ships or resolution fails outright.
+  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  build_runner: ^2.4.13
-  freezed: ^2.5.7
-  json_serializable: ^6.8.0
   flutter_lints: ^5.0.0
+
+# Deliberately absent: freezed, json_serializable and build_runner. Nothing in
+# this package is generated — the models are hand-written fromJson factories —
+# and those three pin the analyzer, which is the usual reason a package stops
+# resolving the moment someone upgrades their Dart SDK.
+#
+# geolocator is also absent: the apps that need position declare it themselves.
+# A shared package should not force a platform plugin on every consumer.
 
 flutter:
   uses-material-design: true

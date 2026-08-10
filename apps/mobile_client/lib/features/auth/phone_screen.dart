@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,7 +38,8 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
       await ref.read(apiProvider).requestOtp(_controller.text, _country);
       ref.read(countryCodeProvider.notifier).state = _country;
       if (mounted) {
-        context.push('/auth/otp', extra: {'phone': _controller.text, 'countryCode': _country});
+        unawaited(context.push('/auth/otp',
+            extra: {'phone': _controller.text, 'countryCode': _country}));
       }
     } on ApiException catch (e) {
       setState(() => _error = e.message);

@@ -15,7 +15,21 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import pg from 'pg';
+
+// Imported dynamically so a missing dependency produces an instruction rather
+// than a twenty-line ERR_MODULE_NOT_FOUND stack, which tells a newcomer
+// nothing about what to do next.
+let pg;
+try {
+  pg = (await import('pg')).default;
+} catch {
+  console.error(
+    '\n  The "pg" package is not installed.\n' +
+    '  Run this first, from the repository root:\n\n' +
+    '      npm install\n',
+  );
+  process.exit(1);
+}
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS = join(HERE, 'migrations');
@@ -123,7 +137,22 @@ if (!commands[cmd]) {
 }
 
 try {
-  await client.connect();
+  try {
+    await client.connect();
+  } catch (err) {
+    const target = url.replace(/:\/\/[^@]*@/, '://***@');
+    console.error(
+      `\n  Cannot reach PostgreSQL at ${target}\n` +
+      `  ${err.message}\n\n` +
+      '  Start it with one of:\n' +
+      '      npm run infra:up            (Docker or Podman, includes PostGIS)\n' +
+      '      pg_ctl start                (a local PostgreSQL install)\n\n' +
+      '  A local install also needs the PostGIS extension. On Windows that is\n' +
+      '  the "Application Stack Builder" that ships with the PostgreSQL\n' +
+      '  installer: Spatial Extensions -> PostGIS.\n',
+    );
+    process.exit(1);
+  }
   if (cmd === 'reset') {
     await reset();
     await up();

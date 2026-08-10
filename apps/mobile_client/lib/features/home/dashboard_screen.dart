@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
@@ -30,13 +32,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     try {
       final intent = await ref.read(apiProvider).parseIntent(text);
       if (!mounted) return;
-      context.push(Uri(path: '/discover', queryParameters: {
+      unawaited(context.push(Uri(path: '/discover', queryParameters: {
         if (intent.category != null) 'category': intent.category!.wire,
         'venue': _mobileMode ? 'mobile' : 'in_shop',
         if (intent.powerBackupRequired) 'power': 'true',
         if (intent.bookingType == 'instant') 'instant': 'true',
         'q': intent.rawQuery,
-      }).toString());
+      }).toString()));
     } on ApiException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
