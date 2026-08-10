@@ -1,0 +1,107 @@
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { CurrentUser, Idempotent, Roles } from '../../common/decorators';
+import { BookingsService } from './bookings.service';
+import {
+  AdvanceStatusDto, CancelBookingDto, CheckoutDto, CreateBookingDto,
+  QuoteBookingDto, ReviewDto, VerifyPinDto,
+} from './dto/bookings.dto';
+
+@ApiTags('bookings')
+@Controller('bookings')
+export class BookingsController {
+  constructor(private readonly bookings: BookingsService) {}
+
+  @Post('quote')
+  @ApiOperation({ summary: 'Price a basket without creating anything' })
+  quote(@Body() dto: QuoteBookingDto) {
+    return this.bookings.quote(dto);
+  }
+
+  @Post()
+  @Idempotent()
+  @ApiOperation({ summary: 'Create a booking in pending_auth' })
+  create(@CurrentUser('userId') userId: string, @Body() dto: CreateBookingDto) {
+    return this.bookings.create(userId, dto);
+  }
+
+  @Post(':id/checkout')
+  @Idempotent()
+  @ApiOperation({ summary: 'Authorise payment and start dispatch' })
+  checkout(
+    @CurrentUser('userId') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CheckoutDto,
+  ) {
+    return this.bookings.checkout(userId, id, dto.method, `checkout-${id}`);
+  }
+
+  @Get()
+  list(@CurrentUser('userId') userId: string, @Query('status') status?: string) {
+    return this.bookings.listMine(userId, status);
+  }
+
+  @Get(':id')
+  findOne(@CurrentUser('userId') userId: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.bookings.findOne(userId, id);
+  }
+
+  @Get(':id/pin')
+  @ApiOperation({ summary: "The client's own completion code" })
+  pin(@CurrentUser('userId') userId: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.bookings.completionPin(userId, id);
+  }
+
+  @Post(':id/cancel')
+  cancel(
+    @CurrentUser('userId') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CancelBookingDto,
+  ) {
+    return this.bookings.cancel(userId, id, dto.reason);
+  }
+
+  @Post(':id/review')
+  review(
+    @CurrentUser('userId') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReviewDto,
+  ) {
+    return this.bookings.review(userId, id, dto.rating, dto.tags ?? [], dto.comment);
+  }
+
+  // ─── Provider-side ───────────────────────────────────────────────────────
+
+  @Roles('provider')
+  @Post(':id/status')
+  @ApiOperation({ summary: 'Move a job to en_route or arrived' })
+  advance(
+    @CurrentUser('providerId') providerId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AdvanceStatusDto,
+  ) {
+    return this.bookings.advanceStatus(providerId, id, dto.status);
+  }
+
+  @Roles('provider')
+  @Post(':id/verify-pin')
+  @ApiOperation({ summary: "Verify the client's code and start the service" })
+  verifyPin(
+    @CurrentUser('providerId') providerId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: VerifyPinDto,
+  ) {
+    return this.bookings.verifyPin(providerId, id, dto.pin);
+  }
+
+  @Roles('provider')
+  @Post(':id/complete')
+  @Idempotent()
+  @ApiOperation({ summary: 'Finish the job and release escrow' })
+  complete(
+    @CurrentUser('providerId') providerId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.bookings.complete(providerId, id);
+  }
+}

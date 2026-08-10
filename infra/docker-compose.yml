@@ -1,0 +1,50 @@
+name: freshly
+
+services:
+  postgres:
+    image: postgis/postgis:15-3.4
+    container_name: freshly-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: freshly
+      POSTGRES_PASSWORD: freshly
+      POSTGRES_DB: freshly
+    ports: ["5432:5432"]
+    volumes:
+      - freshly-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U freshly -d freshly"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: freshly-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    ports: ["6379:6379"]
+    volumes:
+      - freshly-redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    container_name: freshly-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    ports: ["9000:9000", "9001:9001"]
+    volumes:
+      - freshly-miniodata:/data
+
+volumes:
+  freshly-pgdata:
+  freshly-redisdata:
+  freshly-miniodata:

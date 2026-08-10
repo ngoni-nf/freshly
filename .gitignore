@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+.pub-cache/
+.pub/
+
+# Build output
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+*.g.dart
+*.freezed.dart
+
+# Machine-specific paths — differ on every developer's machine
+apps/mobile_client/android/local.properties
+apps/mobile_partner/android/local.properties
+android/local.properties
+**/.gradle/
+**/gradle-wrapper.jar
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+**/*.xcworkspace/xcuserdata/
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+google-services.json
+GoogleService-Info.plist
+**/key.properties
+
+# Editors
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

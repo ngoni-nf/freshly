@@ -1,0 +1,10 @@
+NOTE: apps/mobile_client/android/local.properties is generated on first run.
+
+It needs two absolute paths that are specific to this machine:
+
+  sdk.dir=C:\\Users\\Support\\AppData\\Local\\Android\\Sdk
+  flutter.sdk=C:\\path\\to\\flutter
+
+Android Studio's Flutter plugin writes this file automatically the first time
+you open the project or run "Pub get", and so does `flutter run`. It is in
+.gitignore because those paths differ on every developer's machine.

@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  api:
+    name: API — lint, types, unit and end-to-end
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgis/postgis:15-3.4
+        env:
+          POSTGRES_USER: freshly
+          POSTGRES_PASSWORD: freshly
+          POSTGRES_DB: freshly
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U freshly -d freshly"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+
+    env:
+      DATABASE_URL: postgres://freshly:freshly@localhost:5432/freshly
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-secret-that-is-at-least-thirty-two-characters
+      PII_ENCRYPTION_KEY: Y2ktdGVzdC1rZXktMzItYnl0ZXMtZXhhY3RseS0hIQ==
+      OTP_DEV_BYPASS: 'true'
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Apply migrations and seed
+        run: |
+          node infra/db/migrate.mjs up
+          node infra/db/migrate.mjs seed
+
+      - name: Type check
+        run: npx tsc --noEmit -p apps/api/tsconfig.json
+
+      - name: Unit tests
+        run: npm run test -w @freshly/api
+
+      - name: End-to-end tests
+        env:
+          RUN_E2E: '1'
+        run: npm run test:e2e -w @freshly/api
+
+  mobile:
+    name: Mobile — analyse and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.x'
+          channel: stable
+          cache: true
+
+      - name: Shared core
+        working-directory: packages/freshly_core
+        run: |
+          flutter pub get
+          dart analyze --fatal-infos
+
+      - name: Client app
+        working-directory: apps/mobile_client
+        run: |
+          flutter pub get
+          dart analyze --fatal-infos
+          flutter test
+
+      - name: Build Android APK
+        working-directory: apps/mobile_client
+        run: flutter build apk --debug --dart-define=API_BASE_URL=http://localhost:3000
+
+  sql:
+    name: SQL — parse every migration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install pglast
+      - name: Parse migrations and seeds
+        run: |
+          python - <<'PY'
+          import glob, sys
+          from pglast import parse_sql
+          from pglast.parser import ParseError
+          failed = False
+          for path in sorted(glob.glob('infra/db/**/*.sql', recursive=True)):
+              try:
+                  parse_sql(open(path).read())
+                  print(f'ok   {path}')
+              except ParseError as err:
+                  failed = True
+                  print(f'FAIL {path}: {err}')
+          sys.exit(1 if failed else 0)
+          PY

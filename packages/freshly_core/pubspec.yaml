@@ -1,0 +1,30 @@
+name: freshly_core
+description: Shared domain models, API client, realtime transport and design system for the Freshly iOS/Android apps.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  dio: ^5.7.0
+  socket_io_client: ^2.0.3+1
+  flutter_secure_storage: ^9.2.2
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+  intl: ^0.19.0
+  geolocator: ^13.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  build_runner: ^2.4.13
+  freezed: ^2.5.7
+  json_serializable: ^6.8.0
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
