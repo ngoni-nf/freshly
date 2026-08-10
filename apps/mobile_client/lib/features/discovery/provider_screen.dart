@@ -25,7 +25,8 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
   final _selected = <ServiceItem>[];
 
   int get _totalMinor => _selected.fold(0, (s, e) => s + e.price.minor);
-  String get _currency => _selected.isEmpty ? 'ZAR' : _selected.first.price.currency;
+  String get _currency =>
+      _selected.isEmpty ? 'ZAR' : _selected.first.price.currency;
 
   void _toggle(ServiceItem service) {
     setState(() {
@@ -43,7 +44,8 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
       body: profile.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, __) => Center(
-          child: Text(e is ApiException ? e.message : 'Could not load this pro'),
+          child:
+              Text(e is ApiException ? e.message : 'Could not load this pro'),
         ),
         data: (data) {
           final name = data['displayName'] as String;
@@ -56,7 +58,8 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
           final services = (data['services'] as List? ?? [])
               .map((s) => ServiceItem.fromJson(s as Map<String, dynamic>))
               .toList();
-          final portfolio = (data['portfolio'] as List? ?? []).cast<Map<String, dynamic>>();
+          final portfolio =
+              (data['portfolio'] as List? ?? []).cast<Map<String, dynamic>>();
 
           return CustomScrollView(
             slivers: [
@@ -81,12 +84,16 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
                 padding: const EdgeInsets.all(FreshlySpacing.md),
                 sliver: SliverList.list(children: [
                   Text(name,
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+                      style: const TextStyle(
+                          fontSize: 24, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 6),
                   Row(children: [
-                    const Icon(Icons.star_rounded, size: 18, color: FreshlyColors.gold),
-                    Text(' ${rating.toStringAsFixed(1)} ($ratingCount reviews)'),
-                    const Text('   ·   ', style: TextStyle(color: FreshlyColors.inkMuted)),
+                    const Icon(Icons.star_rounded,
+                        size: 18, color: FreshlyColors.gold),
+                    Text(
+                        ' ${rating.toStringAsFixed(1)} ($ratingCount reviews)'),
+                    const Text('   ·   ',
+                        style: TextStyle(color: FreshlyColors.inkMuted)),
                     Text('${data['completedJobs'] ?? 0} jobs done',
                         style: const TextStyle(color: FreshlyColors.inkMuted)),
                   ]),
@@ -96,19 +103,24 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
                       spacing: 6,
                       children: power
                           .map((p) => Chip(
-                                avatar: const Icon(Icons.bolt, size: 15, color: FreshlyColors.gold),
-                                label: Text(p.label, style: const TextStyle(fontSize: 12)),
+                                avatar: const Icon(Icons.bolt,
+                                    size: 15, color: FreshlyColors.gold),
+                                label: Text(p.label,
+                                    style: const TextStyle(fontSize: 12)),
                               ))
                           .toList(),
                     ),
                   ],
                   if (bio != null) ...[
                     const SizedBox(height: FreshlySpacing.md),
-                    Text(bio, style: const TextStyle(height: 1.5, color: FreshlyColors.inkMuted)),
+                    Text(bio,
+                        style: const TextStyle(
+                            height: 1.5, color: FreshlyColors.inkMuted)),
                   ],
                   const SizedBox(height: FreshlySpacing.lg),
                   const Text('Services',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                   const SizedBox(height: FreshlySpacing.sm),
                   ...services.map((s) {
                     final chosen = _selected.any((x) => x.id == s.id);
@@ -119,7 +131,8 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
                         onChanged: (_) => _toggle(s),
                         controlAffinity: ListTileControlAffinity.trailing,
                         title: Text(s.name,
-                            style: const TextStyle(fontWeight: FontWeight.w600)),
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w600)),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -130,12 +143,17 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
                                   style: const TextStyle(
                                       fontWeight: FontWeight.w700,
                                       color: FreshlyColors.mintDark)),
-                              const Text('  ·  ', style: TextStyle(color: FreshlyColors.inkMuted)),
+                              const Text('  ·  ',
+                                  style:
+                                      TextStyle(color: FreshlyColors.inkMuted)),
                               Text(formatDuration(s.durationMinutes),
-                                  style: const TextStyle(color: FreshlyColors.inkMuted)),
+                                  style: const TextStyle(
+                                      color: FreshlyColors.inkMuted)),
                               if (s.requiresPower) ...[
                                 const SizedBox(width: 6),
-                                const Icon(Icons.bolt, size: 14, color: FreshlyColors.loadShedding),
+                                const Icon(Icons.bolt,
+                                    size: 14,
+                                    color: FreshlyColors.loadShedding),
                               ],
                             ]),
                           ],
@@ -157,7 +175,8 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
                 padding: const EdgeInsets.all(FreshlySpacing.md),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surface,
-                  border: const Border(top: BorderSide(color: FreshlyColors.line)),
+                  border:
+                      const Border(top: BorderSide(color: FreshlyColors.line)),
                 ),
                 child: Row(children: [
                   Expanded(
@@ -166,11 +185,13 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(formatMinor(_totalMinor, _currency),
-                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                            style: const TextStyle(
+                                fontSize: 20, fontWeight: FontWeight.w700)),
                         Text(
                           '${_selected.length} service${_selected.length == 1 ? '' : 's'} · '
                           '${formatDuration(_selected.fold(0, (s, e) => s + e.durationMinutes))}',
-                          style: const TextStyle(fontSize: 12, color: FreshlyColors.inkMuted),
+                          style: const TextStyle(
+                              fontSize: 12, color: FreshlyColors.inkMuted),
                         ),
                       ],
                     ),

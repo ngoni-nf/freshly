@@ -20,8 +20,13 @@ class WalletScreen extends ConsumerStatefulWidget {
 class _WalletScreenState extends ConsumerState<WalletScreen> {
   bool _busy = false;
 
-  Future<void> _cashOut(int availableMinor, String currency) async {
-    final confirmed = await showModalBottomSheet<bool>(
+  /// The fee is quoted before the provider commits, not discovered afterwards
+  /// in the history list. `instant` is null when they backed out.
+  Future<void> _cashOut(
+      int availableMinor, String currency, int instantFeeBps) async {
+    final feeMinor = (availableMinor * instantFeeBps / 10000).round();
+
+    final instant = await showModalBottomSheet<bool>(
       context: context,
       builder: (_) => Padding(
         padding: const EdgeInsets.all(FreshlySpacing.lg),
@@ -33,20 +38,28 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
             const SizedBox(height: FreshlySpacing.md),
             Text(formatMinor(availableMinor, currency),
-                style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800)),
-            const SizedBox(height: FreshlySpacing.sm),
-            const Text(
-              'Instant payouts carry a small fee. The free daily batch settles '
-              'to your bank overnight.',
-              style: TextStyle(color: FreshlyColors.inkMuted, height: 1.4),
-            ),
+                style:
+                    const TextStyle(fontSize: 30, fontWeight: FontWeight.w800)),
             const SizedBox(height: FreshlySpacing.lg),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Send to my bank'),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.schedule),
+              title: const Text('Free — overnight batch'),
+              subtitle:
+                  Text('You receive ${formatMinor(availableMinor, currency)}'),
+              onTap: () => Navigator.pop(context, false),
             ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.bolt),
+              title: Text('Instant — ${formatMinor(feeMinor, currency)} fee'),
+              subtitle: Text(
+                  'You receive ${formatMinor(availableMinor - feeMinor, currency)}'),
+              onTap: () => Navigator.pop(context, true),
+            ),
+            const SizedBox(height: FreshlySpacing.sm),
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(context),
               child: const Text('Not now'),
             ),
           ],
@@ -54,28 +67,50 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       ),
     );
 
-    if (confirmed != true) return;
+    if (instant == null || !mounted) return;
 
     setState(() => _busy = true);
     try {
-      await ref.read(apiProvider).requestPayout(
+      final result = await ref.read(apiProvider).requestPayout(
             availableMinor,
             idempotencyKey: 'payout-${DateTime.now().millisecondsSinceEpoch}',
+            instant: instant,
           );
       ref.invalidate(walletProvider);
       if (mounted) {
+        final netMinor =
+            (result['netMinor'] as num?)?.toInt() ?? availableMinor;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Payout requested. You will get an SMS when it lands.')),
+          SnackBar(
+            content: Text(
+              '${formatMinor(netMinor, currency)} on the way. '
+              'You will get an SMS when it lands.',
+            ),
+          ),
         );
       }
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
+
+  /// Why the button is disabled, in the provider's words rather than ours.
+  /// A greyed-out control with no explanation is a support ticket.
+  static String? _blockedMessage(String? reason) => switch (reason) {
+        'kyc_required' => 'Finish identity verification to cash out.',
+        'payout_account_missing' =>
+          'Add a bank or mobile money account to cash out.',
+        'payout_account_unverified' =>
+          'Your payout account is still being verified.',
+        'below_minimum' => 'Your balance is below the minimum cash-out.',
+        'account_suspended' => 'Your account is on hold. Contact support.',
+        _ => null,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -86,13 +121,17 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       body: wallet.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, __) => Center(
-          child: Text(e is ApiException ? e.message : 'Could not load your wallet'),
+          child: Text(
+              e is ApiException ? e.message : 'Could not load your wallet'),
         ),
         data: (data) {
           final currency = data['currency'] as String? ?? 'ZAR';
           final available = (data['availableMinor'] as num?)?.toInt() ?? 0;
           final pending = (data['pendingMinor'] as num?)?.toInt() ?? 0;
           final lifetime = (data['lifetimeEarnedMinor'] as num?)?.toInt() ?? 0;
+          final instantFeeBps = (data['instantFeeBps'] as num?)?.toInt() ?? 150;
+          final canCashOut = data['canCashOut'] as bool? ?? false;
+          final blocked = _blockedMessage(data['blockedReason'] as String?);
 
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(walletProvider),
@@ -109,14 +148,22 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                             style: TextStyle(color: FreshlyColors.inkMuted)),
                         const SizedBox(height: 4),
                         Text(formatMinor(available, currency),
-                            style: const TextStyle(fontSize: 38, fontWeight: FontWeight.w800)),
+                            style: const TextStyle(
+                                fontSize: 38, fontWeight: FontWeight.w800)),
                         const SizedBox(height: FreshlySpacing.md),
                         FilledButton(
-                          onPressed: available <= 0 || _busy
+                          onPressed: !canCashOut || _busy
                               ? null
-                              : () => _cashOut(available, currency),
+                              : () =>
+                                  _cashOut(available, currency, instantFeeBps),
                           child: Text(_busy ? 'Sending…' : 'Cash out'),
                         ),
+                        if (blocked != null) ...[
+                          const SizedBox(height: FreshlySpacing.sm),
+                          Text(blocked,
+                              style: const TextStyle(
+                                  color: FreshlyColors.inkMuted)),
+                        ],
                       ],
                     ),
                   ),

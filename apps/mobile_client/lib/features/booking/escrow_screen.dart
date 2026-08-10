@@ -49,14 +49,16 @@ class _EscrowScreenState extends ConsumerState<EscrowScreen> {
     setState(() => _status = status);
     if (status == BookingStatus.accepted || status == BookingStatus.enRoute) {
       context.go('/track/${widget.bookingId}');
-    } else if (status == BookingStatus.expired || status == BookingStatus.cancelled) {
+    } else if (status == BookingStatus.expired ||
+        status == BookingStatus.cancelled) {
       _poll?.cancel();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final failed = _status == BookingStatus.expired || _status == BookingStatus.cancelled;
+    final failed =
+        _status == BookingStatus.expired || _status == BookingStatus.cancelled;
 
     return Scaffold(
       body: SafeArea(
@@ -67,19 +69,23 @@ class _EscrowScreenState extends ConsumerState<EscrowScreen> {
             children: [
               if (!failed) ...[
                 const SizedBox(
-                  width: 64, height: 64,
-                  child: CircularProgressIndicator(strokeWidth: 3, color: FreshlyColors.mint),
+                  width: 64,
+                  height: 64,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 3, color: FreshlyColors.mint),
                 ),
                 const SizedBox(height: FreshlySpacing.xl),
                 Text(_status.clientLabel,
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+                    style: const TextStyle(
+                        fontSize: 22, fontWeight: FontWeight.w700)),
                 const SizedBox(height: FreshlySpacing.sm),
                 Text(
                   _elapsed < 30
                       ? 'We are sending your booking to pros nearby.'
                       : 'Still looking — we are widening the search radius.',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: FreshlyColors.inkMuted, height: 1.4),
+                  style: const TextStyle(
+                      color: FreshlyColors.inkMuted, height: 1.4),
                 ),
                 const SizedBox(height: FreshlySpacing.xl),
                 Container(
@@ -101,10 +107,12 @@ class _EscrowScreenState extends ConsumerState<EscrowScreen> {
                   ]),
                 ),
               ] else ...[
-                const Icon(Icons.search_off, size: 56, color: FreshlyColors.inkMuted),
+                const Icon(Icons.search_off,
+                    size: 56, color: FreshlyColors.inkMuted),
                 const SizedBox(height: FreshlySpacing.lg),
                 const Text('No pro available right now',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+                    style:
+                        TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
                 const SizedBox(height: FreshlySpacing.sm),
                 const Text(
                   'Your payment hold has been released in full. Nothing was charged.',

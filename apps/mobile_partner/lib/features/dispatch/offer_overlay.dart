@@ -56,10 +56,12 @@ class _OfferOverlayState extends ConsumerState<OfferOverlay> {
     if (_responding) return;
     setState(() => _responding = true);
     _ticker?.cancel();
-    HapticFeedback.selectionClick();
+    unawaited(HapticFeedback.selectionClick());
 
     try {
-      await ref.read(offerQueueProvider.notifier).respond(widget.offer.offerId, accept);
+      await ref
+          .read(offerQueueProvider.notifier)
+          .respond(widget.offer.offerId, accept);
       if (!mounted) return;
       Navigator.of(context).pop();
       if (accept) unawaited(context.push('/job/${widget.offer.bookingId}'));
@@ -91,7 +93,8 @@ class _OfferOverlayState extends ConsumerState<OfferOverlay> {
   Widget build(BuildContext context) {
     final offer = widget.offer;
     const totalSeconds = 60;
-    final progress = (_remaining.inMilliseconds / (totalSeconds * 1000)).clamp(0.0, 1.0);
+    final progress =
+        (_remaining.inMilliseconds / (totalSeconds * 1000)).clamp(0.0, 1.0);
     final urgent = _remaining.inSeconds <= 15;
 
     return Material(
@@ -108,7 +111,8 @@ class _OfferOverlayState extends ConsumerState<OfferOverlay> {
                   alignment: Alignment.center,
                   children: [
                     SizedBox(
-                      width: 92, height: 92,
+                      width: 92,
+                      height: 92,
                       child: CircularProgressIndicator(
                         value: progress,
                         strokeWidth: 6,
@@ -121,7 +125,9 @@ class _OfferOverlayState extends ConsumerState<OfferOverlay> {
                     Text(
                       '${_remaining.inSeconds}',
                       style: const TextStyle(
-                        fontSize: 34, fontWeight: FontWeight.w800, color: Colors.white,
+                        fontSize: 34,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
                       ),
                     ),
                   ],
@@ -133,18 +139,28 @@ class _OfferOverlayState extends ConsumerState<OfferOverlay> {
               Text(
                 offer.payout.format(),
                 style: const TextStyle(
-                  fontSize: 52, fontWeight: FontWeight.w800, color: Colors.white, height: 1,
+                  fontSize: 52,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  height: 1,
                 ),
               ),
               const SizedBox(height: 4),
-              const Text('You earn', style: TextStyle(color: Colors.white70, fontSize: 15)),
+              const Text('You earn',
+                  style: TextStyle(color: Colors.white70, fontSize: 15)),
 
               const SizedBox(height: FreshlySpacing.lg),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _Stat(icon: Icons.near_me_outlined, value: formatDistance(offer.distanceKm), label: 'away'),
-                  _Stat(icon: Icons.schedule, value: formatEta(offer.etaMinutes), label: 'drive'),
+                  _Stat(
+                      icon: Icons.near_me_outlined,
+                      value: formatDistance(offer.distanceKm),
+                      label: 'away'),
+                  _Stat(
+                      icon: Icons.schedule,
+                      value: formatEta(offer.etaMinutes),
+                      label: 'drive'),
                   _Stat(
                     icon: Icons.star_rounded,
                     value: offer.clientRating.toStringAsFixed(1),
@@ -167,20 +183,24 @@ class _OfferOverlayState extends ConsumerState<OfferOverlay> {
                     if (offer.serviceNames.isNotEmpty) ...[
                       Text(offer.serviceNames.join(' · '),
                           style: const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15)),
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15)),
                       const SizedBox(height: 6),
                     ],
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.location_on_outlined, size: 16, color: Colors.white54),
+                        const Icon(Icons.location_on_outlined,
+                            size: 16, color: Colors.white54),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             // Suburb only until acceptance — the exact address
                             // is the client's to give, not ours to broadcast.
                             offer.destinationAddress,
-                            style: const TextStyle(color: Colors.white70, fontSize: 13),
+                            style: const TextStyle(
+                                color: Colors.white70, fontSize: 13),
                           ),
                         ),
                       ],
@@ -189,10 +209,12 @@ class _OfferOverlayState extends ConsumerState<OfferOverlay> {
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          const Icon(Icons.event_outlined, size: 16, color: Colors.white54),
+                          const Icon(Icons.event_outlined,
+                              size: 16, color: Colors.white54),
                           const SizedBox(width: 6),
                           Text(formatSlot(offer.scheduledStart!),
-                              style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                              style: const TextStyle(
+                                  color: Colors.white70, fontSize: 13)),
                         ],
                       ),
                     ],
@@ -213,7 +235,8 @@ class _OfferOverlayState extends ConsumerState<OfferOverlay> {
                           side: const BorderSide(color: Colors.white38),
                         ),
                         onPressed: _responding ? null : () => _respond(false),
-                        child: const Text('Decline', style: TextStyle(fontSize: 17)),
+                        child: const Text('Decline',
+                            style: TextStyle(fontSize: 17)),
                       ),
                     ),
                   ),
@@ -226,10 +249,13 @@ class _OfferOverlayState extends ConsumerState<OfferOverlay> {
                         onPressed: _responding ? null : () => _respond(true),
                         child: _responding
                             ? const SizedBox(
-                                width: 22, height: 22,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white))
                             : const Text('Accept',
-                                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                                style: TextStyle(
+                                    fontSize: 20, fontWeight: FontWeight.w800)),
                       ),
                     ),
                   ),
@@ -262,8 +288,11 @@ class _Stat extends StatelessWidget {
           const SizedBox(height: 4),
           Text(value,
               style: const TextStyle(
-                  color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700)),
-          Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                  color: Colors.white,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w700)),
+          Text(label,
+              style: const TextStyle(color: Colors.white54, fontSize: 12)),
         ],
       );
 }

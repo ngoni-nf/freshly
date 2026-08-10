@@ -51,3 +51,12 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Agent tooling
+# Per-developer settings, not project configuration.
+.claude/settings.local.json
+# Installed skill content, restored by `npx skills add`. .claude/skills is
+# symlinked to .agents, so both are the same vendored files. skills-lock.json
+# is committed instead — it pins the source and hash, the way a lockfile should.
+.agents/
+.claude/skills/

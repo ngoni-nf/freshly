@@ -18,8 +18,13 @@ pluginManagement {
 
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    id("com.android.application") version "8.7.3" apply false
-    id("org.jetbrains.kotlin.android") version "2.1.0" apply false
+    // 8.9.1 is a floor, not a preference: androidx.core 1.17 and
+    // androidx.browser 1.9 both refuse to build under anything older, and the
+    // plugin set pulls them in transitively.
+    id("com.android.application") version "8.9.1" apply false
+    // 2.1.0 hits an internal compiler error building google_maps_flutter_android
+    // against this AGP and JDK 21. Not a preference either.
+    id("org.jetbrains.kotlin.android") version "2.2.20" apply false
     id("com.google.gms.google-services") version "4.4.2" apply false
 }
 

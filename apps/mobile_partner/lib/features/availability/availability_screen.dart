@@ -24,17 +24,21 @@ class AvailabilityScreen extends ConsumerStatefulWidget {
 class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
   bool _busy = false;
 
-  Future<void> _block(DateTime start, DateTime end, String reason, String label) async {
+  Future<void> _block(
+      DateTime start, DateTime end, String reason, String label) async {
     setState(() => _busy = true);
     try {
-      await ref.read(apiProvider).blockAvailability(start: start, end: end, reason: reason);
+      await ref
+          .read(apiProvider)
+          .blockAvailability(start: start, end: end, reason: reason);
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('$label blocked out')));
       }
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -44,15 +48,19 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
   Future<void> _pickCustom() async {
     final now = DateTime.now();
     final date = await showDatePicker(
-      context: context, firstDate: now, lastDate: now.add(const Duration(days: 90)),
+      context: context,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 90)),
       initialDate: now,
     );
     if (date == null || !mounted) return;
     final range = await showTimeRangePicker(context);
     if (range == null) return;
 
-    final start = DateTime(date.year, date.month, date.day, range.$1.hour, range.$1.minute);
-    final end = DateTime(date.year, date.month, date.day, range.$2.hour, range.$2.minute);
+    final start = DateTime(
+        date.year, date.month, date.day, range.$1.hour, range.$1.minute);
+    final end = DateTime(
+        date.year, date.month, date.day, range.$2.hour, range.$2.minute);
     await _block(start, end, 'manual', 'Time');
   }
 
@@ -74,12 +82,14 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                   child: ListTile(
                     leading: Icon(Icons.bolt, color: FreshlyColors.mint),
                     title: Text('Grid stable'),
-                    subtitle: Text('No outage scheduled in your area right now.'),
+                    subtitle:
+                        Text('No outage scheduled in your area right now.'),
                   ),
                 );
               }
               final start = status.nextWindowStart!;
-              final end = status.nextWindowEnd ?? start.add(const Duration(hours: 2));
+              final end =
+                  status.nextWindowEnd ?? start.add(const Duration(hours: 2));
               return Card(
                 color: FreshlyColors.loadShedding.withValues(alpha: 0.08),
                 child: Padding(
@@ -89,10 +99,12 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.bolt, color: FreshlyColors.loadShedding),
+                          const Icon(Icons.bolt,
+                              color: FreshlyColors.loadShedding),
                           const SizedBox(width: 8),
                           Text(status.label,
-                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 16)),
                         ],
                       ),
                       const SizedBox(height: 6),
@@ -105,7 +117,8 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                       FilledButton.icon(
                         onPressed: _busy
                             ? null
-                            : () => _block(start, end, 'load_shedding', 'Outage window'),
+                            : () => _block(
+                                start, end, 'load_shedding', 'Outage window'),
                         icon: const Icon(Icons.block),
                         label: const Text('Block out this window'),
                       ),
@@ -129,8 +142,11 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                       ? null
                       : () {
                           final now = DateTime.now();
-                          _block(now, DateTime(now.year, now.month, now.day, 23, 59),
-                              'manual', 'Rest of today');
+                          _block(
+                              now,
+                              DateTime(now.year, now.month, now.day, 23, 59),
+                              'manual',
+                              'Rest of today');
                         },
                 ),
                 const Divider(height: 1),
@@ -148,7 +164,8 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
   }
 }
 
-Future<(TimeOfDay, TimeOfDay)?> showTimeRangePicker(BuildContext context) async {
+Future<(TimeOfDay, TimeOfDay)?> showTimeRangePicker(
+    BuildContext context) async {
   final start = await showTimePicker(
     context: context,
     initialTime: TimeOfDay.now(),

@@ -27,13 +27,18 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
   };
 
   bool get _valid {
-    final digits = _controller.text.replaceAll(RegExp(r'\D'), '').replaceFirst(RegExp(r'^0+'), '');
+    final digits = _controller.text
+        .replaceAll(RegExp(r'\D'), '')
+        .replaceFirst(RegExp(r'^0+'), '');
     return digits.length == _markets[_country]!.digits;
   }
 
   Future<void> _submit() async {
     if (!_valid || _busy) return;
-    setState(() { _busy = true; _error = null; });
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
       await ref.read(apiProvider).requestOtp(_controller.text, _country);
       ref.read(countryCodeProvider.notifier).state = _country;
@@ -61,20 +66,28 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
             children: [
               const SizedBox(height: FreshlySpacing.xl),
               Text('Welcome to Freshly',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700)),
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineMedium
+                      ?.copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: FreshlySpacing.sm),
               Text(
                 'Enter your mobile number. We will send you a 6-digit code to sign in.',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: FreshlyColors.inkMuted),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyLarge
+                    ?.copyWith(color: FreshlyColors.inkMuted),
               ),
               const SizedBox(height: FreshlySpacing.xl),
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
                       border: Border.all(color: FreshlyColors.line),
-                      borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+                      borderRadius:
+                          BorderRadius.circular(FreshlySpacing.radius),
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
@@ -82,7 +95,8 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                         items: _markets.entries
                             .map((e) => DropdownMenuItem(
                                   value: e.key,
-                                  child: Text('${e.value.flag}  ${e.value.prefix}'),
+                                  child: Text(
+                                      '${e.value.flag}  ${e.value.prefix}'),
                                 ))
                             .toList(),
                         onChanged: (v) => setState(() => _country = v!),
@@ -100,7 +114,8 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                         FilteringTextInputFormatter.digitsOnly,
                         LengthLimitingTextInputFormatter(market.digits + 1),
                       ],
-                      decoration: const InputDecoration(hintText: '82 123 4567'),
+                      decoration:
+                          const InputDecoration(hintText: '82 123 4567'),
                       onChanged: (_) => setState(() {}),
                       onSubmitted: (_) => _submit(),
                     ),
@@ -109,21 +124,27 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
               ),
               if (_error != null) ...[
                 const SizedBox(height: FreshlySpacing.md),
-                Text(_error!, style: const TextStyle(color: FreshlyColors.crimson)),
+                Text(_error!,
+                    style: const TextStyle(color: FreshlyColors.crimson)),
               ],
               const Spacer(),
               Text(
                 'By continuing you agree to the Freshly Terms and Privacy Notice. '
                 'We process your information in line with POPIA.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: FreshlyColors.inkMuted),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: FreshlyColors.inkMuted),
               ),
               const SizedBox(height: FreshlySpacing.md),
               FilledButton(
                 onPressed: _valid && !_busy ? _submit : null,
                 child: _busy
                     ? const SizedBox(
-                        width: 20, height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
                     : const Text('Send code'),
               ),
             ],

@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/env.dart';
 import '../../app/providers.dart';
 import '../../widgets/provider_card.dart';
 
@@ -46,21 +48,62 @@ class DiscoveryFilters {
       );
 }
 
-final filtersProvider = StateProvider<DiscoveryFilters>((ref) => const DiscoveryFilters());
+final filtersProvider =
+    StateProvider<DiscoveryFilters>((ref) => const DiscoveryFilters());
 
 final currentPositionProvider = FutureProvider<Position>((ref) async {
+  // Debug-only override, so a geofenced marketplace can be exercised on an
+  // emulator that insists it is in Mountain View. Never consulted in release.
+  final override = kDebugMode ? Env.devLatLng : null;
+  if (override != null) {
+    return Position(
+      latitude: override.lat,
+      longitude: override.lng,
+      timestamp: DateTime.now(),
+      accuracy: 5,
+      altitude: 0,
+      altitudeAccuracy: 0,
+      heading: 0,
+      headingAccuracy: 0,
+      speed: 0,
+      speedAccuracy: 0,
+    );
+  }
+
   final enabled = await Geolocator.isLocationServiceEnabled();
-  if (!enabled) throw ApiException('location_off', 'Turn on location to find pros near you');
+  if (!enabled) {
+    throw ApiException('location_off', 'Turn on location to find pros near you');
+  }
   var permission = await Geolocator.checkPermission();
   if (permission == LocationPermission.denied) {
     permission = await Geolocator.requestPermission();
   }
-  if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-    throw ApiException('location_denied', 'Freshly needs your location to find nearby pros');
+  if (permission == LocationPermission.denied ||
+      permission == LocationPermission.deniedForever) {
+    throw ApiException(
+        'location_denied', 'Freshly needs your location to find nearby pros');
   }
-  return Geolocator.getCurrentPosition(
-    locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-  );
+  // A fresh high-accuracy fix is the ideal, not a requirement. Indoors, in a
+  // basement salon, or on a handset with a cold GPS, it can take far longer
+  // than anyone will wait — and the previous version had no time limit at all,
+  // so the screen sat on "Could not load pros nearby" indefinitely while the
+  // phone hunted for satellites. A slightly stale position finds the same
+  // barbers; a spinner that never resolves loses the booking.
+  try {
+    return await Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 8),
+      ),
+    );
+  } catch (_) {
+    final last = await Geolocator.getLastKnownPosition();
+    if (last != null) return last;
+    throw ApiException(
+      'location_unavailable',
+      'We could not get your location. Move somewhere with a clearer signal and try again.',
+    );
+  }
 });
 
 final searchResultsProvider =
@@ -129,7 +172,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             height: 52,
             child: ListView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
               children: [
                 _Chip(
                   label: 'Available now',
@@ -147,7 +191,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   label: '4.5★ and up',
                   selected: filters.minRating >= 4.5,
                   onTap: () => ref.read(filtersProvider.notifier).state =
-                      filters.copyWith(minRating: filters.minRating >= 4.5 ? 0 : 4.5),
+                      filters.copyWith(
+                          minRating: filters.minRating >= 4.5 ? 0 : 4.5),
                 ),
               ],
             ),
@@ -156,7 +201,9 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             child: results.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (err, __) => _ErrorState(
-                message: err is ApiException ? err.message : 'Could not load pros nearby',
+                message: err is ApiException
+                    ? err.message
+                    : 'Could not load pros nearby',
                 onRetry: () => ref.invalidate(searchResultsProvider),
               ),
               data: (list) {
@@ -176,7 +223,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   child: ListView.separated(
                     padding: const EdgeInsets.all(FreshlySpacing.md),
                     itemCount: list.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: FreshlySpacing.sm),
+                    separatorBuilder: (_, __) =>
+                        const SizedBox(height: FreshlySpacing.sm),
                     itemBuilder: (_, i) => ProviderCard(
                       provider: list[i],
                       onTap: () => context.push('/provider/${list[i].id}'),
@@ -205,12 +253,15 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('Filters',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                    style:
+                        TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
                 const SizedBox(height: FreshlySpacing.lg),
                 Text('Distance: ${filters.radiusKm.round()} km'),
                 Slider(
                   value: filters.radiusKm,
-                  min: 1, max: 25, divisions: 24,
+                  min: 1,
+                  max: 25,
+                  divisions: 24,
                   label: '${filters.radiusKm.round()} km',
                   onChanged: (v) => ref.read(filtersProvider.notifier).state =
                       filters.copyWith(radiusKm: v),
@@ -230,7 +281,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 }
 
 class _Chip extends StatelessWidget {
-  const _Chip({required this.label, required this.selected, required this.onTap});
+  const _Chip(
+      {required this.label, required this.selected, required this.onTap});
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -238,12 +290,16 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(right: FreshlySpacing.sm),
-        child: FilterChip(label: Text(label), selected: selected, onSelected: (_) => onTap()),
+        child: FilterChip(
+            label: Text(label), selected: selected, onSelected: (_) => onTap()),
       );
 }
 
 class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message, required this.onRetry, this.retryLabel = 'Try again'});
+  const _ErrorState(
+      {required this.message,
+      required this.onRetry,
+      this.retryLabel = 'Try again'});
   final String message;
   final VoidCallback onRetry;
   final String retryLabel;
@@ -255,11 +311,13 @@ class _ErrorState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.search_off, size: 44, color: FreshlyColors.inkMuted),
+              const Icon(Icons.search_off,
+                  size: 44, color: FreshlyColors.inkMuted),
               const SizedBox(height: FreshlySpacing.md),
               Text(message,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: FreshlyColors.inkMuted, height: 1.4)),
+                  style: const TextStyle(
+                      color: FreshlyColors.inkMuted, height: 1.4)),
               const SizedBox(height: FreshlySpacing.lg),
               OutlinedButton(onPressed: onRetry, child: Text(retryLabel)),
             ],

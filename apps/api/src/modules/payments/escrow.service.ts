@@ -7,6 +7,7 @@ import { PaymentGateway } from './gateways/gateway.interface';
 import { MockGateway } from './gateways/mock.gateway';
 import { PaynowGateway } from './gateways/paynow.gateway';
 import { MarketsService } from '../markets/markets.service';
+import { LedgerEntryInput, LedgerService } from './ledger.service';
 
 interface BookingMoney {
   id: string;
@@ -38,6 +39,7 @@ export class EscrowService {
     private readonly db: DatabaseService,
     private readonly config: ConfigService,
     private readonly markets: MarketsService,
+    private readonly ledger: LedgerService,
   ) {
     this.gateways.set('mock', new MockGateway());
     const paynowId = this.config.get<string>('PAYNOW_INTEGRATION_ID');
@@ -345,29 +347,17 @@ export class EscrowService {
    * Write a balanced set of entries and assert the balance in the database.
    * The assertion is not defensive programming for its own sake — it is the
    * only thing standing between a bad refactor and a ledger nobody can close.
+   *
+   * Delegates to LedgerService, which payouts also writes through, so there
+   * remains exactly one place in the system that inserts a ledger entry.
    */
   private async writeEntries(
     tx: TransactionContext,
     groupKey: string,
     currency: string,
     bookingId: string,
-    entries: Array<{
-      account: string;
-      direction: 'debit' | 'credit';
-      amountMinor: number;
-      description: string;
-      providerId?: string | null;
-    }>,
+    entries: LedgerEntryInput[],
   ): Promise<void> {
-    for (const entry of entries) {
-      if (entry.amountMinor <= 0) continue;
-      await tx.query(
-        `INSERT INTO ledger_entries
-           (booking_id, account, direction, amount_minor, currency, description, group_key, counterparty_provider_id)
-         VALUES ($1, $2::ledger_account_enum, $3::ledger_direction_enum, $4, $5::currency_code_enum, $6, $7, $8)`,
-        [bookingId, entry.account, entry.direction, entry.amountMinor, currency, entry.description, groupKey, entry.providerId ?? null],
-      );
-    }
-    await tx.query('SELECT fn_assert_ledger_balanced($1)', [groupKey]);
+    await this.ledger.write(tx, { groupKey, currency, bookingId, entries });
   }
 }

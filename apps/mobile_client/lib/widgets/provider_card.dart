@@ -25,16 +25,22 @@ class ProviderCard extends StatelessWidget {
                     child: provider.avatarUrl != null
                         ? CachedNetworkImage(
                             imageUrl: provider.avatarUrl!,
-                            width: 72, height: 72, fit: BoxFit.cover,
+                            width: 72,
+                            height: 72,
+                            fit: BoxFit.cover,
                             placeholder: (_, __) => Container(
-                                width: 72, height: 72, color: FreshlyColors.mintSoft),
+                                width: 72,
+                                height: 72,
+                                color: FreshlyColors.mintSoft),
                           )
                         : Container(
-                            width: 72, height: 72,
+                            width: 72,
+                            height: 72,
                             color: FreshlyColors.mintSoft,
                             child: Center(
                               child: Text(
-                                provider.displayName.characters.first.toUpperCase(),
+                                provider.displayName.characters.first
+                                    .toUpperCase(),
                                 style: const TextStyle(
                                     fontSize: 26,
                                     fontWeight: FontWeight.w700,
@@ -45,9 +51,11 @@ class ProviderCard extends StatelessWidget {
                   ),
                   if (provider.isOnline)
                     Positioned(
-                      right: 4, top: 4,
+                      right: 4,
+                      top: 4,
                       child: Container(
-                        width: 12, height: 12,
+                        width: 12,
+                        height: 12,
                         decoration: BoxDecoration(
                           color: FreshlyColors.mint,
                           shape: BoxShape.circle,
@@ -68,11 +76,13 @@ class ProviderCard extends StatelessWidget {
                           child: Text(provider.displayName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 16)),
                         ),
                         if (provider.hasPowerBackup)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
                               color: FreshlyColors.gold.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(999),
@@ -80,7 +90,8 @@ class ProviderCard extends StatelessWidget {
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.battery_charging_full, size: 13, color: FreshlyColors.gold),
+                                Icon(Icons.battery_charging_full,
+                                    size: 13, color: FreshlyColors.gold),
                                 SizedBox(width: 3),
                                 Text('Power',
                                     style: TextStyle(
@@ -95,26 +106,34 @@ class ProviderCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.star_rounded, size: 15, color: FreshlyColors.gold),
+                        const Icon(Icons.star_rounded,
+                            size: 15, color: FreshlyColors.gold),
                         const SizedBox(width: 2),
                         Text(provider.rating.toStringAsFixed(1),
-                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 13)),
                         Text(' (${provider.ratingCount})',
-                            style: const TextStyle(fontSize: 13, color: FreshlyColors.inkMuted)),
-                        const Text('  ·  ', style: TextStyle(color: FreshlyColors.inkMuted)),
+                            style: const TextStyle(
+                                fontSize: 13, color: FreshlyColors.inkMuted)),
+                        const Text('  ·  ',
+                            style: TextStyle(color: FreshlyColors.inkMuted)),
                         Text(formatDistance(provider.distanceKm),
-                            style: const TextStyle(fontSize: 13, color: FreshlyColors.inkMuted)),
+                            style: const TextStyle(
+                                fontSize: 13, color: FreshlyColors.inkMuted)),
                         if (provider.etaMinutes != null) ...[
-                          const Text('  ·  ', style: TextStyle(color: FreshlyColors.inkMuted)),
+                          const Text('  ·  ',
+                              style: TextStyle(color: FreshlyColors.inkMuted)),
                           Text(formatEta(provider.etaMinutes),
-                              style: const TextStyle(fontSize: 13, color: FreshlyColors.inkMuted)),
+                              style: const TextStyle(
+                                  fontSize: 13, color: FreshlyColors.inkMuted)),
                         ],
                       ],
                     ),
                     const SizedBox(height: 6),
                     Text('From ${provider.fromPrice.format(compact: true)}',
                         style: const TextStyle(
-                            fontWeight: FontWeight.w700, color: FreshlyColors.mintDark)),
+                            fontWeight: FontWeight.w700,
+                            color: FreshlyColors.mintDark)),
                   ],
                 ),
               ),

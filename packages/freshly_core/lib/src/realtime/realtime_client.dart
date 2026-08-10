@@ -55,7 +55,8 @@ class RealtimeClient {
       ..on('booking.status', (d) => _emitTracking(d))
       ..on('location.ping', (d) => _emitTracking(d))
       ..on('dispatch.offer', (d) {
-        if (d is Map) _offers.add(DispatchOffer.fromJson(Map<String, dynamic>.from(d)));
+        if (d is Map)
+          _offers.add(DispatchOffer.fromJson(Map<String, dynamic>.from(d)));
       })
       ..on('dispatch.revoked', (d) {
         if (d is Map) _offerRevoked.add(d['offerId'] as String);
@@ -74,17 +75,21 @@ class RealtimeClient {
 
   void _emitTracking(dynamic payload) {
     if (payload is Map) {
-      _tracking.add(TrackingUpdate.fromJson(Map<String, dynamic>.from(payload)));
+      _tracking
+          .add(TrackingUpdate.fromJson(Map<String, dynamic>.from(payload)));
     }
   }
 
-  void joinBooking(String bookingId) => _socket?.emit('booking.subscribe', {'bookingId': bookingId});
-  void leaveBooking(String bookingId) => _socket?.emit('booking.unsubscribe', {'bookingId': bookingId});
+  void joinBooking(String bookingId) =>
+      _socket?.emit('booking.subscribe', {'bookingId': bookingId});
+  void leaveBooking(String bookingId) =>
+      _socket?.emit('booking.unsubscribe', {'bookingId': bookingId});
 
   /// Providers stream position while a job is live. Five seconds is the
   /// cadence the backend expects; the payload is held in Redis under a TTL and
   /// never written to durable storage.
-  void publishLocation(double lat, double lng, {double? heading, double? speedKph}) {
+  void publishLocation(double lat, double lng,
+      {double? heading, double? speedKph}) {
     _socket?.emit('location.publish', {
       'lat': lat,
       'lng': lng,

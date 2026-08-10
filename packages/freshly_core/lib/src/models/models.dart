@@ -3,7 +3,15 @@ import '../util/money.dart';
 enum CountryCode { za, zw }
 
 enum ServiceCategory {
-  barber, hair, nails, makeup, aesthetics, braiding, locs, massage, browsLashes;
+  barber,
+  hair,
+  nails,
+  makeup,
+  aesthetics,
+  braiding,
+  locs,
+  massage,
+  browsLashes;
 
   String get wire => switch (this) {
         ServiceCategory.browsLashes => 'brows_lashes',
@@ -30,8 +38,17 @@ enum ServiceCategory {
 }
 
 enum BookingStatus {
-  draft, pendingAuth, authorized, accepted, enRoute, arrived,
-  inProgress, completed, cancelled, expired, disputed;
+  draft,
+  pendingAuth,
+  authorized,
+  accepted,
+  enRoute,
+  arrived,
+  inProgress,
+  completed,
+  cancelled,
+  expired,
+  disputed;
 
   static BookingStatus fromWire(String v) => switch (v) {
         'pending_auth' => BookingStatus.pendingAuth,
@@ -57,17 +74,26 @@ enum BookingStatus {
       };
 
   bool get isLive => const {
-        BookingStatus.authorized, BookingStatus.accepted, BookingStatus.enRoute,
-        BookingStatus.arrived, BookingStatus.inProgress,
+        BookingStatus.authorized,
+        BookingStatus.accepted,
+        BookingStatus.enRoute,
+        BookingStatus.arrived,
+        BookingStatus.inProgress,
       }.contains(this);
 
   bool get isTerminal => const {
-        BookingStatus.completed, BookingStatus.cancelled, BookingStatus.expired,
+        BookingStatus.completed,
+        BookingStatus.cancelled,
+        BookingStatus.expired,
       }.contains(this);
 }
 
 enum PowerBackup {
-  generator, inverter, batteryClippers, portableLights, solar;
+  generator,
+  inverter,
+  batteryClippers,
+  portableLights,
+  solar;
 
   String get label => switch (this) {
         PowerBackup.generator => 'Generator',
@@ -208,7 +234,8 @@ class ServiceItem {
         name: j['name'] as String,
         description: j['description'] as String?,
         category: ServiceCategory.fromWire(j['category'] as String),
-        price: Money(minor: j['priceMinor'] as int, currency: j['currency'] as String),
+        price: Money(
+            minor: j['priceMinor'] as int, currency: j['currency'] as String),
         durationMinutes: j['durationMinutes'] as int,
         requiresPower: j['requiresPower'] as bool? ?? false,
       );
@@ -252,7 +279,8 @@ class PriceQuote {
 }
 
 class QuoteLine {
-  const QuoteLine({required this.label, required this.amountMinor, required this.kind});
+  const QuoteLine(
+      {required this.label, required this.amountMinor, required this.kind});
   final String label;
   final int amountMinor;
   final String kind;

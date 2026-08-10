@@ -25,8 +25,13 @@ class FreshlyPartnerApp extends ConsumerWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [
-        Locale('en', 'ZA'), Locale('en', 'ZW'), Locale('af'),
-        Locale('zu'), Locale('xh'), Locale('sn'), Locale('nd'),
+        Locale('en', 'ZA'),
+        Locale('en', 'ZW'),
+        Locale('af'),
+        Locale('zu'),
+        Locale('xh'),
+        Locale('sn'),
+        Locale('nd'),
       ],
       builder: (context, child) {
         final scale = MediaQuery.textScalerOf(context)

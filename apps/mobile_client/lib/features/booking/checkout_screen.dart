@@ -34,7 +34,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   Future<void> _fetchQuote() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final quote = await ref.read(apiProvider).quote(
             providerId: widget.draft.providerId,
@@ -43,7 +46,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             lng: widget.draft.destination!.lng,
             promoCode: widget.draft.promoCode,
           );
-      setState(() { _quote = quote; widget.draft.quote = quote; });
+      setState(() {
+        _quote = quote;
+        widget.draft.quote = quote;
+      });
     } on ApiException catch (e) {
       setState(() => _error = e.message);
     } finally {
@@ -53,12 +59,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   Future<void> _pay() async {
     if (_paying) return;
-    setState(() { _paying = true; _error = null; });
-    final key = '${widget.draft.providerId}-${DateTime.now().millisecondsSinceEpoch}';
+    setState(() {
+      _paying = true;
+      _error = null;
+    });
+    final key =
+        '${widget.draft.providerId}-${DateTime.now().millisecondsSinceEpoch}';
     try {
       final api = ref.read(apiProvider);
-      final booking = await api.createBooking(widget.draft.toCreatePayload(), idempotencyKey: key);
-      await api.checkout(booking.id, method: _method, idempotencyKey: '$key-pay');
+      final booking = await api.createBooking(widget.draft.toCreatePayload(),
+          idempotencyKey: key);
+      await api.checkout(booking.id,
+          method: _method, idempotencyKey: '$key-pay');
       if (mounted) context.go('/book/${booking.id}/escrow');
     } on ApiException catch (e) {
       setState(() => _error = e.message);
@@ -96,9 +108,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       child: Column(
                         children: [
                           ..._quote!.breakdown.map((line) => Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 6),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 6),
                                 child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Expanded(
                                       child: Text(line.label,
@@ -125,9 +139,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text('Total',
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                                  style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700)),
                               Text(_quote!.total.format(),
-                                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                                  style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w700)),
                             ],
                           ),
                         ],
@@ -139,12 +157,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     padding: const EdgeInsets.all(FreshlySpacing.md),
                     decoration: BoxDecoration(
                       color: FreshlyColors.mintSoft,
-                      borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+                      borderRadius:
+                          BorderRadius.circular(FreshlySpacing.radius),
                     ),
                     child: const Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.lock_outline, color: FreshlyColors.mintDark, size: 20),
+                        Icon(Icons.lock_outline,
+                            color: FreshlyColors.mintDark, size: 20),
                         SizedBox(width: FreshlySpacing.sm),
                         Expanded(
                           child: Text(
@@ -159,7 +179,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 ],
                 const SizedBox(height: FreshlySpacing.lg),
                 const Text('Pay with',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                 const SizedBox(height: FreshlySpacing.sm),
                 // RadioGroup replaced per-tile groupValue/onChanged in Flutter
                 // 3.32; the group now owns the selection.
@@ -169,7 +190,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   child: Column(
                     children: methods
                         .map((m) => Card(
-                              margin: const EdgeInsets.only(bottom: FreshlySpacing.sm),
+                              margin: const EdgeInsets.only(
+                                  bottom: FreshlySpacing.sm),
                               child: RadioListTile<String>(
                                 value: m.$1,
                                 secondary: Icon(m.$3),
@@ -181,7 +203,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: FreshlySpacing.md),
-                  Text(_error!, style: const TextStyle(color: FreshlyColors.crimson)),
+                  Text(_error!,
+                      style: const TextStyle(color: FreshlyColors.crimson)),
                 ],
               ],
             ),
@@ -192,9 +215,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             onPressed: _quote == null || _paying ? null : _pay,
             child: _paying
                 ? const SizedBox(
-                    width: 20, height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : Text(_quote == null ? 'Confirm' : 'Pay ${_quote!.total.format()}'),
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white))
+                : Text(_quote == null
+                    ? 'Confirm'
+                    : 'Pay ${_quote!.total.format()}'),
           ),
         ),
       ),

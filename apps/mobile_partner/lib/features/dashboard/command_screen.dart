@@ -41,11 +41,16 @@ class CommandScreen extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('Freshly Partner',
-                              style: Theme.of(context).textTheme.titleLarge
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
                                   ?.copyWith(fontWeight: FontWeight.w700)),
                           Text(
-                            isOnline ? 'You are visible to clients' : 'You are not taking jobs',
-                            style: const TextStyle(fontSize: 13, color: FreshlyColors.inkMuted),
+                            isOnline
+                                ? 'You are visible to clients'
+                                : 'You are not taking jobs',
+                            style: const TextStyle(
+                                fontSize: 13, color: FreshlyColors.inkMuted),
                           ),
                         ],
                       ),
@@ -63,13 +68,16 @@ class CommandScreen extends ConsumerWidget {
 
               // ── Go online ────────────────────────────────────────────────
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
                 child: _PresenceCard(
                   isOnline: isOnline,
                   enabled: !pending,
                   onChanged: (value) async {
                     try {
-                      await ref.read(presenceProvider.notifier).setOnline(value);
+                      await ref
+                          .read(presenceProvider.notifier)
+                          .setOnline(value);
                     } on ApiException catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context)
@@ -85,13 +93,16 @@ class CommandScreen extends ConsumerWidget {
                 padding: const EdgeInsets.all(FreshlySpacing.md),
                 child: wallet.when(
                   loading: () => const Card(
-                    child: SizedBox(height: 96, child: Center(child: CircularProgressIndicator())),
+                    child: SizedBox(
+                        height: 96,
+                        child: Center(child: CircularProgressIndicator())),
                   ),
                   error: (_, __) => const SizedBox.shrink(),
                   data: (data) => Card(
                     child: InkWell(
                       onTap: () => context.push('/wallet'),
-                      borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+                      borderRadius:
+                          BorderRadius.circular(FreshlySpacing.radius),
                       child: Padding(
                         padding: const EdgeInsets.all(FreshlySpacing.md),
                         child: Row(
@@ -100,13 +111,17 @@ class CommandScreen extends ConsumerWidget {
                               child: _Metric(
                                 label: 'Available now',
                                 value: formatMinor(
-                                  (data['availableMinor'] as num?)?.toInt() ?? 0,
+                                  (data['availableMinor'] as num?)?.toInt() ??
+                                      0,
                                   data['currency'] as String? ?? 'ZAR',
                                 ),
                                 emphasis: true,
                               ),
                             ),
-                            Container(width: 1, height: 40, color: FreshlyColors.line),
+                            Container(
+                                width: 1,
+                                height: 40,
+                                color: FreshlyColors.line),
                             Expanded(
                               child: _Metric(
                                 label: 'Held in escrow',
@@ -127,7 +142,9 @@ class CommandScreen extends ConsumerWidget {
               // ── Today ────────────────────────────────────────────────────
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
-                child: Text('Today', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                child: Text('Today',
+                    style:
+                        TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
               ),
               const SizedBox(height: FreshlySpacing.sm),
               schedule.when(
@@ -137,7 +154,10 @@ class CommandScreen extends ConsumerWidget {
                 ),
                 error: (e, __) => Padding(
                   padding: const EdgeInsets.all(FreshlySpacing.md),
-                  child: Text(e is ApiException ? e.message : 'Could not load your jobs',
+                  child: Text(
+                      e is ApiException
+                          ? e.message
+                          : 'Could not load your jobs',
                       style: const TextStyle(color: FreshlyColors.inkMuted)),
                 ),
                 data: (jobs) {
@@ -157,7 +177,8 @@ class CommandScreen extends ConsumerWidget {
                                     ? 'No jobs yet. You will hear a request the moment one comes in.'
                                     : 'Go online to start receiving requests.',
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(color: FreshlyColors.inkMuted, height: 1.4),
+                                style: const TextStyle(
+                                    color: FreshlyColors.inkMuted, height: 1.4),
                               ),
                             ],
                           ),
@@ -170,15 +191,16 @@ class CommandScreen extends ConsumerWidget {
                       final status = job['status'] as BookingStatus;
                       final money = job['total'] as Money;
                       return Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                            FreshlySpacing.md, 0, FreshlySpacing.md, FreshlySpacing.sm),
+                        padding: const EdgeInsets.fromLTRB(FreshlySpacing.md, 0,
+                            FreshlySpacing.md, FreshlySpacing.sm),
                         child: Card(
                           child: ListTile(
                             leading: CircleAvatar(
                               backgroundColor: FreshlyColors.mintSoft,
                               child: Text(
                                 job['scheduledStart'] != null
-                                    ? TimeOfDay.fromDateTime(job['scheduledStart'] as DateTime)
+                                    ? TimeOfDay.fromDateTime(
+                                            job['scheduledStart'] as DateTime)
                                         .format(context)
                                         .split(' ')
                                         .first
@@ -191,9 +213,11 @@ class CommandScreen extends ConsumerWidget {
                             ),
                             title: Text(job['address'] as String,
                                 maxLines: 1, overflow: TextOverflow.ellipsis),
-                            subtitle: Text('${job['reference']} · ${status.clientLabel}'),
+                            subtitle: Text(
+                                '${job['reference']} · ${status.clientLabel}'),
                             trailing: Text(money.format(compact: true),
-                                style: const TextStyle(fontWeight: FontWeight.w700)),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700)),
                             onTap: () => context.push('/job/${job['id']}'),
                           ),
                         ),
@@ -211,7 +235,8 @@ class CommandScreen extends ConsumerWidget {
 }
 
 class _PresenceCard extends StatelessWidget {
-  const _PresenceCard({required this.isOnline, required this.onChanged, required this.enabled});
+  const _PresenceCard(
+      {required this.isOnline, required this.onChanged, required this.enabled});
   final bool isOnline;
   final bool enabled;
   final ValueChanged<bool> onChanged;
@@ -225,7 +250,8 @@ class _PresenceCard extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 12, height: 12,
+              width: 12,
+              height: 12,
               decoration: BoxDecoration(
                 color: isOnline ? FreshlyColors.mint : FreshlyColors.inkMuted,
                 shape: BoxShape.circle,
@@ -235,7 +261,8 @@ class _PresenceCard extends StatelessWidget {
             Expanded(
               child: Text(
                 isOnline ? 'Online' : 'Offline',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                style:
+                    const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
               ),
             ),
             Switch(
@@ -254,33 +281,43 @@ class _VerificationBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: FreshlySpacing.md, vertical: FreshlySpacing.sm),
-      padding: const EdgeInsets.all(FreshlySpacing.md),
-      decoration: BoxDecoration(
-        color: FreshlyColors.gold.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(FreshlySpacing.radius),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.verified_user_outlined, color: FreshlyColors.gold),
-          SizedBox(width: FreshlySpacing.sm),
-          Expanded(
-            child: Text(
-              'We are still verifying your identity. You can set up your services now — '
-              'you will be able to go online as soon as you are approved.',
-              style: TextStyle(fontSize: 13, height: 1.4),
+    // Tappable, because the banner is the only route to the one action that
+    // unblocks the provider. A notice telling someone they are blocked, with
+    // no way to act on it, is where onboarding quietly dies.
+    return InkWell(
+      onTap: () => context.push('/verification'),
+      borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+      child: Container(
+        margin: const EdgeInsets.symmetric(
+            horizontal: FreshlySpacing.md, vertical: FreshlySpacing.sm),
+        padding: const EdgeInsets.all(FreshlySpacing.md),
+        decoration: BoxDecoration(
+          color: FreshlyColors.gold.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+        ),
+        child: const Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.verified_user_outlined, color: FreshlyColors.gold),
+            SizedBox(width: FreshlySpacing.sm),
+            Expanded(
+              child: Text(
+                'Verify your identity to go online. You can set up your services '
+                'in the meantime.',
+                style: TextStyle(fontSize: 13, height: 1.4),
+              ),
             ),
-          ),
-        ],
+            Icon(Icons.chevron_right, color: FreshlyColors.gold),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _Metric extends StatelessWidget {
-  const _Metric({required this.label, required this.value, this.emphasis = false});
+  const _Metric(
+      {required this.label, required this.value, this.emphasis = false});
   final String label;
   final String value;
   final bool emphasis;
@@ -289,7 +326,9 @@ class _Metric extends StatelessWidget {
   Widget build(BuildContext context) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: FreshlyColors.inkMuted)),
+          Text(label,
+              style:
+                  const TextStyle(fontSize: 12, color: FreshlyColors.inkMuted)),
           const SizedBox(height: 2),
           Text(value,
               style: TextStyle(

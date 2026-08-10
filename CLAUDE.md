@@ -38,9 +38,26 @@ service from corrupting a booking. Never work around it; change the truth table
 if a new transition is genuinely valid.
 
 **The ledger must net to zero.** Every movement writes balanced entries through
-`EscrowService.writeEntries`, which calls `fn_assert_ledger_balanced` in the
-same transaction. Reconciliation is one `GROUP BY`. If a change makes that
-assertion fire, the change is wrong, not the assertion.
+`LedgerService.write`, which calls `fn_assert_ledger_balanced` in the same
+transaction. It is the only place in the system that inserts `ledger_entries`
+— escrow and payouts both go through it, because the "nets to zero" property
+only holds if there is exactly one writer enforcing it. Reconciliation is one
+`GROUP BY`. If a change makes that assertion fire, the change is wrong, not the
+assertion.
+
+**A payout reserves before it sends, and reverses if it fails.** Disbursement
+is confirmed by webhook hours later, not by the HTTP response. So
+`PayoutsService` locks the wallet and writes the ledger group in one
+transaction, calls the rail outside it, and writes a mirror-image reversing
+group if the money never left. Never hold a wallet row lock across a call to a
+bank. Never delete ledger entries to undo something.
+
+**An unverified provider cannot be paid and cannot go online.** `PayoutPolicy`
+refuses a cash-out unless `kyc_status = 'verified'`, and losing verification
+sets `is_online = false` in the same transaction as the status change. Any KYC
+result the vendor mapping does not recognise becomes `in_review`, never
+`verified` — the failure that matters is an unvetted person reaching a
+customer's door, not a delayed approval.
 
 **Capture is gated on the client's PIN.** The customer holds a four-digit code;
 the provider types it; only then does escrow capture. "The job is done" is
@@ -65,15 +82,28 @@ Turning Zimbabwe on is an UPDATE plus a payment adapter. Do not add
 
 ## Current state
 
-Working and verified: API boots, 28 routes, 42 unit tests green, `tsc` clean.
-Pricing reconciles across a swept range of prices and distances. Both Flutter
-apps compile against Flutter 3.38 / Dart 3.10.
+Working and verified: 62 unit tests green, `tsc` clean, both Flutter apps
+analyze clean and build and run on an Android 16 emulator. Pricing reconciles
+across a swept range of prices and distances; payout gross always splits into
+exactly fee plus net across the same kind of sweep.
 
-Not built yet: admin portal (`apps/admin`), payout and KYC provider adapters,
-salon staff management, Firebase FCM and Crashlytics wiring in the apps.
+Modules: `payouts` (wallet, cash-out, accounts, settlement webhooks), `kyc`
+(submission, manual review, signed callbacks), `safety` (SOS and emergency
+contacts — both apps were already calling these and getting 404s).
 
-Blocked on a human: the Supabase database password, hence `DATABASE_URL` in
-`.env` is still a placeholder.
+Adapters follow the `PaynowGateway` precedent: the mock is fully functional so
+the whole flow works locally, and the real vendor adapters are structurally
+complete — auth, idempotency, signature verification, status mapping — but
+refuse to run until their outstanding contract detail is confirmed. Enabling
+one is deleting a guard, not writing an integration. A plausible-looking
+guessed payload that pays the wrong account is worse than a refusal to start.
+
+Not built yet: admin portal (`apps/admin`), salon staff management, Firebase
+FCM and Crashlytics wiring in the apps, document/selfie upload for KYC (the
+submission takes S3 keys; nothing produces them yet).
+
+Blocked on a human: `DATABASE_URL`, so nothing has been run against a real
+database yet — every claim above is from tests, typecheck and the emulator.
 
 ## Running it
 
@@ -83,13 +113,28 @@ npm run doctor          # Node, deps, Flutter, container runtime, PostGIS, Redis
 npm run db:reset        # migrations + markets + Johannesburg demo data
 npm run api:dev
 npm run smoke           # sign in -> book -> pay -> PIN -> capture -> ledger balances
+bash scripts/smoke-payouts.sh   # wallet, cash-out, KYC gate, SOS
+```
+
+Redis lives in the `Ubuntu` WSL distro on this machine and needs a session
+holding it open, or it disappears a minute after the last WSL command:
+
+```bash
+wsl -d Ubuntu -u root -- /bin/sh -c "service redis-server start; exec sleep infinity"
 ```
 
 ```bash
 cd apps/mobile_client
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000 \
-            --dart-define=REALTIME_URL=http://10.0.2.2:3000
+            --dart-define=REALTIME_URL=http://10.0.2.2:3000 \
+            --dart-define=DEV_LOCATION=-26.1076,28.0473
 ```
+
+`DEV_LOCATION` is required to get past discovery on an emulator. Every service
+area is geofenced, the emulator reports Mountain View, and `adb emu geo fix`
+answers OK while changing nothing on recent system images — so without it the
+app correctly says "Freshly is not live in this area yet" and there is nothing
+to test. It is read only under `kDebugMode`.
 
 `10.0.2.2` is how the Android emulator reaches the host. Demo sign-ins:
 client `+27 82 111 2222`, provider (Sipho) `+27 82 333 4444`, code `000000`
@@ -112,6 +157,32 @@ while `OTP_DEV_BYPASS=true`.
   their own pass.
 - `require_trailing_commas` is deliberately absent from the lint rules. Dart
   3.10's tall-style formatter decides commas itself. Run `dart format .`.
+- AGP must be at least 8.9.1 and Kotlin at least 2.2.20. `androidx.core` 1.17
+  and `androidx.browser` 1.9 refuse to build under older AGP, and Kotlin 2.1
+  hits an internal compiler error on `google_maps_flutter_android` under JDK
+  21. Both are floors, not preferences. Gradle wrapper is 8.11.1 to match.
+- Supabase's direct database host (`db.<ref>.supabase.co`) resolves **AAAA
+  only**. On a machine without IPv6 it is simply unreachable, and the failure
+  looks like a wrong password. Use the **session-mode pooler on port 5432**,
+  which is IPv4 and, unlike transaction mode on 6543, supports the DDL and
+  `CREATE EXTENSION` the migrations issue.
+- Redis runs in the `Ubuntu` WSL distro on this machine. WSL terminates a
+  distro once its last session exits — `vmIdleTimeout=-1` in `.wslconfig` does
+  not prevent it on WSL 2.6 — so Redis disappears a minute after you stop
+  using it and the API then fails at sign-in with `ECONNREFUSED` long after
+  everything last worked. Something must hold the distro open:
+
+  ```bash
+  wsl -d Ubuntu -u root -- /bin/sh -c "service redis-server start; exec sleep infinity"
+  ```
+
+  Redis is bound to `0.0.0.0` with `protected-mode no` inside the distro,
+  because binding to loopback alone was not reachable through WSL's localhost
+  relay. WSL2's NAT keeps it off the LAN; do not copy that config to a server.
+- Memurai (the native Windows Redis) will not install here: its MSI custom
+  actions fail with `SFXCA: Failed to create temp directory. Error code 5`
+  even elevated, which is Controlled Folder Access or AV, not permissions.
+  WSL was the way through.
 
 ## Zimbabwe is not just a second row
 

@@ -25,7 +25,7 @@ class SosButton extends ConsumerStatefulWidget {
 
 class _SosButtonState extends ConsumerState<SosButton> {
   Future<void> _arm() async {
-    HapticFeedback.heavyImpact();
+    unawaited(HapticFeedback.heavyImpact());
     final confirmed = await showGeneralDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -36,7 +36,8 @@ class _SosButtonState extends ConsumerState<SosButton> {
 
     try {
       final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.best),
+        locationSettings:
+            const LocationSettings(accuracy: LocationAccuracy.best),
       );
       await ref.read(apiProvider).triggerSos(
             bookingId: widget.bookingId,
@@ -48,14 +49,17 @@ class _SosButtonState extends ConsumerState<SosButton> {
         unawaited(showDialog<void>(
           context: context,
           builder: (_) => AlertDialog(
-            icon: const Icon(Icons.check_circle, color: FreshlyColors.mint, size: 40),
+            icon: const Icon(Icons.check_circle,
+                color: FreshlyColors.mint, size: 40),
             title: const Text('Help is on the way'),
             content: const Text(
               'Your location and trip details have been sent to the response team. '
               'Stay on this screen if you can.',
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close')),
             ],
           ),
         ));
@@ -65,7 +69,8 @@ class _SosButtonState extends ConsumerState<SosButton> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: FreshlyColors.crimson,
-            content: Text('Could not send alert: ${e.message}. Call 10111 directly.'),
+            content: Text(
+                'Could not send alert: ${e.message}. Call 10111 directly.'),
           ),
         );
       }
@@ -80,7 +85,8 @@ class _SosButtonState extends ConsumerState<SosButton> {
       foregroundColor: Colors.white,
       onPressed: _arm,
       icon: const Icon(Icons.emergency_share),
-      label: const Text('SOS', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1)),
+      label: const Text('SOS',
+          style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1)),
     );
   }
 }
@@ -100,7 +106,7 @@ class _SosCountdownState extends State<_SosCountdown> {
   void initState() {
     super.initState();
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-      HapticFeedback.heavyImpact();
+      unawaited(HapticFeedback.heavyImpact());
       if (_seconds <= 1) {
         t.cancel();
         Navigator.of(context).pop(true);
@@ -122,12 +128,15 @@ class _SosCountdownState extends State<_SosCountdown> {
             children: [
               Text('$_seconds',
                   style: const TextStyle(
-                      fontSize: 120, fontWeight: FontWeight.w800, color: Colors.white)),
+                      fontSize: 120,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white)),
               const SizedBox(height: FreshlySpacing.md),
               const Text(
                 'Sending your location to emergency response',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 18, color: Colors.white, height: 1.4),
+                style:
+                    TextStyle(fontSize: 18, color: Colors.white, height: 1.4),
               ),
               const Spacer(),
               SizedBox(
@@ -143,7 +152,8 @@ class _SosCountdownState extends State<_SosCountdown> {
                     Navigator.of(context).pop(false);
                   },
                   child: const Text('CANCEL',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+                      style:
+                          TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
                 ),
               ),
             ],

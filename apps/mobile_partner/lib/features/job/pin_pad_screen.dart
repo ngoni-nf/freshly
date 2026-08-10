@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,14 +27,20 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
   String? _error;
 
   Future<void> _submit() async {
-    setState(() { _busy = true; _error = null; });
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
       await ref.read(apiProvider).verifyPin(widget.bookingId, _pin);
       ref.invalidate(jobProvider(widget.bookingId));
       if (mounted) context.pop(true);
     } on ApiException catch (e) {
-      HapticFeedback.heavyImpact();
-      setState(() { _error = e.message; _pin = ''; });
+      unawaited(HapticFeedback.heavyImpact());
+      setState(() {
+        _error = e.message;
+        _pin = '';
+      });
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -42,7 +49,10 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
   void _press(String digit) {
     if (_pin.length >= 4 || _busy) return;
     HapticFeedback.selectionClick();
-    setState(() { _pin += digit; _error = null; });
+    setState(() {
+      _pin += digit;
+      _error = null;
+    });
     if (_pin.length == 4) _submit();
   }
 
@@ -60,12 +70,13 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
         child: Column(
           children: [
             const Padding(
-              padding: EdgeInsets.fromLTRB(
-                  FreshlySpacing.lg, FreshlySpacing.lg, FreshlySpacing.lg, FreshlySpacing.sm),
+              padding: EdgeInsets.fromLTRB(FreshlySpacing.lg, FreshlySpacing.lg,
+                  FreshlySpacing.lg, FreshlySpacing.sm),
               child: Text(
                 'Ask the client for their 4-digit code once you are ready to start.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 15, height: 1.5, color: FreshlyColors.inkMuted),
+                style: TextStyle(
+                    fontSize: 15, height: 1.5, color: FreshlyColors.inkMuted),
               ),
             ),
             const SizedBox(height: FreshlySpacing.lg),
@@ -75,11 +86,14 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
                 final filled = i < _pin.length;
                 return Container(
                   margin: const EdgeInsets.symmetric(horizontal: 8),
-                  width: 22, height: 22,
+                  width: 22,
+                  height: 22,
                   decoration: BoxDecoration(
                     color: filled ? FreshlyColors.mint : Colors.transparent,
                     border: Border.all(
-                      color: _error != null ? FreshlyColors.crimson : FreshlyColors.line,
+                      color: _error != null
+                          ? FreshlyColors.crimson
+                          : FreshlyColors.line,
                       width: 2,
                     ),
                     shape: BoxShape.circle,
@@ -133,7 +147,9 @@ class _Keypad extends StatelessWidget {
                     ? Icon(icon, size: 24, color: FreshlyColors.ink)
                     : Text(label,
                         style: const TextStyle(
-                            fontSize: 28, fontWeight: FontWeight.w600, color: FreshlyColors.ink)),
+                            fontSize: 28,
+                            fontWeight: FontWeight.w600,
+                            color: FreshlyColors.ink)),
               ),
             ),
           ),

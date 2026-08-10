@@ -7,7 +7,10 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, { bufferLogs: false });
+  // rawBody is what gateway webhook signatures are computed over. Re-encoding
+  // the parsed JSON changes key order and whitespace, and every signature
+  // check then fails for reasons that look like a vendor problem.
+  const app = await NestFactory.create(AppModule, { bufferLogs: false, rawBody: true });
   const logger = new Logger('Bootstrap');
 
   app.use(helmet({ contentSecurityPolicy: false }));

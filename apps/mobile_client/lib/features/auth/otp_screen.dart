@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,26 +35,41 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     _secondsLeft = 60;
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (_secondsLeft == 0) { t.cancel(); return; }
+      if (_secondsLeft == 0) {
+        t.cancel();
+        return;
+      }
       setState(() => _secondsLeft--);
     });
   }
 
   Future<void> _verify(String code) async {
     if (_busy) return;
-    setState(() { _busy = true; _error = null; });
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
       final session = await ref.read(apiProvider).verifyOtp(
-            widget.phone, widget.countryCode, code,
-            platform: Theme.of(context).platform == TargetPlatform.iOS ? 'ios' : 'android',
+            widget.phone,
+            widget.countryCode,
+            code,
+            platform: Theme.of(context).platform == TargetPlatform.iOS
+                ? 'ios'
+                : 'android',
           );
       ref.read(authStateProvider.notifier).signedIn(session);
       // context.go returns void; only context.push returns a Future, so there
       // is nothing here to await or to mark as unawaited.
-      if (mounted) context.go(session.profileComplete ? '/home' : '/auth/profile');
+      if (mounted) {
+        context.go(session.profileComplete ? '/home' : '/auth/profile');
+      }
     } on ApiException catch (e) {
-      setState(() { _error = e.message; _controller.clear(); });
-      HapticFeedback.heavyImpact();
+      setState(() {
+        _error = e.message;
+        _controller.clear();
+      });
+      unawaited(HapticFeedback.heavyImpact());
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -73,10 +90,16 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Enter your code',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700)),
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineMedium
+                    ?.copyWith(fontWeight: FontWeight.w700)),
             const SizedBox(height: FreshlySpacing.sm),
             Text('Sent to ${widget.phone}',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: FreshlyColors.inkMuted)),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyLarge
+                    ?.copyWith(color: FreshlyColors.inkMuted)),
             const SizedBox(height: FreshlySpacing.xl),
             // A single hidden field backs six visible boxes: SMS autofill on
             // both platforms targets one field, and fighting that with six
@@ -108,18 +131,23 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                     children: List.generate(6, (i) {
                       final filled = i < _controller.text.length;
                       return Container(
-                        width: 48, height: 60,
+                        width: 48,
+                        height: 60,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           border: Border.all(
-                            color: filled ? FreshlyColors.mint : FreshlyColors.line,
+                            color: filled
+                                ? FreshlyColors.mint
+                                : FreshlyColors.line,
                             width: filled ? 2 : 1,
                           ),
-                          borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+                          borderRadius:
+                              BorderRadius.circular(FreshlySpacing.radius),
                         ),
                         child: Text(
                           filled ? _controller.text[i] : '',
-                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                          style: const TextStyle(
+                              fontSize: 24, fontWeight: FontWeight.w700),
                         ),
                       );
                     }),
@@ -129,19 +157,22 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
             ),
             if (_error != null) ...[
               const SizedBox(height: FreshlySpacing.md),
-              Text(_error!, style: const TextStyle(color: FreshlyColors.crimson)),
+              Text(_error!,
+                  style: const TextStyle(color: FreshlyColors.crimson)),
             ],
             const SizedBox(height: FreshlySpacing.lg),
             Center(
               child: _secondsLeft > 0
                   ? Text('Resend code in ${_secondsLeft}s',
                       style: const TextStyle(color: FreshlyColors.inkMuted))
-                  : TextButton(onPressed: _resend, child: const Text('Resend code')),
+                  : TextButton(
+                      onPressed: _resend, child: const Text('Resend code')),
             ),
-            if (_busy) const Padding(
-              padding: EdgeInsets.only(top: FreshlySpacing.lg),
-              child: Center(child: CircularProgressIndicator()),
-            ),
+            if (_busy)
+              const Padding(
+                padding: EdgeInsets.only(top: FreshlySpacing.lg),
+                child: Center(child: CircularProgressIndicator()),
+              ),
           ],
         ),
       ),

@@ -12,7 +12,8 @@ class SessionStore {
       : _storage = storage ??
             const FlutterSecureStorage(
               aOptions: AndroidOptions(encryptedSharedPreferences: true),
-              iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+              iOptions:
+                  IOSOptions(accessibility: KeychainAccessibility.first_unlock),
             );
 
   final FlutterSecureStorage _storage;
@@ -76,7 +77,8 @@ class FreshlyApi {
 
   Completer<void>? _refreshInFlight;
 
-  Future<void> _attachAuth(RequestOptions options, RequestInterceptorHandler handler) async {
+  Future<void> _attachAuth(
+      RequestOptions options, RequestInterceptorHandler handler) async {
     final token = await session.accessToken;
     if (token != null) options.headers['Authorization'] = 'Bearer $token';
     handler.next(options);
@@ -86,10 +88,12 @@ class FreshlyApi {
   /// that failed concurrently. Without the completer, a screen that fires four
   /// parallel calls on resume would rotate the refresh token four times and
   /// invalidate its own session.
-  Future<void> _handleError(DioException error, ErrorInterceptorHandler handler) async {
+  Future<void> _handleError(
+      DioException error, ErrorInterceptorHandler handler) async {
     final response = error.response;
 
-    if (response?.statusCode == 401 && !error.requestOptions.path.contains('/auth/')) {
+    if (response?.statusCode == 401 &&
+        !error.requestOptions.path.contains('/auth/')) {
       try {
         await _refreshSession();
         final retried = await _dio.fetch(error.requestOptions);
@@ -132,9 +136,11 @@ class FreshlyApi {
     _refreshInFlight = completer;
     try {
       final refresh = await session.refreshToken;
-      if (refresh == null) throw ApiException('no_refresh_token', 'Sign in again');
+      if (refresh == null)
+        throw ApiException('no_refresh_token', 'Sign in again');
       final res = await Dio(BaseOptions(baseUrl: _dio.options.baseUrl))
-          .post<Map<String, dynamic>>('/auth/refresh', data: {'refreshToken': refresh});
+          .post<Map<String, dynamic>>('/auth/refresh',
+              data: {'refreshToken': refresh});
       await session.save(AuthSession.fromJson(res.data!));
       completer.complete();
     } catch (err) {
@@ -145,7 +151,8 @@ class FreshlyApi {
     }
   }
 
-  Future<T> _unwrap<T>(Future<Response<dynamic>> call, T Function(dynamic) parse) async {
+  Future<T> _unwrap<T>(
+      Future<Response<dynamic>> call, T Function(dynamic) parse) async {
     try {
       final res = await call;
       return parse(res.data);
@@ -158,7 +165,8 @@ class FreshlyApi {
 
   // ─── Auth ────────────────────────────────────────────────────────────────
   Future<void> requestOtp(String phone, String countryCode) => _unwrap(
-        _dio.post('/auth/otp/request', data: {'phone': phone, 'countryCode': countryCode}),
+        _dio.post('/auth/otp/request',
+            data: {'phone': phone, 'countryCode': countryCode}),
         (_) {},
       );
 
@@ -203,8 +211,8 @@ class FreshlyApi {
 
   /// The signed-in user. Used to restore a session at launch — the stored
   /// token proves nothing about the account's current state.
-  Future<CurrentUser> me() =>
-      _unwrap(_dio.get('/auth/me'), (d) => CurrentUser.fromJson(d as Map<String, dynamic>));
+  Future<CurrentUser> me() => _unwrap(_dio.get('/auth/me'),
+      (d) => CurrentUser.fromJson(d as Map<String, dynamic>));
 
   Future<void> logout() async {
     await _unwrap(_dio.post('/auth/logout'), (_) {});
@@ -275,7 +283,8 @@ class FreshlyApi {
         (d) => PriceQuote.fromJson(d as Map<String, dynamic>),
       );
 
-  Future<Booking> createBooking(Map<String, dynamic> payload, {required String idempotencyKey}) =>
+  Future<Booking> createBooking(Map<String, dynamic> payload,
+          {required String idempotencyKey}) =>
       _unwrap(
         _dio.post('/bookings',
             data: payload,
@@ -295,11 +304,12 @@ class FreshlyApi {
         (d) => d as Map<String, dynamic>,
       );
 
-  Future<Booking> booking(String id) =>
-      _unwrap(_dio.get('/bookings/$id'), (d) => Booking.fromJson(d as Map<String, dynamic>));
+  Future<Booking> booking(String id) => _unwrap(_dio.get('/bookings/$id'),
+      (d) => Booking.fromJson(d as Map<String, dynamic>));
 
   Future<List<Booking>> myBookings({String? status}) => _unwrap(
-        _dio.get('/bookings', queryParameters: {if (status != null) 'status': status}),
+        _dio.get('/bookings',
+            queryParameters: {if (status != null) 'status': status}),
         (d) => (d as List).map((e) => Booking.fromJson(e)).toList(),
       );
 
@@ -313,8 +323,10 @@ class FreshlyApi {
         (_) {},
       );
 
-  Future<void> respondToAddon(String bookingId, String itemId, bool approve) => _unwrap(
-        _dio.post('/bookings/$bookingId/addons/$itemId/respond', data: {'approve': approve}),
+  Future<void> respondToAddon(String bookingId, String itemId, bool approve) =>
+      _unwrap(
+        _dio.post('/bookings/$bookingId/addons/$itemId/respond',
+            data: {'approve': approve}),
         (_) {},
       );
 
@@ -325,16 +337,20 @@ class FreshlyApi {
     String? comment,
   }) =>
       _unwrap(
-        _dio.post('/bookings/$bookingId/review',
-            data: {'rating': rating, 'tags': tags, if (comment != null) 'comment': comment}),
+        _dio.post('/bookings/$bookingId/review', data: {
+          'rating': rating,
+          'tags': tags,
+          if (comment != null) 'comment': comment
+        }),
         (_) {},
       );
 
   // ─── Provider app ────────────────────────────────────────────────────────
-  Future<void> setOnline(bool online) =>
-      _unwrap(_dio.post('/providers/me/presence', data: {'isOnline': online}), (_) {});
+  Future<void> setOnline(bool online) => _unwrap(
+      _dio.post('/providers/me/presence', data: {'isOnline': online}), (_) {});
 
-  Future<void> pushLocation(double lat, double lng, {double? heading, double? speedKph}) =>
+  Future<void> pushLocation(double lat, double lng,
+          {double? heading, double? speedKph}) =>
       _unwrap(
         _dio.post('/providers/me/location', data: {
           'lat': lat,
@@ -345,7 +361,8 @@ class FreshlyApi {
         (_) {},
       );
 
-  Future<void> respondToOffer(String offerId, bool accept, {String? reason}) => _unwrap(
+  Future<void> respondToOffer(String offerId, bool accept, {String? reason}) =>
+      _unwrap(
         _dio.post('/dispatch/offers/$offerId/respond',
             data: {'accept': accept, if (reason != null) 'reason': reason}),
         (_) {},
@@ -356,15 +373,16 @@ class FreshlyApi {
         (_) {},
       );
 
-  Future<void> verifyPin(String bookingId, String pin) =>
-      _unwrap(_dio.post('/bookings/$bookingId/verify-pin', data: {'pin': pin}), (_) {});
+  Future<void> verifyPin(String bookingId, String pin) => _unwrap(
+      _dio.post('/bookings/$bookingId/verify-pin', data: {'pin': pin}), (_) {});
 
   /// Finish a job and release escrow.
   ///
   /// Deliberately not part of advanceBooking: completion captures the client's
   /// money, so it is a distinct endpoint carrying an idempotency key. A
   /// retried network call must never capture twice.
-  Future<void> completeBooking(String bookingId, {required String idempotencyKey}) =>
+  Future<void> completeBooking(String bookingId,
+          {required String idempotencyKey}) =>
       _unwrap(
         _dio.post('/bookings/$bookingId/complete',
             options: Options(headers: {'Idempotency-Key': idempotencyKey})),
@@ -374,11 +392,72 @@ class FreshlyApi {
   Future<Map<String, dynamic>> wallet() =>
       _unwrap(_dio.get('/payouts/wallet'), (d) => d as Map<String, dynamic>);
 
-  Future<void> requestPayout(int amountMinor, {required String idempotencyKey}) => _unwrap(
+  /// Cash out. `instant` defaults to false — the free daily batch — so a fee
+  /// is never applied because a caller forgot to pass a flag.
+  Future<Map<String, dynamic>> requestPayout(
+    int amountMinor, {
+    required String idempotencyKey,
+    bool instant = false,
+  }) =>
+      _unwrap(
         _dio.post('/payouts',
-            data: {'amountMinor': amountMinor},
+            data: {'amountMinor': amountMinor, 'instant': instant},
             options: Options(headers: {'Idempotency-Key': idempotencyKey})),
-        (_) {},
+        (d) => d as Map<String, dynamic>,
+      );
+
+  Future<List<Map<String, dynamic>>> payoutHistory() => _unwrap(
+        _dio.get('/payouts'),
+        (d) => (d as List).cast<Map<String, dynamic>>(),
+      );
+
+  Future<List<Map<String, dynamic>>> payoutAccounts() => _unwrap(
+        _dio.get('/payouts/accounts'),
+        (d) => (d as List).cast<Map<String, dynamic>>(),
+      );
+
+  Future<Map<String, dynamic>> addPayoutAccount({
+    required String method,
+    required String accountNumber,
+    required String accountName,
+    String? institutionCode,
+    String? institutionName,
+  }) =>
+      _unwrap(
+        _dio.post('/payouts/accounts', data: {
+          'method': method,
+          'accountNumber': accountNumber,
+          'accountName': accountName,
+          if (institutionCode != null) 'institutionCode': institutionCode,
+          if (institutionName != null) 'institutionName': institutionName,
+        }),
+        (d) => d as Map<String, dynamic>,
+      );
+
+  // ─── Identity verification ───────────────────────────────────────────────
+  Future<Map<String, dynamic>> kycStatus() =>
+      _unwrap(_dio.get('/kyc/status'), (d) => d as Map<String, dynamic>);
+
+  Future<Map<String, dynamic>> submitKyc({
+    required String documentType,
+    required String idNumber,
+    required String fullName,
+    String? dateOfBirth,
+    String? documentFrontKey,
+    String? documentBackKey,
+    String? selfieKey,
+  }) =>
+      _unwrap(
+        _dio.post('/kyc/submissions', data: {
+          'documentType': documentType,
+          'idNumber': idNumber,
+          'fullName': fullName,
+          if (dateOfBirth != null) 'dateOfBirth': dateOfBirth,
+          if (documentFrontKey != null) 'documentFrontKey': documentFrontKey,
+          if (documentBackKey != null) 'documentBackKey': documentBackKey,
+          if (selfieKey != null) 'selfieKey': selfieKey,
+        }),
+        (d) => d as Map<String, dynamic>,
       );
 
   Future<void> blockAvailability({

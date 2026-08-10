@@ -37,19 +37,23 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
             children: [
               const SizedBox(height: FreshlySpacing.xl),
               Text('Two quick permissions',
-                  style: Theme.of(context).textTheme.headlineMedium
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineMedium
                       ?.copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: FreshlySpacing.lg),
               const _PermissionRow(
                 icon: Icons.location_on_outlined,
                 title: 'Location',
-                body: 'So we can show pros near you and give your barber your address '
+                body:
+                    'So we can show pros near you and give your barber your address '
                     'only once a booking is confirmed.',
               ),
               const _PermissionRow(
                 icon: Icons.notifications_none,
                 title: 'Notifications',
-                body: 'So you know the moment a pro accepts, and when they are at your door.',
+                body:
+                    'So you know the moment a pro accepts, and when they are at your door.',
               ),
               const Spacer(),
               FilledButton(
@@ -69,7 +73,8 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
 }
 
 class _PermissionRow extends StatelessWidget {
-  const _PermissionRow({required this.icon, required this.title, required this.body});
+  const _PermissionRow(
+      {required this.icon, required this.title, required this.body});
   final IconData icon;
   final String title;
   final String body;
@@ -94,9 +99,13 @@ class _PermissionRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                Text(title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 16)),
                 const SizedBox(height: 4),
-                Text(body, style: const TextStyle(color: FreshlyColors.inkMuted, height: 1.4)),
+                Text(body,
+                    style: const TextStyle(
+                        color: FreshlyColors.inkMuted, height: 1.4)),
               ],
             ),
           ),

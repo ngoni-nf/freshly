@@ -11,6 +11,30 @@
 #
 set -euo pipefail
 
+# Read .env for DATABASE_URL, the same file the API boots from, so this checks
+# the database the API is actually talking to. Without it the default below
+# silently pointed at a local Postgres that may not exist, and the run failed
+# at step 8 with an authentication error against the wrong server.
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [ -f "$ROOT/.env" ]; then
+  while IFS= read -r line; do
+    case "$line" in ''|'#'*) continue ;; esac
+    key="${line%%=*}"
+    [ "$key" = "$line" ] && continue
+    # An exported variable still wins, for CI and one-off overrides.
+    [ -n "${!key:-}" ] && continue
+    printf -v "$key" '%s' "${line#*=}"
+    export "${key?}"
+  done < "$ROOT/.env"
+fi
+
+# psql ships with the PostgreSQL install but is not always on PATH on Windows.
+if ! command -v psql > /dev/null 2>&1; then
+  for candidate in "/c/Program Files/PostgreSQL"/*/bin; do
+    [ -x "$candidate/psql.exe" ] && PATH="$PATH:$candidate" && break
+  done
+fi
+
 API="${API:-http://localhost:3000}"
 DB="${DATABASE_URL:-postgres://freshly:freshly@localhost:5432/freshly}"
 CLIENT_PHONE="+27821112222"

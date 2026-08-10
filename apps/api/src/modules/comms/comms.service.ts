@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { formatMoney } from '../../common/money/money';
 
 /**
  * Outbound messaging.
@@ -53,6 +54,30 @@ export class CommsService {
       provider: providerName,
       eta: String(etaMinutes),
     });
+  }
+
+  /**
+   * Sent when money has actually landed, never when it was merely requested.
+   * A provider who gets "your payout is on the way" and then finds nothing in
+   * their account stops trusting the wallet screen entirely.
+   */
+  async notifyPayoutSettled(phoneE164: string, netMinor: number, currency: string): Promise<void> {
+    await this.adapter.sendSms(
+      phoneE164,
+      `${formatMoney(netMinor, currency)} from Freshly has been paid into your account.`,
+    );
+  }
+
+  /**
+   * SMS, never WhatsApp. An emergency contact may not have WhatsApp installed,
+   * may be out of data, and a template message would need approval we cannot
+   * get at 2am. SMS reaches every handset in both markets.
+   */
+  async sendSafetyAlert(phoneE164: string, personName: string, mapLink: string): Promise<void> {
+    await this.adapter.sendSms(
+      phoneE164,
+      `${personName} triggered an emergency alert on Freshly and listed you as a contact. Their location: ${mapLink}`,
+    );
   }
 
   async notifyProviderArrived(phoneE164: string, providerName: string): Promise<void> {

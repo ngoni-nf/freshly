@@ -24,7 +24,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool get _valid => _name.text.trim().length >= 2 && _terms && _privacy;
 
   Future<void> _submit() async {
-    setState(() { _busy = true; _error = null; });
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
       await ref.read(apiProvider).completeProfile(
             fullName: _name.text.trim(),
@@ -53,7 +56,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         padding: const EdgeInsets.all(FreshlySpacing.lg),
         children: [
           Text('Tell us who you are',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+              style: Theme.of(context)
+                  .textTheme
+                  .headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: FreshlySpacing.lg),
           TextField(
             controller: _name,

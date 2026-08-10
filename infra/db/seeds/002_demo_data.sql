@@ -131,13 +131,19 @@ BEGIN
     FROM (VALUES (p_sipho), (p_kabelo), (p_lerato), (p_salon)) AS p(id)
     CROSS JOIN (VALUES (1),(2),(3),(4),(5),(6)) AS d(weekday);
 
+  -- account_number_enc is a placeholder, because seeds are plain SQL and the
+  -- AES key lives only in the API process — there is no way to write a real
+  -- ciphertext here. So these are is_verified = false, deliberately: a payout
+  -- would decrypt this and fail, and an account whose details cannot be read
+  -- is exactly what "not verified" means. Add a real one through
+  -- POST /payouts/accounts to exercise a cash-out.
   INSERT INTO payout_accounts (provider_id, country_code, currency, method, institution_name,
                                account_name, account_number_enc, account_last4, is_verified)
   VALUES
-    (p_sipho, 'ZA', 'ZAR', 'bank_transfer', 'Capitec', 'S Mahlangu', '\x00'::BYTEA, '4821', true),
-    (p_kabelo, 'ZA', 'ZAR', 'bank_transfer', 'FNB', 'K Tshabalala', '\x00'::BYTEA, '9014', true),
-    (p_lerato, 'ZA', 'ZAR', 'bank_transfer', 'TymeBank', 'L Ndlovu', '\x00'::BYTEA, '3372', true),
-    (p_salon, 'ZA', 'ZAR', 'bank_transfer', 'Standard Bank', 'Glow Bar Pty Ltd', '\x00'::BYTEA, '6650', true);
+    (p_sipho, 'ZA', 'ZAR', 'bank_transfer', 'Capitec', 'S Mahlangu', '\x00'::BYTEA, '4821', false),
+    (p_kabelo, 'ZA', 'ZAR', 'bank_transfer', 'FNB', 'K Tshabalala', '\x00'::BYTEA, '9014', false),
+    (p_lerato, 'ZA', 'ZAR', 'bank_transfer', 'TymeBank', 'L Ndlovu', '\x00'::BYTEA, '3372', false),
+    (p_salon, 'ZA', 'ZAR', 'bank_transfer', 'Standard Bank', 'Glow Bar Pty Ltd', '\x00'::BYTEA, '6650', false);
 
   INSERT INTO provider_wallets (provider_id, currency, available_minor, pending_minor, lifetime_earned_minor)
   VALUES (p_sipho, 'ZAR', 84250, 0, 1204500),

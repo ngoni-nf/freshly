@@ -66,18 +66,24 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  -- Every branch is cast individually, and that is not stylistic. A trailing
+  -- END::booking_status_enum[] is applied only after the CASE has already
+  -- resolved a common type across its branches, so text[] from the WHENs and
+  -- booking_status_enum[] from the ELSE fail to unify and the whole trigger
+  -- raises "CASE/WHEN could not convert type text[] to booking_status_enum[]"
+  -- on the first transition anyone attempts.
   allowed := CASE OLD.status
-    WHEN 'draft'        THEN ARRAY['pending_auth','cancelled','expired']
-    WHEN 'pending_auth' THEN ARRAY['authorized','cancelled','expired']
-    WHEN 'authorized'   THEN ARRAY['accepted','cancelled','expired']
-    WHEN 'accepted'     THEN ARRAY['en_route','in_progress','cancelled']
-    WHEN 'en_route'     THEN ARRAY['arrived','cancelled']
-    WHEN 'arrived'      THEN ARRAY['in_progress','cancelled']
-    WHEN 'in_progress'  THEN ARRAY['completed','disputed']
-    WHEN 'completed'    THEN ARRAY['disputed']
-    WHEN 'disputed'     THEN ARRAY['completed','cancelled']
+    WHEN 'draft'        THEN ARRAY['pending_auth','cancelled','expired']::booking_status_enum[]
+    WHEN 'pending_auth' THEN ARRAY['authorized','cancelled','expired']::booking_status_enum[]
+    WHEN 'authorized'   THEN ARRAY['accepted','cancelled','expired']::booking_status_enum[]
+    WHEN 'accepted'     THEN ARRAY['en_route','in_progress','cancelled']::booking_status_enum[]
+    WHEN 'en_route'     THEN ARRAY['arrived','cancelled']::booking_status_enum[]
+    WHEN 'arrived'      THEN ARRAY['in_progress','cancelled']::booking_status_enum[]
+    WHEN 'in_progress'  THEN ARRAY['completed','disputed']::booking_status_enum[]
+    WHEN 'completed'    THEN ARRAY['disputed']::booking_status_enum[]
+    WHEN 'disputed'     THEN ARRAY['completed','cancelled']::booking_status_enum[]
     ELSE ARRAY[]::booking_status_enum[]
-  END::booking_status_enum[];
+  END;
 
   IF NOT (NEW.status = ANY(allowed)) THEN
     RAISE EXCEPTION

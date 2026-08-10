@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
+import { resolve } from 'node:path';
 
 import { loadConfiguration } from './common/config/configuration';
 import { DatabaseModule } from './common/database/database.module';
@@ -24,15 +25,26 @@ import { DiscoveryModule } from './modules/discovery/discovery.module';
 import { ProvidersModule } from './modules/providers/providers.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { AiModule } from './modules/ai/ai.module';
+import { PayoutsModule } from './modules/payouts/payouts.module';
+import { KycModule } from './modules/kyc/kyc.module';
+import { SafetyModule } from './modules/safety/safety.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
+      // .env lives at the repository root, but npm workspaces run this with
+      // cwd = apps/api, so the default lookup missed it entirely and every
+      // variable came back "Required" despite being set. Both candidates are
+      // listed, nearest first, so it works whichever directory it starts in.
+      envFilePath: [
+        resolve(process.cwd(), '.env'),
+        resolve(process.cwd(), '..', '..', '.env'),
+      ],
       // Validation happens once, at boot, against a Zod schema. A missing
       // payment secret fails the deploy rather than the first payout.
-      validate: () => loadConfiguration(),
+      validate: (config) => loadConfiguration(config),
     }),
     ThrottlerModule.forRoot([
       { name: 'short', ttl: 1000, limit: 10 },
@@ -53,6 +65,9 @@ import { AiModule } from './modules/ai/ai.module';
     ProvidersModule,
     BookingsModule,
     AiModule,
+    PayoutsModule,
+    KycModule,
+    SafetyModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

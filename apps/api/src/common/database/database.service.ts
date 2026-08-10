@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Pool, PoolClient, QueryResultRow } from 'pg';
+import { Pool, PoolClient, QueryResultRow, types as pgTypes } from 'pg';
+import { parse as parsePostgresArray } from 'postgres-array';
 
 export const PG_POOL = Symbol('PG_POOL');
 
@@ -130,14 +131,40 @@ export class TransactionContext {
   }
 }
 
-export function createPool(config: ConfigService): Pool {
+/**
+ * Teach pg how to read arrays of our own enum types.
+ *
+ * node-postgres ships parsers for the built-in array types only. An
+ * account_role_enum[] has an OID it has never seen, so it hands back the raw
+ * literal — `roles` arrived at the mobile app as the string "{client}" rather
+ * than ["client"], and AuthSession.fromJson died on the cast. Every enum array
+ * in the schema had the same latent problem: roles, categories, power_backup.
+ *
+ * Registered once, from the catalogue, so a new enum array added later is
+ * covered without anyone remembering this exists.
+ */
+async function registerEnumArrayParsers(pool: Pool, logger: Logger): Promise<void> {
+  const { rows } = await pool.query<{ typarray: string; typname: string }>(
+    `SELECT t.typarray, t.typname
+       FROM pg_type t
+       JOIN pg_namespace n ON n.oid = t.typnamespace
+      WHERE t.typtype = 'e' AND t.typarray <> 0 AND n.nspname = 'public'`,
+  );
+
+  for (const row of rows) {
+    pgTypes.setTypeParser(Number(row.typarray), (value: string) => parsePostgresArray(value));
+  }
+  logger.log(`registered array parsers for ${rows.length} enum types`);
+}
+
+export async function createPool(config: ConfigService): Promise<Pool> {
   // Prefer a pooler endpoint when one is configured. Migrations deliberately
   // do not: they issue DDL and CREATE EXTENSION, which a transaction-mode
   // pooler such as Supabase's port 6543 will reject.
   const connectionString =
     config.get<string>('DATABASE_POOL_URL') ?? config.getOrThrow<string>('DATABASE_URL');
 
-  return new Pool({
+  const pool = new Pool({
     connectionString,
     ssl: config.get<boolean>('DATABASE_SSL') ? { rejectUnauthorized: false } : undefined,
     max: config.get<number>('DATABASE_POOL_MAX') ?? 20,
@@ -145,4 +172,13 @@ export function createPool(config: ConfigService): Pool {
     connectionTimeoutMillis: 5_000,
     application_name: 'freshly-api',
   });
+
+  const logger = new Logger('DatabasePool');
+  // Not fatal: the API should still boot and report unhealthy if the database
+  // is briefly unreachable, rather than crash-looping before it can say why.
+  await registerEnumArrayParsers(pool, logger).catch((err) =>
+    logger.error(`could not register enum array parsers: ${err.message}`),
+  );
+
+  return pool;
 }

@@ -37,6 +37,12 @@ const schema = z.object({
   PEACH_ACCESS_TOKEN: z.string().optional(),
   PAYNOW_INTEGRATION_ID: z.string().optional(),
   PAYNOW_INTEGRATION_KEY: z.string().optional(),
+  STITCH_BASE_URL: z.string().url().default('https://secure.stitch.money'),
+
+  // Money out is a separate vendor decision from money in: the acquirer that
+  // authorises a card is rarely the rail that pushes a bank EFT.
+  PAYOUTS_ZA_PROVIDER: z.enum(['stitch', 'mock']).default('mock'),
+  PAYOUTS_ZW_PROVIDER: z.enum(['paynow', 'mock']).default('mock'),
 
   KYC_PROVIDER: z.enum(['smileid', 'mock']).default('mock'),
   SMILE_ID_PARTNER_ID: z.string().optional(),
@@ -74,8 +80,17 @@ const schema = z.object({
 
 export type AppConfig = z.infer<typeof schema>;
 
-export function loadConfiguration(): AppConfig {
-  const parsed = schema.safeParse(process.env);
+/**
+ * @param source Variables parsed from the env file by ConfigModule.
+ *
+ * ConfigModule calls `validate` with the file contents *before* it assigns
+ * anything to process.env, so reading process.env alone here saw nothing and
+ * every variable came back "Required" even when correctly set. The real
+ * environment is layered on top, so an explicitly exported variable still
+ * beats the file — which is what CI and one-off overrides depend on.
+ */
+export function loadConfiguration(source: Record<string, unknown> = {}): AppConfig {
+  const parsed = schema.safeParse({ ...source, ...process.env });
   if (!parsed.success) {
     const detail = parsed.error.issues
       .map((i) => `  ${i.path.join('.')}: ${i.message}`)
@@ -90,6 +105,9 @@ export function loadConfiguration(): AppConfig {
     const violations: string[] = [];
     if (cfg.OTP_DEV_BYPASS) violations.push('OTP_DEV_BYPASS must be false');
     if (cfg.PAYMENTS_ZA_PROVIDER === 'mock') violations.push('PAYMENTS_ZA_PROVIDER must not be mock');
+    // A mock payout adapter in production reports success and moves no money,
+    // which is the one failure mode a provider would notice before we do.
+    if (cfg.PAYOUTS_ZA_PROVIDER === 'mock') violations.push('PAYOUTS_ZA_PROVIDER must not be mock');
     if (cfg.KYC_PROVIDER === 'mock') violations.push('KYC_PROVIDER must not be mock');
     if (cfg.PII_ENCRYPTION_KEY.startsWith('REPLACE')) violations.push('PII_ENCRYPTION_KEY is a placeholder');
     if (cfg.FIREBASE_ENABLED && !cfg.FIREBASE_PROJECT_ID) {

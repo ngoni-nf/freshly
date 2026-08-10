@@ -4,8 +4,7 @@ import 'package:freshly_core/freshly_core.dart';
 
 import '../../app/providers.dart';
 
-final completionPinProvider =
-    FutureProvider.autoDispose.family<String, String>(
+final completionPinProvider = FutureProvider.autoDispose.family<String, String>(
   (ref, bookingId) => ref.watch(apiProvider).completionPin(bookingId),
 );
 
@@ -34,24 +33,28 @@ class PinScreen extends ConsumerWidget {
             const Text(
               'Share this code with your pro once you are happy with the service.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, height: 1.5, color: FreshlyColors.inkMuted),
+              style: TextStyle(
+                  fontSize: 16, height: 1.5, color: FreshlyColors.inkMuted),
             ),
             const SizedBox(height: FreshlySpacing.xl),
             pin.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, __) => Center(
-                child: Text(e is ApiException ? e.message : 'Could not load your code'),
+                child: Text(
+                    e is ApiException ? e.message : 'Could not load your code'),
               ),
               data: (code) => Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: code.split('').map((digit) {
                   return Container(
                     margin: const EdgeInsets.symmetric(horizontal: 6),
-                    width: 64, height: 84,
+                    width: 64,
+                    height: 84,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: FreshlyColors.mintSoft,
-                      borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+                      borderRadius:
+                          BorderRadius.circular(FreshlySpacing.radius),
                       border: Border.all(color: FreshlyColors.mint, width: 2),
                     ),
                     child: Text(digit,

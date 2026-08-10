@@ -11,7 +11,8 @@ final sessionStoreProvider = Provider<SessionStore>((ref) => SessionStore());
 final apiProvider = Provider<FreshlyApi>((ref) => FreshlyApi(
       baseUrl: Env.apiBaseUrl,
       session: ref.watch(sessionStoreProvider),
-      onUnauthenticated: () => ref.read(partnerAuthProvider.notifier).signedOut(),
+      onUnauthenticated: () =>
+          ref.read(partnerAuthProvider.notifier).signedOut(),
     ));
 
 final realtimeProvider = Provider<RealtimeClient>((ref) {
@@ -122,7 +123,8 @@ class PartnerAuthNotifier extends StateNotifier<PartnerAuthState> {
 }
 
 final partnerAuthProvider =
-    StateNotifierProvider<PartnerAuthNotifier, PartnerAuthState>(PartnerAuthNotifier.new);
+    StateNotifierProvider<PartnerAuthNotifier, PartnerAuthState>(
+        PartnerAuthNotifier.new);
 
 // ─── Presence and location streaming ─────────────────────────────────────────
 
@@ -155,7 +157,7 @@ class PresenceNotifier extends StateNotifier<bool> {
       return;
     }
 
-    _positionSub?.cancel();
+    unawaited(_positionSub?.cancel() ?? Future<void>.value());
     _positionSub = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
@@ -222,6 +224,10 @@ final walletProvider = FutureProvider.autoDispose<Map<String, dynamic>>(
   (ref) => ref.watch(apiProvider).wallet(),
 );
 
+final kycStatusProvider = FutureProvider.autoDispose<Map<String, dynamic>>(
+  (ref) => ref.watch(apiProvider).kycStatus(),
+);
+
 /// Live dispatch offers. Held in memory only — an offer that outlives the app
 /// is an offer the client has already given to somebody else.
 class OfferQueue extends StateNotifier<List<DispatchOffer>> {
@@ -244,7 +250,9 @@ class OfferQueue extends StateNotifier<List<DispatchOffer>> {
 
   Future<void> respond(String offerId, bool accept, {String? reason}) async {
     remove(offerId);
-    await _ref.read(apiProvider).respondToOffer(offerId, accept, reason: reason);
+    await _ref
+        .read(apiProvider)
+        .respondToOffer(offerId, accept, reason: reason);
   }
 
   @override

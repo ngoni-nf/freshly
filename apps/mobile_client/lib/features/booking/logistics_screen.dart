@@ -30,13 +30,17 @@ class _LogisticsScreenState extends ConsumerState<LogisticsScreen> {
     setState(() => _resolving = true);
     try {
       final position = await ref.read(currentPositionProvider.future);
-      final places = await placemarkFromCoordinates(position.latitude, position.longitude);
+      final places =
+          await placemarkFromCoordinates(position.latitude, position.longitude);
       final p = places.firstOrNull;
       setState(() {
-        widget.draft.destination = GeoPoint(position.latitude, position.longitude);
+        widget.draft.destination =
+            GeoPoint(position.latitude, position.longitude);
         widget.draft.destinationAddress = p == null
             ? '${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}'
-            : [p.street, p.subLocality, p.locality].where((s) => s?.isNotEmpty ?? false).join(', ');
+            : [p.street, p.subLocality, p.locality]
+                .where((s) => s?.isNotEmpty ?? false)
+                .join(', ');
       });
     } catch (_) {
       // Falls through to manual entry rather than blocking the flow.
@@ -54,7 +58,8 @@ class _LogisticsScreenState extends ConsumerState<LogisticsScreen> {
       initialDate: now,
     );
     if (date == null || !mounted) return;
-    final time = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+    final time =
+        await showTimePicker(context: context, initialTime: TimeOfDay.now());
     if (time == null) return;
     setState(() {
       widget.draft.bookingType = 'scheduled';
@@ -74,14 +79,17 @@ class _LogisticsScreenState extends ConsumerState<LogisticsScreen> {
         children: [
           SegmentedButton<String>(
             segments: const [
-              ButtonSegment(value: 'instant', label: Text('As soon as possible')),
+              ButtonSegment(
+                  value: 'instant', label: Text('As soon as possible')),
               ButtonSegment(value: 'scheduled', label: Text('Pick a time')),
             ],
             selected: {draft.bookingType},
             showSelectedIcon: false,
             onSelectionChanged: (s) {
               setState(() => draft.bookingType = s.first);
-              if (s.first == 'scheduled' && draft.scheduledStart == null) _pickSlot();
+              if (s.first == 'scheduled' && draft.scheduledStart == null) {
+                _pickSlot();
+              }
             },
           ),
           if (draft.bookingType == 'scheduled') ...[
@@ -98,17 +106,23 @@ class _LogisticsScreenState extends ConsumerState<LogisticsScreen> {
             ),
           ],
           const SizedBox(height: FreshlySpacing.lg),
-          const Text('Address', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+          const Text('Address',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
           const SizedBox(height: FreshlySpacing.sm),
           Card(
             child: ListTile(
               leading: _resolving
                   ? const SizedBox(
-                      width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.location_on_outlined, color: FreshlyColors.mint),
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.location_on_outlined,
+                      color: FreshlyColors.mint),
               title: Text(draft.destinationAddress ?? 'Finding your location…'),
-              subtitle: const Text('Your exact address is shared only after a pro accepts.'),
-              trailing: TextButton(onPressed: _useCurrentLocation, child: const Text('Change')),
+              subtitle: const Text(
+                  'Your exact address is shared only after a pro accepts.'),
+              trailing: TextButton(
+                  onPressed: _useCurrentLocation, child: const Text('Change')),
             ),
           ),
           const SizedBox(height: FreshlySpacing.md),
@@ -142,7 +156,8 @@ class _LogisticsScreenState extends ConsumerState<LogisticsScreen> {
                         ),
                       )),
                   const Divider(height: FreshlySpacing.lg),
-                  Text('About ${formatDuration(draft.durationMinutes)} in total',
+                  Text(
+                      'About ${formatDuration(draft.durationMinutes)} in total',
                       style: const TextStyle(color: FreshlyColors.inkMuted)),
                 ],
               ),

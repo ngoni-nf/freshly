@@ -42,19 +42,38 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/auth/otp',
         builder: (_, s) {
           final extra = s.extra! as Map<String, String>;
-          return OtpScreen(phone: extra['phone']!, countryCode: extra['countryCode']!);
+          return OtpScreen(
+              phone: extra['phone']!, countryCode: extra['countryCode']!);
         },
       ),
       GoRoute(path: '/auth/profile', builder: (_, __) => const ProfileScreen()),
-      GoRoute(path: '/auth/permissions', builder: (_, __) => const PermissionsScreen()),
+      GoRoute(
+          path: '/auth/permissions',
+          builder: (_, __) => const PermissionsScreen()),
       GoRoute(path: '/home', builder: (_, __) => const DashboardScreen()),
-      GoRoute(path: '/discover', builder: (_, s) => FeedScreen(query: s.uri.queryParameters)),
-      GoRoute(path: '/provider/:id', builder: (_, s) => ProviderScreen(providerId: s.pathParameters['id']!)),
-      GoRoute(path: '/book/logistics', builder: (_, s) => LogisticsScreen(draft: s.extra! as BookingDraft)),
-      GoRoute(path: '/book/checkout', builder: (_, s) => CheckoutScreen(draft: s.extra! as BookingDraft)),
-      GoRoute(path: '/book/:id/escrow', builder: (_, s) => EscrowScreen(bookingId: s.pathParameters['id']!)),
-      GoRoute(path: '/track/:id', builder: (_, s) => TrackingScreen(bookingId: s.pathParameters['id']!)),
-      GoRoute(path: '/track/:id/pin', builder: (_, s) => PinScreen(bookingId: s.pathParameters['id']!)),
+      GoRoute(
+          path: '/discover',
+          builder: (_, s) => FeedScreen(query: s.uri.queryParameters)),
+      GoRoute(
+          path: '/provider/:id',
+          builder: (_, s) =>
+              ProviderScreen(providerId: s.pathParameters['id']!)),
+      GoRoute(
+          path: '/book/logistics',
+          builder: (_, s) => LogisticsScreen(draft: s.extra! as BookingDraft)),
+      GoRoute(
+          path: '/book/checkout',
+          builder: (_, s) => CheckoutScreen(draft: s.extra! as BookingDraft)),
+      GoRoute(
+          path: '/book/:id/escrow',
+          builder: (_, s) => EscrowScreen(bookingId: s.pathParameters['id']!)),
+      GoRoute(
+          path: '/track/:id',
+          builder: (_, s) =>
+              TrackingScreen(bookingId: s.pathParameters['id']!)),
+      GoRoute(
+          path: '/track/:id/pin',
+          builder: (_, s) => PinScreen(bookingId: s.pathParameters['id']!)),
       GoRoute(path: '/bookings', builder: (_, __) => const BookingsScreen()),
     ],
     errorBuilder: (_, state) => Scaffold(

@@ -41,7 +41,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       }).toString()));
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       if (mounted) setState(() => _parsing = false);
@@ -67,8 +68,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             padding: const EdgeInsets.only(bottom: FreshlySpacing.xl),
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(
-                    FreshlySpacing.md, FreshlySpacing.md, FreshlySpacing.md, FreshlySpacing.sm),
+                padding: const EdgeInsets.fromLTRB(FreshlySpacing.md,
+                    FreshlySpacing.md, FreshlySpacing.md, FreshlySpacing.sm),
                 child: Row(
                   children: [
                     Expanded(
@@ -76,10 +77,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('Freshly',
-                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.w700, letterSpacing: -0.5)),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineSmall
+                                  ?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: -0.5)),
                           const Text('Freshness on demand.',
-                              style: TextStyle(color: FreshlyColors.inkMuted, fontSize: 13)),
+                              style: TextStyle(
+                                  color: FreshlyColors.inkMuted, fontSize: 13)),
                         ],
                       ),
                     ),
@@ -94,16 +100,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
               // ── Mode switch ────────────────────────────────────────────────
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
                 child: SegmentedButton<bool>(
                   segments: const [
                     ButtonSegment(
-                        value: true, icon: Icon(Icons.directions_car_outlined), label: Text('To me')),
+                        value: true,
+                        icon: Icon(Icons.directions_car_outlined),
+                        label: Text('To me')),
                     ButtonSegment(
-                        value: false, icon: Icon(Icons.storefront_outlined), label: Text('At a shop')),
+                        value: false,
+                        icon: Icon(Icons.storefront_outlined),
+                        label: Text('At a shop')),
                   ],
                   selected: {_mobileMode},
-                  onSelectionChanged: (s) => setState(() => _mobileMode = s.first),
+                  onSelectionChanged: (s) =>
+                      setState(() => _mobileMode = s.first),
                   showSelectedIcon: false,
                 ),
               ),
@@ -126,13 +138,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   onSubmitted: (_) => _runConcierge(),
                   decoration: InputDecoration(
                     hintText: 'Try "fade at my place tomorrow 4pm"',
-                    prefixIcon: const Icon(Icons.auto_awesome, color: FreshlyColors.mint),
+                    prefixIcon: const Icon(Icons.auto_awesome,
+                        color: FreshlyColors.mint),
                     suffixIcon: _parsing
                         ? const Padding(
                             padding: EdgeInsets.all(14),
                             child: SizedBox(
-                                width: 18, height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2)),
+                                width: 18,
+                                height: 18,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2)),
                           )
                         : IconButton(
                             icon: const Icon(Icons.mic_none),
@@ -145,17 +160,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
               // ── Categories ─────────────────────────────────────────────────
               const Padding(
-                padding: EdgeInsets.fromLTRB(FreshlySpacing.md, 0, FreshlySpacing.md, FreshlySpacing.sm),
+                padding: EdgeInsets.fromLTRB(
+                    FreshlySpacing.md, 0, FreshlySpacing.md, FreshlySpacing.sm),
                 child: Text('What do you need?',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
               ),
               SizedBox(
                 height: 108,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
                   itemCount: ServiceCategory.values.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: FreshlySpacing.sm),
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(width: FreshlySpacing.sm),
                   itemBuilder: (context, i) {
                     final category = ServiceCategory.values[i];
                     return _CategoryTile(
@@ -170,7 +189,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
                 child: Text('Book again',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
               ),
               const _RecentBookings(),
             ],
@@ -214,18 +234,21 @@ class _CategoryTile extends StatelessWidget {
         child: Column(
           children: [
             Container(
-              width: 64, height: 64,
+              width: 64,
+              height: 64,
               decoration: BoxDecoration(
                 color: FreshlyColors.mintSoft,
                 borderRadius: BorderRadius.circular(FreshlySpacing.radius),
               ),
-              child: Icon(_icons[category], color: FreshlyColors.mintDark, size: 28),
+              child: Icon(_icons[category],
+                  color: FreshlyColors.mintDark, size: 28),
             ),
             const SizedBox(height: 6),
             Text(category.label,
                 textAlign: TextAlign.center,
                 maxLines: 2,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                style:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -264,7 +287,8 @@ class _RecentBookings extends ConsumerWidget {
                   title: Text(b.providerName ?? 'Freshly booking'),
                   subtitle: Text('${b.reference} · ${b.total.format()}'),
                   trailing: b.status.isLive
-                      ? const Icon(Icons.navigation_outlined, color: FreshlyColors.mint)
+                      ? const Icon(Icons.navigation_outlined,
+                          color: FreshlyColors.mint)
                       : const Icon(Icons.refresh),
                   onTap: () => b.status.isLive
                       ? context.push('/track/${b.id}')

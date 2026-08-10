@@ -105,7 +105,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   void signedIn(AuthSession session) {
-    state = session.profileComplete ? AuthSignedIn(session) : AuthNeedsProfile(session);
+    state = session.profileComplete
+        ? AuthSignedIn(session)
+        : AuthNeedsProfile(session);
     _ref.read(realtimeProvider).connect(session.accessToken);
   }
 

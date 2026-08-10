@@ -44,9 +44,12 @@ export class DispatchService {
       id: string; reference: string; country_code: 'ZA' | 'ZW'; status: string;
       provider_payout_minor: string; currency: string; destination_address: string;
       power_backup_required: boolean; scheduled_start: Date | null;
+      dest_lng: string; dest_lat: string;
     }>(
       `SELECT id, reference, country_code, status, provider_payout_minor, currency,
-              destination_address, power_backup_required, scheduled_start
+              destination_address, power_backup_required, scheduled_start,
+              ST_X(destination::geometry) AS dest_lng,
+              ST_Y(destination::geometry) AS dest_lat
          FROM bookings WHERE id = $1`,
       [bookingId],
     );
@@ -64,25 +67,41 @@ export class DispatchService {
     const offerSeconds = market.dispatchOfferSeconds;
     const radiusKm = radii[Math.min(wave - 1, radii.length - 1)];
 
+    // The destination is passed as coordinates rather than joined out of
+    // bookings. Joining it made the planner consider the GIST index on
+    // bookings.destination, and PostGIS's index support function then failed
+    // outright with "no spatial operator found for 'st_dwithin'" — the
+    // gist_geography_ops opfamily on this build is missing the member it looks
+    // for. Dispatch is the wrong place to depend on that: we already have the
+    // booking loaded, so there was never a reason to join back to it.
     const candidates = await this.db.query<Candidate>(
-      `SELECT p.id AS provider_id,
-              ROUND((ST_Distance(COALESCE(p.last_location, p.base_location), b.destination) / 1000)::NUMERIC, 2) AS distance_km,
+      `WITH target AS (
+         SELECT ST_SetSRID(ST_MakePoint($2, $3), 4326)::GEOGRAPHY AS destination
+       )
+       SELECT p.id AS provider_id,
+              ROUND((ST_Distance(COALESCE(p.last_location, p.base_location), t.destination) / 1000)::NUMERIC, 2) AS distance_km,
               p.rating
          FROM providers p
-         CROSS JOIN (SELECT destination FROM bookings WHERE id = $1) b
+         CROSS JOIN target t
         WHERE p.is_online
           AND p.accepts_instant
           AND p.kyc_status = 'verified'
           AND NOT p.is_suspended
-          AND ST_DWithin(COALESCE(p.last_location, p.base_location), b.destination, $2 * 1000)
-          AND ($3 = false OR p.has_power_backup)
+          AND ST_DWithin(COALESCE(p.last_location, p.base_location), t.destination, $4 * 1000)
+          AND ($5 = false OR p.has_power_backup)
           AND NOT EXISTS (
                 SELECT 1 FROM dispatch_offers o
                  WHERE o.booking_id = $1 AND o.provider_id = p.id
               )
-        ORDER BY p.rating DESC, ST_Distance(COALESCE(p.last_location, p.base_location), b.destination) ASC
+        ORDER BY p.rating DESC, ST_Distance(COALESCE(p.last_location, p.base_location), t.destination) ASC
         LIMIT 8`,
-      [bookingId, radiusKm, booking.power_backup_required],
+      [
+        bookingId,
+        Number(booking.dest_lng),
+        Number(booking.dest_lat),
+        radiusKm,
+        booking.power_backup_required,
+      ],
     );
 
     if (candidates.length === 0) {

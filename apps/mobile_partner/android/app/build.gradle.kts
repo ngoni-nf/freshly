@@ -28,7 +28,7 @@ android {
         applicationId = "africa.freshly.partner"
         // API 23 covers roughly the entire installed base in South Africa and
         // Zimbabwe while still giving us runtime permissions.
-        minSdk = 23
+        minSdk = flutter.minSdkVersion
         // Held at 35 deliberately. Moving to 36 opts into Android 16's
         // edge-to-edge and other behaviour changes, which deserve their own
         // pass rather than arriving as a side effect of a plugin bump.

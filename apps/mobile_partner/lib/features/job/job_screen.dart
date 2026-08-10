@@ -31,7 +31,8 @@ class _JobScreenState extends ConsumerState<JobScreen> {
       ref.invalidate(scheduleProvider);
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -68,7 +69,8 @@ class _JobScreenState extends ConsumerState<JobScreen> {
         await showDialog<void>(
           context: context,
           builder: (_) => AlertDialog(
-            icon: const Icon(Icons.check_circle, color: FreshlyColors.mint, size: 44),
+            icon: const Icon(Icons.check_circle,
+                color: FreshlyColors.mint, size: 44),
             title: const Text('Paid'),
             content: const Text(
               'The client\'s payment has been released and your earnings are in your wallet.',
@@ -85,7 +87,8 @@ class _JobScreenState extends ConsumerState<JobScreen> {
       }
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -101,14 +104,14 @@ class _JobScreenState extends ConsumerState<JobScreen> {
       body: job.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, __) => Center(
-          child: Text(e is ApiException ? e.message : 'Could not load this job'),
+          child:
+              Text(e is ApiException ? e.message : 'Could not load this job'),
         ),
         data: (booking) => ListView(
           padding: const EdgeInsets.all(FreshlySpacing.md),
           children: [
             _StatusStrip(status: booking.status),
             const SizedBox(height: FreshlySpacing.md),
-
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(FreshlySpacing.md),
@@ -116,17 +119,21 @@ class _JobScreenState extends ConsumerState<JobScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(booking.reference,
-                        style: const TextStyle(fontSize: 13, color: FreshlyColors.inkMuted)),
+                        style: const TextStyle(
+                            fontSize: 13, color: FreshlyColors.inkMuted)),
                     const SizedBox(height: 6),
                     Text(booking.total.format(),
-                        style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+                        style: const TextStyle(
+                            fontSize: 26, fontWeight: FontWeight.w800)),
                     const Divider(height: FreshlySpacing.lg),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Icon(Icons.location_on_outlined, size: 18),
                         const SizedBox(width: 8),
-                        Expanded(child: Text(booking.destinationAddress, style: const TextStyle(height: 1.4))),
+                        Expanded(
+                            child: Text(booking.destinationAddress,
+                                style: const TextStyle(height: 1.4))),
                       ],
                     ),
                     if (booking.scheduledStart != null) ...[
@@ -143,7 +150,6 @@ class _JobScreenState extends ConsumerState<JobScreen> {
                 ),
               ),
             ),
-
             const SizedBox(height: FreshlySpacing.sm),
             Row(
               children: [
@@ -164,7 +170,6 @@ class _JobScreenState extends ConsumerState<JobScreen> {
                 ),
               ],
             ),
-
             const SizedBox(height: FreshlySpacing.lg),
             if (booking.status == BookingStatus.inProgress)
               OutlinedButton.icon(
@@ -226,8 +231,10 @@ class _PrimaryAction extends StatelessWidget {
       onPressed: busy || action == null ? null : action,
       child: busy
           ? const SizedBox(
-              width: 22, height: 22,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Colors.white))
           : Text(label, style: const TextStyle(fontSize: 17)),
     );
   }
@@ -264,13 +271,18 @@ class _StatusStrip extends StatelessWidget {
         return Column(
           children: [
             Container(
-              width: 22, height: 22,
+              width: 22,
+              height: 22,
               decoration: BoxDecoration(
                 color: done ? FreshlyColors.mint : Colors.transparent,
-                border: Border.all(color: done ? FreshlyColors.mint : FreshlyColors.line, width: 2),
+                border: Border.all(
+                    color: done ? FreshlyColors.mint : FreshlyColors.line,
+                    width: 2),
                 shape: BoxShape.circle,
               ),
-              child: done ? const Icon(Icons.check, size: 13, color: Colors.white) : null,
+              child: done
+                  ? const Icon(Icons.check, size: 13, color: Colors.white)
+                  : null,
             ),
             const SizedBox(height: 4),
             SizedBox(

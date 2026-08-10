@@ -21,10 +21,12 @@ String formatDuration(int minutes) {
 
 String formatSlot(DateTime when) {
   final now = DateTime.now();
-  final isToday = when.year == now.year && when.month == now.month && when.day == now.day;
+  final isToday =
+      when.year == now.year && when.month == now.month && when.day == now.day;
   final tomorrow = now.add(const Duration(days: 1));
-  final isTomorrow =
-      when.year == tomorrow.year && when.month == tomorrow.month && when.day == tomorrow.day;
+  final isTomorrow = when.year == tomorrow.year &&
+      when.month == tomorrow.month &&
+      when.day == tomorrow.day;
   final time = DateFormat('HH:mm').format(when);
   if (isToday) return 'Today, $time';
   if (isTomorrow) return 'Tomorrow, $time';

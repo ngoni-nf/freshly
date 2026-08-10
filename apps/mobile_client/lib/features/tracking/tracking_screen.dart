@@ -45,7 +45,8 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
       if (update.status.isTerminal) _onFinished(update.status);
     });
 
-    _statusSub = realtime.status.listen((s) => setState(() => _degraded = s.isDegraded));
+    _statusSub =
+        realtime.status.listen((s) => setState(() => _degraded = s.isDegraded));
     _addonSub = realtime.addonRequests.listen(_promptAddon);
 
     _poll = Timer.periodic(const Duration(seconds: 10), (_) => _refresh());
@@ -93,7 +94,8 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                 style: const TextStyle(fontSize: 16)),
             const SizedBox(height: 4),
             Text(
-              formatMinor(payload['priceMinor'] as int? ?? 0, payload['currency'] as String? ?? 'ZAR'),
+              formatMinor(payload['priceMinor'] as int? ?? 0,
+                  payload['currency'] as String? ?? 'ZAR'),
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: FreshlySpacing.lg),
@@ -129,7 +131,8 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
   @override
   Widget build(BuildContext context) {
     final location = _latest?.providerLocation;
-    final status = _latest?.status ?? _booking?.status ?? BookingStatus.accepted;
+    final status =
+        _latest?.status ?? _booking?.status ?? BookingStatus.accepted;
 
     return Scaffold(
       body: Stack(
@@ -149,7 +152,8 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                 Marker(
                   markerId: const MarkerId('pro'),
                   position: LatLng(location.lat, location.lng),
-                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+                  icon: BitmapDescriptor.defaultMarkerWithHue(
+                      BitmapDescriptor.hueGreen),
                 ),
             },
           ),
@@ -159,15 +163,18 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
               left: FreshlySpacing.md,
               right: FreshlySpacing.md,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: FreshlyColors.ink.withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: const Row(mainAxisSize: MainAxisSize.min, children: [
                   SizedBox(
-                    width: 12, height: 12,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
                   ),
                   SizedBox(width: 8),
                   Text('Reconnecting — updates may be delayed',
@@ -191,7 +198,8 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                 children: [
                   Center(
                     child: Container(
-                      width: 40, height: 4,
+                      width: 40,
+                      height: 4,
                       decoration: BoxDecoration(
                         color: FreshlyColors.line,
                         borderRadius: BorderRadius.circular(2),
@@ -200,7 +208,8 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                   ),
                   const SizedBox(height: FreshlySpacing.md),
                   Text(status.clientLabel,
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+                      style: const TextStyle(
+                          fontSize: 22, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 4),
                   Text(
                     _latest?.etaMinutes != null
@@ -213,19 +222,25 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                     child: ListTile(
                       leading: const CircleAvatar(
                         backgroundColor: FreshlyColors.mintSoft,
-                        child: Icon(Icons.person_outline, color: FreshlyColors.mintDark),
+                        child: Icon(Icons.person_outline,
+                            color: FreshlyColors.mintDark),
                       ),
                       title: Text(_booking?.providerName ?? 'Your pro'),
-                      subtitle: const Text('Calls and messages are number-masked'),
+                      subtitle:
+                          const Text('Calls and messages are number-masked'),
                       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                         IconButton(
-                            icon: const Icon(Icons.chat_bubble_outline), onPressed: () {}),
-                        IconButton(icon: const Icon(Icons.call_outlined), onPressed: () {}),
+                            icon: const Icon(Icons.chat_bubble_outline),
+                            onPressed: () {}),
+                        IconButton(
+                            icon: const Icon(Icons.call_outlined),
+                            onPressed: () {}),
                       ]),
                     ),
                   ),
                   const SizedBox(height: FreshlySpacing.md),
-                  if (status == BookingStatus.arrived || status == BookingStatus.inProgress)
+                  if (status == BookingStatus.arrived ||
+                      status == BookingStatus.inProgress)
                     FilledButton.icon(
                       onPressed: _promptForPin,
                       icon: const Icon(Icons.pin_outlined),

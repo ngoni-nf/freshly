@@ -34,7 +34,8 @@ class FreshlyClientApp extends ConsumerWidget {
       builder: (context, child) {
         // Clamp accessibility scaling: past 1.3 the checkout total wraps and a
         // customer can no longer see what they are about to be charged.
-        final scale = MediaQuery.textScalerOf(context).clamp(minScaleFactor: 0.9, maxScaleFactor: 1.3);
+        final scale = MediaQuery.textScalerOf(context)
+            .clamp(minScaleFactor: 0.9, maxScaleFactor: 1.3);
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(textScaler: scale),
           child: child!,

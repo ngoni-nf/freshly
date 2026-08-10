@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,7 +12,8 @@ class PartnerSignInScreen extends ConsumerStatefulWidget {
   const PartnerSignInScreen({super.key});
 
   @override
-  ConsumerState<PartnerSignInScreen> createState() => _PartnerSignInScreenState();
+  ConsumerState<PartnerSignInScreen> createState() =>
+      _PartnerSignInScreenState();
 }
 
 class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
@@ -28,7 +30,10 @@ class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
   };
 
   Future<void> _sendCode() async {
-    setState(() { _busy = true; _error = null; });
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
       await ref.read(apiProvider).requestOtp(_phone.text, _country);
       setState(() => _codeSent = true);
@@ -40,11 +45,18 @@ class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
   }
 
   Future<void> _verify() async {
-    setState(() { _busy = true; _error = null; });
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
       final session = await ref.read(apiProvider).verifyOtp(
-            _phone.text, _country, _code.text,
-            platform: Theme.of(context).platform == TargetPlatform.iOS ? 'ios' : 'android',
+            _phone.text,
+            _country,
+            _code.text,
+            platform: Theme.of(context).platform == TargetPlatform.iOS
+                ? 'ios'
+                : 'android',
           );
       if (!session.isProvider) {
         setState(() => _error =
@@ -53,8 +65,11 @@ class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
       }
       ref.read(partnerAuthProvider.notifier).signedIn(session);
     } on ApiException catch (e) {
-      setState(() { _error = e.message; _code.clear(); });
-      HapticFeedback.heavyImpact();
+      setState(() {
+        _error = e.message;
+        _code.clear();
+      });
+      unawaited(HapticFeedback.heavyImpact());
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -73,24 +88,28 @@ class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
             children: [
               const SizedBox(height: FreshlySpacing.xl),
               Text('Freshly Partner',
-                  style: Theme.of(context).textTheme.headlineMedium
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineMedium
                       ?.copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: FreshlySpacing.sm),
               const Text(
                 'Take bookings, get paid the moment a job is done, and keep your '
                 'own diary.',
-                style: TextStyle(fontSize: 16, height: 1.5, color: FreshlyColors.inkMuted),
+                style: TextStyle(
+                    fontSize: 16, height: 1.5, color: FreshlyColors.inkMuted),
               ),
               const SizedBox(height: FreshlySpacing.xl),
-
               if (!_codeSent) ...[
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 14),
                       decoration: BoxDecoration(
                         border: Border.all(color: FreshlyColors.line),
-                        borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+                        borderRadius:
+                            BorderRadius.circular(FreshlySpacing.radius),
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
@@ -98,7 +117,8 @@ class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
                           items: _markets.entries
                               .map((e) => DropdownMenuItem(
                                     value: e.key,
-                                    child: Text('${e.value.flag}  ${e.value.prefix}'),
+                                    child: Text(
+                                        '${e.value.flag}  ${e.value.prefix}'),
                                   ))
                               .toList(),
                           onChanged: (v) => setState(() => _country = v!),
@@ -115,7 +135,8 @@ class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(market.digits + 1),
                         ],
-                        decoration: const InputDecoration(hintText: '82 123 4567'),
+                        decoration:
+                            const InputDecoration(hintText: '82 123 4567'),
                         onChanged: (_) => setState(() {}),
                       ),
                     ),
@@ -141,25 +162,29 @@ class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
                   },
                 ),
               ],
-
               if (_error != null) ...[
                 const SizedBox(height: FreshlySpacing.md),
-                Text(_error!, style: const TextStyle(color: FreshlyColors.crimson)),
+                Text(_error!,
+                    style: const TextStyle(color: FreshlyColors.crimson)),
               ],
-
               const Spacer(),
               FilledButton(
                 onPressed: _busy
                     ? null
                     : (_codeSent
                         ? (_code.text.length == 6 ? _verify : null)
-                        : (_phone.text.replaceFirst(RegExp(r'^0+'), '').length == market.digits
+                        : (_phone.text
+                                    .replaceFirst(RegExp(r'^0+'), '')
+                                    .length ==
+                                market.digits
                             ? _sendCode
                             : null)),
                 child: _busy
                     ? const SizedBox(
-                        width: 20, height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
                     : Text(_codeSent ? 'Sign in' : 'Send code'),
               ),
             ],

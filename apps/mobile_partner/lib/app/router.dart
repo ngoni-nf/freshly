@@ -8,6 +8,7 @@ import '../features/dispatch/offer_overlay.dart';
 import '../features/job/job_screen.dart';
 import '../features/job/pin_pad_screen.dart';
 import '../features/onboarding/signin_screen.dart';
+import '../features/onboarding/verification_screen.dart';
 import '../features/wallet/wallet_screen.dart';
 import 'providers.dart';
 
@@ -30,16 +31,23 @@ final partnerRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state, child) => OfferListener(child: child),
         routes: [
           GoRoute(path: '/', builder: (_, __) => const CommandScreen()),
-          GoRoute(path: '/signin', builder: (_, __) => const PartnerSignInScreen()),
+          GoRoute(
+              path: '/signin', builder: (_, __) => const PartnerSignInScreen()),
           GoRoute(path: '/wallet', builder: (_, __) => const WalletScreen()),
-          GoRoute(path: '/availability', builder: (_, __) => const AvailabilityScreen()),
+          GoRoute(
+              path: '/verification',
+              builder: (_, __) => const VerificationScreen()),
+          GoRoute(
+              path: '/availability',
+              builder: (_, __) => const AvailabilityScreen()),
           GoRoute(
             path: '/job/:id',
             builder: (_, s) => JobScreen(bookingId: s.pathParameters['id']!),
             routes: [
               GoRoute(
                 path: 'pin',
-                builder: (_, s) => PinPadScreen(bookingId: s.pathParameters['id']!),
+                builder: (_, s) =>
+                    PinPadScreen(bookingId: s.pathParameters['id']!),
               ),
             ],
           ),

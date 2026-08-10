@@ -11,10 +11,41 @@
  *   node infra/db/migrate.mjs reset   drop and recreate the public schema
  *   node infra/db/migrate.mjs status  list applied vs pending
  */
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+/**
+ * Load .env before anything reads process.env.
+ *
+ * The API gets this for free from @nestjs/config; this script is standalone
+ * and did not, so `npm run db:reset` silently ignored the configured database
+ * and tried a localhost default instead — reporting an authentication failure
+ * against a server the user never intended to use, which is a genuinely
+ * confusing way to fail. Parsed by hand to keep the runner dependency-light.
+ */
+function loadDotEnv(path) {
+  if (!existsSync(path)) return;
+  for (const line of readFileSync(path, 'utf8').split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    // A real environment variable always wins over the file, so CI and
+    // one-off overrides behave the way everyone expects.
+    if (process.env[key] !== undefined) continue;
+    let value = trimmed.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    process.env[key] = value;
+  }
+}
 
 // Imported dynamically so a missing dependency produces an instruction rather
 // than a twenty-line ERR_MODULE_NOT_FOUND stack, which tells a newcomer
@@ -34,6 +65,9 @@ try {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS = join(HERE, 'migrations');
 const SEEDS = join(HERE, 'seeds');
+
+// infra/db -> repository root, so this works from any working directory.
+loadDotEnv(resolve(HERE, '..', '..', '.env'));
 
 const url = process.env.DATABASE_URL ?? 'postgres://freshly:freshly@localhost:5432/freshly';
 const client = new pg.Client({
