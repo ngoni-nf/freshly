@@ -423,11 +423,41 @@ export class AuthService {
     };
   }
 
+  /// FCM reissues a registration token whenever the app is restored, reinstalled
+  /// or its data cleared, so the one captured at sign-in goes stale while the
+  /// session is still perfectly valid. A provider whose token has rotated stops
+  /// being offered work and has no way to tell.
+  async registerPushToken(
+    userId: string,
+    platform: 'ios' | 'android' | 'web',
+    pushToken: string,
+  ): Promise<{ ok: true }> {
+    // A handset is not a person. When someone signs in on a phone their
+    // colleague used, FCM hands the app the same token, and leaving the old row
+    // in place sends that colleague's job offers — with the client's name on
+    // them — to whoever is holding it now.
+    await this.db.query('DELETE FROM devices WHERE push_token = $1 AND user_id <> $2', [
+      pushToken,
+      userId,
+    ]);
+    await this.db.query(
+      `INSERT INTO devices (user_id, platform, push_token)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, push_token)
+       DO UPDATE SET platform = EXCLUDED.platform, last_seen_at = now()`,
+      [userId, platform, pushToken],
+    );
+    return { ok: true };
+  }
+
   async logout(userId: string): Promise<{ ok: true }> {
     await this.db.query(
       'UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL',
       [userId],
     );
+    // Otherwise a signed-out provider keeps being pinged for jobs they can no
+    // longer see, and a signed-out client keeps getting booking updates.
+    await this.db.query('DELETE FROM devices WHERE user_id = $1', [userId]);
     return { ok: true };
   }
 

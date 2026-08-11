@@ -63,6 +63,7 @@ const schema = z.object({
   FIREBASE_PROJECT_ID: z.string().optional(),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
   FIREBASE_SERVICE_ACCOUNT_JSON: z.string().optional(),
+  PUSH_ENABLED: z.coerce.boolean().default(false),
 
   GOOGLE_API_KEY: z.string().optional(),
   AI_MODEL: z.string().default('gemini-2.5-flash'),
@@ -119,6 +120,13 @@ export function loadConfiguration(source: Record<string, unknown> = {}): AppConf
     if (cfg.FIREBASE_ENABLED && !cfg.FIREBASE_PROJECT_ID) {
       violations.push('FIREBASE_ENABLED is set but FIREBASE_PROJECT_ID is missing');
     }
+    if (cfg.PUSH_ENABLED && !cfg.FIREBASE_PROJECT_ID) {
+      violations.push('PUSH_ENABLED is set but FIREBASE_PROJECT_ID is missing');
+    }
+    // Without push, a dispatch offer only reaches a provider who happens to be
+    // looking at the app. In production that is not a degraded experience, it
+    // is a marketplace that silently fails to fill most of its bookings.
+    if (!cfg.PUSH_ENABLED) violations.push('PUSH_ENABLED must be true');
     // A hosted database over the public internet without TLS would put every
     // booking, phone number and payment reference on the wire in clear.
     if (!cfg.DATABASE_SSL && !/localhost|127\.0\.0\.1/.test(cfg.DATABASE_URL)) {

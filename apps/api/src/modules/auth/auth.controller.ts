@@ -2,8 +2,8 @@ import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import {
-  CompleteProfileDto, FirebaseSignInDto, RefreshDto, RequestOtpDto,
-  SetServiceAreaDto, VerifyOtpDto,
+  CompleteProfileDto, FirebaseSignInDto, RefreshDto, RegisterPushTokenDto,
+  RequestOtpDto, SetServiceAreaDto, VerifyOtpDto,
 } from './dto/auth.dto';
 import { CurrentUser, Public } from '../../common/decorators';
 
@@ -58,6 +58,16 @@ export class AuthController {
   @ApiOperation({ summary: 'Choose where you want service, asked once at sign-up' })
   setServiceArea(@CurrentUser('userId') userId: string, @Body() dto: SetServiceAreaDto) {
     return this.auth.setServiceArea(userId, dto.serviceAreaId);
+  }
+
+  @Post('push-token')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Record a rotated FCM token against the signed-in user' })
+  registerPushToken(
+    @CurrentUser('userId') userId: string,
+    @Body() dto: RegisterPushTokenDto,
+  ) {
+    return this.auth.registerPushToken(userId, dto.platform ?? 'android', dto.pushToken);
   }
 
   @Public()

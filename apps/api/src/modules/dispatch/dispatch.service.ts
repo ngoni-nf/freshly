@@ -5,7 +5,9 @@ import { RedisService } from '../../common/redis/redis.service';
 import { MarketsService } from '../markets/markets.service';
 import { DispatchRaceLostError, NotFoundError } from '../../common/errors/domain.errors';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
+import { PushService } from '../notifications/push.service';
 import { estimateEta } from '../discovery/discovery.service';
+import { formatMoney } from '../../common/money/money';
 
 interface Candidate {
   provider_id: string;
@@ -33,6 +35,7 @@ export class DispatchService {
     private readonly markets: MarketsService,
     @Inject(forwardRef(() => RealtimeGateway))
     private readonly realtime: RealtimeGateway,
+    private readonly push: PushService,
   ) {}
 
   async startDispatch(bookingId: string): Promise<void> {
@@ -155,6 +158,19 @@ export class DispatchService {
         scheduledStart: booking.scheduled_start?.toISOString() ?? null,
         expiresAt: expiresAt.toISOString(),
         clientRating: 5,
+      });
+
+      // The socket only reaches a foregrounded app, so without this the offer
+      // is invisible to anyone whose phone is in their pocket. Deliberately
+      // says nothing about who or where the client is: this lands on a lock
+      // screen, and providers see the suburb only once they have accepted.
+      void this.push.sendToProvider(candidate.provider_id, {
+        title: 'New job nearby',
+        body: `${formatMoney(payoutMinor, booking.currency)} — ${distanceKm.toFixed(1)}km away, about ${etaMinutes} min`,
+        data: { type: 'dispatch.offer', offerId: offer.id, bookingId },
+        ttlSeconds: offerSeconds,
+        urgent: true,
+        channelId: 'freshly_dispatch',
       });
     }
 

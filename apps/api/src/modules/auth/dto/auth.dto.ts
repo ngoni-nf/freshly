@@ -67,6 +67,18 @@ export class CompleteProfileDto {
   acceptMarketing?: boolean;
 }
 
+export class RegisterPushTokenDto {
+  @ApiProperty({ description: 'FCM registration token, refreshed by the app when it rotates' })
+  @IsString()
+  @Length(20, 4096)
+  pushToken!: string;
+
+  @ApiPropertyOptional({ enum: ['ios', 'android', 'web'] })
+  @IsOptional()
+  @IsIn(['ios', 'android', 'web'])
+  platform?: 'ios' | 'android' | 'web';
+}
+
 export class RefreshDto {
   @ApiProperty()
   @IsString()

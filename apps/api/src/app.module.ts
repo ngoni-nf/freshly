@@ -31,6 +31,7 @@ import { SafetyModule } from './modules/safety/safety.module';
 import { CredentialsModule } from './modules/credentials/credentials.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { CatalogModule } from './modules/catalog/catalog.module';
     DatabaseModule,
     RedisModule,
     CryptoModule,
+    NotificationsModule,
     MarketsModule,
     CommsModule,
     AuthModule,
