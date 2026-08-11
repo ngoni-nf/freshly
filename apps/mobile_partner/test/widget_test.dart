@@ -4,14 +4,20 @@ import 'package:freshly_core/freshly_core.dart';
 void main() {
   group('DispatchOffer', () {
     DispatchOffer offerExpiringIn(Duration d) => DispatchOffer(
-          offerId: 'o1', bookingId: 'b1', reference: 'FRS-ABC123',
-          serviceNames: const ['Skin fade'], distanceKm: 2.4, etaMinutes: 11,
+          offerId: 'o1',
+          bookingId: 'b1',
+          reference: 'FRS-ABC123',
+          serviceNames: const ['Skin fade'],
+          distanceKm: 2.4,
+          etaMinutes: 11,
           payout: const Money(minor: 15750, currency: 'ZAR'),
-          destinationAddress: 'Sandton', expiresAt: DateTime.now().add(d),
+          destinationAddress: 'Sandton',
+          expiresAt: DateTime.now().add(d),
           clientRating: 4.8,
         );
 
-    test('reports time remaining from the server expiry, not a local timer', () {
+    test('reports time remaining from the server expiry, not a local timer',
+        () {
       final offer = offerExpiringIn(const Duration(seconds: 45));
       expect(offer.remaining.inSeconds, closeTo(45, 1));
     });
@@ -22,7 +28,8 @@ void main() {
     });
 
     test('exposes the payout as money, never a bare number', () {
-      expect(offerExpiringIn(const Duration(seconds: 60)).payout.format(), 'R157.50');
+      expect(offerExpiringIn(const Duration(seconds: 60)).payout.format(),
+          'R157.50');
     });
   });
 

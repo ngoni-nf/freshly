@@ -30,6 +30,7 @@ import { KycModule } from './modules/kyc/kyc.module';
 import { SafetyModule } from './modules/safety/safety.module';
 import { CredentialsModule } from './modules/credentials/credentials.module';
 import { StorageModule } from './modules/storage/storage.module';
+import { CatalogModule } from './modules/catalog/catalog.module';
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { StorageModule } from './modules/storage/storage.module';
     SafetyModule,
     CredentialsModule,
     StorageModule,
+    CatalogModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
