@@ -114,6 +114,87 @@ export class ProvidersService {
     return { ok: true };
   }
 
+  /** Operator search. Deliberately includes suspended and unverified people —
+   * they are exactly who an operator is looking for. */
+  async adminSearch(query: string | undefined, limit = 25) {
+    const rows = await this.db.query<Record<string, any>>(
+      `SELECT p.id, p.display_name, p.slug, p.country_code, p.kyc_status,
+              p.is_suspended, p.is_online, p.rating, p.completed_jobs, u.phone_e164
+         FROM providers p
+         JOIN users u ON u.id = p.user_id
+        WHERE ($1::text IS NULL
+               OR p.display_name ILIKE '%' || $1 || '%'
+               OR u.phone_e164 ILIKE '%' || $1 || '%')
+        ORDER BY p.is_suspended DESC, p.display_name
+        LIMIT $2`,
+      [query ?? null, limit],
+    );
+
+    return rows.map((r) => ({
+      id: r.id,
+      displayName: r.display_name,
+      slug: r.slug,
+      countryCode: r.country_code,
+      phone: r.phone_e164,
+      kycStatus: r.kyc_status,
+      isSuspended: r.is_suspended,
+      isOnline: r.is_online,
+      rating: Number(r.rating),
+      completedJobs: r.completed_jobs,
+    }));
+  }
+
+  /**
+   * Suspend or reinstate a provider.
+   *
+   * Suspending takes them offline in the same statement. Leaving someone
+   * online after a suspension, even for the seconds until a job notices, is
+   * the whole reason the flag exists — and it is the same rule the KYC path
+   * follows when verification is lost.
+   */
+  async setSuspension(
+    providerId: string,
+    suspended: boolean,
+    reason: string,
+    actorUserId: string,
+  ) {
+    const before = await this.db.queryOne<{ is_suspended: boolean }>(
+      'SELECT is_suspended FROM providers WHERE id = $1',
+      [providerId],
+    );
+    if (!before) throw new NotFoundError('Provider', providerId);
+
+    await this.db.transaction(async (tx) => {
+      await tx.query(
+        `UPDATE providers
+            SET is_suspended = $2,
+                is_online = CASE WHEN $2 THEN false ELSE is_online END,
+                updated_at = now()
+          WHERE id = $1`,
+        [providerId, suspended],
+      );
+
+      await tx.query(
+        `INSERT INTO audit_log (actor_id, actor_role, action, entity_type, entity_id, before, after)
+         VALUES ($1, 'admin', $2, 'provider', $3, $4::jsonb, $5::jsonb)`,
+        [
+          actorUserId,
+          suspended ? 'provider.suspended' : 'provider.reinstated',
+          providerId,
+          JSON.stringify({ isSuspended: before.is_suspended }),
+          JSON.stringify({ isSuspended: suspended, reason }),
+        ],
+      );
+
+      await tx.emitEvent('provider', providerId, suspended ? 'provider.suspended' : 'provider.reinstated', {
+        reason,
+      });
+    });
+
+    if (suspended) await this.redis.purgeLocation(providerId);
+    return { isSuspended: suspended };
+  }
+
   async addAvailabilityBlock(providerId: string, start: Date, end: Date, reason: string) {
     await this.db.query(
       `INSERT INTO availability_blocks (provider_id, reason, period)

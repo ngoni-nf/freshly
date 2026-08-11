@@ -1,5 +1,5 @@
 import {
-  Body, Controller, Get, Headers, HttpCode, Param, ParseUUIDPipe, Post, Req,
+  Body, Controller, Get, Headers, HttpCode, Param, ParseUUIDPipe, Post, Query, Req,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IsIn, IsISO8601, IsOptional, IsString, Length, Matches } from 'class-validator';
@@ -40,6 +40,23 @@ export class KycController {
   @ApiOperation({ summary: 'Submit identity documents for verification' })
   submit(@CurrentUser('providerId') providerId: string, @Body() dto: SubmitKycDto) {
     return this.kyc.submit(providerId, dto);
+  }
+
+  @Roles('admin', 'support')
+  @Get('pending')
+  @ApiOperation({ summary: 'Submissions waiting on a human decision' })
+  pending(@Query('limit') limit?: string) {
+    return this.kyc.pending(Math.min(Number(limit) || 50, 200));
+  }
+
+  @Roles('admin', 'support')
+  @Get('submissions/:id/documents')
+  @ApiOperation({ summary: 'Short-lived links to a submission’s documents' })
+  documents(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') reviewerUserId: string,
+  ) {
+    return this.kyc.documents(id, reviewerUserId);
   }
 
   @Roles('admin', 'support')

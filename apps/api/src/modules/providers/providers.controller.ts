@@ -1,7 +1,9 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsBoolean, IsIn, IsNumber, IsOptional, IsString, Length, Max, Min,
+} from 'class-validator';
 import { CurrentUser, Public, Roles } from '../../common/decorators';
 import { ProvidersService } from './providers.service';
 
@@ -16,6 +18,13 @@ class LocationDto {
   @IsOptional() @Type(() => Number) @IsNumber() speedKph?: number;
 }
 
+class SuspensionDto {
+  @IsBoolean() suspended!: boolean;
+  /// Required in both directions: a reinstatement with no stated reason is as
+  /// unauditable as a suspension with none.
+  @IsString() @Length(3, 500) reason!: string;
+}
+
 class BlockDto {
   @IsString() start!: string;
   @IsString() end!: string;
@@ -26,6 +35,24 @@ class BlockDto {
 @Controller('providers')
 export class ProvidersController {
   constructor(private readonly providers: ProvidersService) {}
+
+  @Roles('admin', 'support')
+  @Get()
+  @ApiOperation({ summary: 'Operator search, including suspended and unverified' })
+  adminSearch(@Query('q') q?: string, @Query('limit') limit?: string) {
+    return this.providers.adminSearch(q, Math.min(Number(limit) || 25, 100));
+  }
+
+  @Roles('admin')
+  @Post(':id/suspension')
+  @ApiOperation({ summary: 'Suspend or reinstate a provider' })
+  setSuspension(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') actorUserId: string,
+    @Body() dto: SuspensionDto,
+  ) {
+    return this.providers.setSuspension(id, dto.suspended, dto.reason, actorUserId);
+  }
 
   @Public()
   @Get(':id')

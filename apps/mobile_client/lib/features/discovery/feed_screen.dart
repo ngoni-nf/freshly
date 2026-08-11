@@ -135,7 +135,8 @@ final searchResultsProvider =
   final chosen = ref.watch(serviceAreaProvider);
   final api = ref.watch(apiProvider);
 
-  Future<List<ProviderSummary>> search(double lat, double lng) => api.searchProviders(
+  Future<List<ProviderSummary>> search(double lat, double lng) =>
+      api.searchProviders(
         lat: lat,
         lng: lng,
         radiusKm: filters.radiusKm,
@@ -300,12 +301,15 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     // are not from where the phone actually is. Saying so
                     // matters: every distance and ETA below is measured from
                     // that area, not from here.
-                    itemCount: list.length + (elsewhere && area != null ? 1 : 0),
+                    itemCount:
+                        list.length + (elsewhere && area != null ? 1 : 0),
                     separatorBuilder: (_, __) =>
                         const SizedBox(height: FreshlySpacing.sm),
                     itemBuilder: (_, i) {
                       if (elsewhere && area != null) {
-                        if (i == 0) return _ElsewhereBanner(areaName: area.name);
+                        if (i == 0) {
+                          return _ElsewhereBanner(areaName: area.name);
+                        }
                         i -= 1;
                       }
                       return ProviderCard(

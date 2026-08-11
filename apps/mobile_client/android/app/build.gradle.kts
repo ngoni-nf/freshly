@@ -4,13 +4,15 @@ plugins {
     // Must come after the Android and Kotlin plugins.
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
 }
 
 android {
     namespace = "africa.freshly.client"
-    // 35 is the current stable target. compileSdk only decides which APIs are 
-    // available at compile time; targetSdk is what changes runtime behaviour.
-    compileSdk = 35
+    // compileSdk must be 36 for the current plugin set. compileSdk only 
+    // decides which APIs are available at compile time; targetSdk stays 35
+    // deliberately — moving it opts into Android 16 behaviour changes.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

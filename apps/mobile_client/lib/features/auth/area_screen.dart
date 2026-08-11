@@ -103,7 +103,8 @@ class _AreaScreenState extends ConsumerState<AreaScreen> {
                     // account cannot be priced against a Zimbabwean area, and
                     // the API refuses it anyway.
                     final list = all
-                        .where((a) => a.countryCode == null || a.countryCode == country)
+                        .where((a) =>
+                            a.countryCode == null || a.countryCode == country)
                         .toList();
 
                     if (list.isEmpty) {
@@ -112,7 +113,8 @@ class _AreaScreenState extends ConsumerState<AreaScreen> {
                           'We are not open in your country yet. We will let you '
                           'know the moment that changes.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: FreshlyColors.inkMuted, height: 1.4),
+                          style: TextStyle(
+                              color: FreshlyColors.inkMuted, height: 1.4),
                         ),
                       );
                     }

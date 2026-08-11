@@ -6,6 +6,7 @@ import { DomainError, NotFoundError } from '../../common/errors/domain.errors';
 import { KycCallbackEvent, KycOutcome, KycProvider, KycResult } from './providers/kyc-provider.interface';
 import { MockKycProvider } from './providers/mock.kyc-provider';
 import { SmileIdKycProvider } from './providers/smileid.kyc-provider';
+import { StorageService } from '../storage/storage.service';
 
 /** Vendor outcomes map onto the database enum; there is no third vocabulary. */
 const OUTCOME_TO_STATUS: Record<KycOutcome, string> = {
@@ -24,6 +25,7 @@ export class KycService {
     private readonly db: DatabaseService,
     private readonly config: ConfigService,
     private readonly crypto: PiiCryptoService,
+    private readonly storage: StorageService,
   ) {
     this.providers.set('mock', new MockKycProvider());
     this.providers.set(
@@ -294,6 +296,87 @@ export class KycService {
 
     await this.applyOutcome(submission.id, submission.provider_id, event);
     return { ok: true };
+  }
+
+  /**
+   * The review queue.
+   *
+   * `in_review` first and oldest first, because those are the ones a human has
+   * been asked to decide and a provider is waiting on. `pending` is included
+   * because a vendor callback that never arrives leaves a submission stuck
+   * there forever, and nobody would otherwise notice.
+   */
+  async pending(limit = 50) {
+    const rows = await this.db.query<Record<string, any>>(
+      `SELECT s.id, s.status, s.document_type, s.id_number_last4, s.liveness_score,
+              s.face_match_score, s.created_at, s.document_front_key, s.document_back_key,
+              s.selfie_key, p.id AS provider_id, p.display_name, p.country_code, u.full_name
+         FROM kyc_submissions s
+         JOIN providers p ON p.id = s.provider_id
+         JOIN users u ON u.id = p.user_id
+        WHERE s.status IN ('pending', 'in_review')
+        ORDER BY (s.status = 'in_review') DESC, s.created_at
+        LIMIT $1`,
+      [limit],
+    );
+
+    return rows.map((r) => ({
+      id: r.id,
+      providerId: r.provider_id,
+      providerName: r.display_name,
+      legalName: r.full_name,
+      countryCode: r.country_code,
+      status: r.status,
+      documentType: r.document_type,
+      idNumberLast4: r.id_number_last4,
+      livenessScore: r.liveness_score === null ? null : Number(r.liveness_score),
+      faceMatchScore: r.face_match_score === null ? null : Number(r.face_match_score),
+      // Keys only. The reviewer asks for a signed URL separately, so a link to
+      // somebody's passport is never sitting in a list response.
+      hasDocuments: Boolean(r.document_front_key || r.selfie_key),
+      submittedAt: r.created_at.toISOString(),
+    }));
+  }
+
+  /**
+   * Short-lived links to a submission's documents, for a reviewer.
+   *
+   * Separate from the provider-facing storage route, which only ever returns a
+   * file to its owner. A reviewer legitimately needs to see someone else's ID,
+   * so the check here is the role, and every issued link expires in minutes.
+   */
+  async documents(submissionId: string, reviewerUserId: string) {
+    const row = await this.db.queryOne<{
+      document_front_key: string | null;
+      document_back_key: string | null;
+      selfie_key: string | null;
+    }>(
+      `SELECT document_front_key, document_back_key, selfie_key
+         FROM kyc_submissions WHERE id = $1`,
+      [submissionId],
+    );
+    if (!row) throw new NotFoundError('KYC submission', submissionId);
+
+    const wanted: Array<[string, string | null]> = [
+      ['front', row.document_front_key],
+      ['back', row.document_back_key],
+      ['selfie', row.selfie_key],
+    ];
+
+    const links: Record<string, { url: string; expiresIn: number }> = {};
+    for (const [label, key] of wanted) {
+      if (!key) continue;
+      links[label] = await this.storage.signDownload('kyc-documents', key);
+    }
+
+    // Looking at someone's identity document is an event worth recording.
+    await this.db.query(
+      `INSERT INTO audit_log (actor_id, actor_role, action, entity_type, entity_id, after)
+       VALUES ($1, 'admin', 'kyc.documents_viewed', 'kyc_submission', $2, $3::jsonb)`,
+      [reviewerUserId, submissionId, JSON.stringify({ viewed: Object.keys(links) })],
+    );
+
+    return links;
   }
 
   /**

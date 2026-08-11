@@ -37,8 +37,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         AuthNeedsProfile() => path == '/auth/profile' ? null : '/auth/profile',
         // Onboarding is not finished until we know where they want service.
         // Permissions may follow, but that screen is skippable and this is not.
-        AuthNeedsArea() =>
-          path == '/auth/area' || path == '/auth/permissions' ? null : '/auth/area',
+        AuthNeedsArea() => path == '/auth/area' || path == '/auth/permissions'
+            ? null
+            : '/auth/area',
         AuthSignedIn() => isAuthFlow || path == '/' ? '/home' : null,
       };
     },

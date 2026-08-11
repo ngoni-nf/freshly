@@ -11,7 +11,8 @@ apps/api              NestJS + PostgreSQL/PostGIS + Redis. Owns all business log
 apps/mobile_client    Flutter. Customer app.       africa.freshly.client
 apps/mobile_partner   Flutter. Provider app.       africa.freshly.partner
 packages/freshly_core Dart. Models, API client, realtime, design system. Shared.
-packages/contracts    TypeScript types shared with the (unbuilt) admin portal.
+apps/admin            Vite + React ops console. KYC review, licences, suspension.
+packages/contracts    TypeScript types shared with the admin portal.
 infra/db              Migrations, seeds, migrate.mjs.
 scripts/              doctor.mjs, smoke.sh, bootstrap-mobile.sh, setup-local-db.sql
 ```
@@ -104,8 +105,10 @@ to Storage directly. Keys are derived server-side and namespaced under the
 owner's id — a client-supplied path is a traversal and an overwrite of someone
 else's identity document waiting to happen.
 
-Not built yet: admin portal (`apps/admin`), salon staff management, Firebase
-FCM and Crashlytics wiring in the apps.
+Not built yet: a canonical service catalogue (providers type service names by
+hand, so a client cannot browse "Knotless Braids" across providers and
+`services.requires_credential` has nothing to derive from), salon staff
+management, Firebase FCM and Crashlytics wiring in the apps.
 
 Deployment is prepared but never executed — see `docs/DEPLOYMENT.md`. The
 Dockerfile, `fly.toml` and the deploy workflow have not run, because there is

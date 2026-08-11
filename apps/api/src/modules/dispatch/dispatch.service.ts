@@ -44,13 +44,23 @@ export class DispatchService {
       id: string; reference: string; country_code: 'ZA' | 'ZW'; status: string;
       provider_payout_minor: string; currency: string; destination_address: string;
       power_backup_required: boolean; scheduled_start: Date | null;
-      dest_lng: string; dest_lat: string;
+      dest_lng: string; dest_lat: string; categories: string[];
     }>(
-      `SELECT id, reference, country_code, status, provider_payout_minor, currency,
-              destination_address, power_backup_required, scheduled_start,
-              ST_X(destination::geometry) AS dest_lng,
-              ST_Y(destination::geometry) AS dest_lat
-         FROM bookings WHERE id = $1`,
+      `SELECT b.id, b.reference, b.country_code, b.status, b.provider_payout_minor, b.currency,
+              b.destination_address, b.power_backup_required, b.scheduled_start,
+              ST_X(b.destination::geometry) AS dest_lng,
+              ST_Y(b.destination::geometry) AS dest_lat,
+              -- What was actually booked. Dispatch used to ignore this
+              -- entirely, so a nail technician could be offered a barber job:
+              -- they would accept, arrive, and be unable to do the work.
+              COALESCE(
+                (SELECT array_agg(DISTINCT s.category)
+                   FROM booking_items bi
+                   JOIN services s ON s.id = bi.service_id
+                  WHERE bi.booking_id = b.id),
+                ARRAY[]::service_category_enum[]
+              ) AS categories
+         FROM bookings b WHERE b.id = $1`,
       [bookingId],
     );
     if (!booking || booking.status !== 'authorized') return;
@@ -89,6 +99,11 @@ export class DispatchService {
           AND NOT p.is_suspended
           AND ST_DWithin(COALESCE(p.last_location, p.base_location), t.destination, $4 * 1000)
           AND ($5 = false OR p.has_power_backup)
+          -- Only offer the job to someone who does this kind of work. An empty
+          -- array means we could not determine the category, and a booking
+          -- nobody can be offered is worse than a slightly wide net.
+          AND (cardinality($6::service_category_enum[]) = 0
+               OR p.categories && $6::service_category_enum[])
           AND NOT EXISTS (
                 SELECT 1 FROM dispatch_offers o
                  WHERE o.booking_id = $1 AND o.provider_id = p.id
@@ -101,6 +116,7 @@ export class DispatchService {
         Number(booking.dest_lat),
         radiusKm,
         booking.power_backup_required,
+        booking.categories,
       ],
     );
 

@@ -44,7 +44,8 @@ void main() {
     });
 
     test('compacts whole amounts when asked', () {
-      expect(const Money(minor: 18000, currency: 'ZAR').format(compact: true), 'R180');
+      expect(const Money(minor: 18000, currency: 'ZAR').format(compact: true),
+          'R180');
     });
   });
 
@@ -64,8 +65,11 @@ void main() {
   group('GridStatus', () {
     test('forces the power filter from stage 4 upward', () {
       GridStatus at(int stage) => GridStatus(
-            countryCode: 'ZA', stage: stage, source: 'test',
-            nextWindowStart: null, nextWindowEnd: null,
+            countryCode: 'ZA',
+            stage: stage,
+            source: 'test',
+            nextWindowStart: null,
+            nextWindowEnd: null,
           );
       expect(at(0).forcesPowerFilter, isFalse);
       expect(at(3).forcesPowerFilter, isFalse);
@@ -77,8 +81,8 @@ void main() {
   group('ServiceCategory', () {
     test('round-trips the one wire value that is not the enum name', () {
       expect(ServiceCategory.bodyGrooming.wire, 'body_grooming');
-      expect(
-          ServiceCategory.fromWire('body_grooming'), ServiceCategory.bodyGrooming);
+      expect(ServiceCategory.fromWire('body_grooming'),
+          ServiceCategory.bodyGrooming);
       // Brows and lashes are now distinct professions, not one merged value.
       expect(ServiceCategory.brows.wire, 'brows');
       expect(ServiceCategory.lashes.wire, 'lashes');

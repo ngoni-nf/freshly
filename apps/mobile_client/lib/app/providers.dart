@@ -133,8 +133,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   /// Profile done, but the area question comes next for a brand new account.
-  void profileCompleted(AuthSession session) => state =
-      session.serviceArea == null ? AuthNeedsArea(session) : AuthSignedIn(session);
+  void profileCompleted(AuthSession session) =>
+      state = session.serviceArea == null
+          ? AuthNeedsArea(session)
+          : AuthSignedIn(session);
 
   /// Called once the client has picked where they want service.
   void areaChosen(AuthSession session, ServiceArea area) {

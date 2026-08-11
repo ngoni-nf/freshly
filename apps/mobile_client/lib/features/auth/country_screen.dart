@@ -47,7 +47,8 @@ class CountryScreen extends ConsumerWidget {
               const SizedBox(height: FreshlySpacing.xl),
               Expanded(
                 child: markets.when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
                   error: (e, __) => _Retry(
                     message: e is ApiException
                         ? e.message
