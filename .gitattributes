@@ -1,0 +1,16 @@
+# Keep line endings stable across platforms.
+#
+# With core.autocrlf=true on Windows, a checkout rewrites files to CRLF. For
+# most sources that is harmless, but the migration runner records a checksum of
+# each .sql file, so a checkout alone made it refuse to run — reporting that an
+# applied migration had been modified when nobody had touched it. Shell scripts
+# are pinned for the older reason: CRLF breaks the shebang on Linux.
+*.sql   text eol=lf
+*.sh    text eol=lf
+*.mjs   text eol=lf
+
+# Never normalise binaries.
+*.png   binary
+*.jpg   binary
+*.jks   binary
+*.keystore binary

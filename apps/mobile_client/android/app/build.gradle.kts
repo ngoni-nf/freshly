@@ -3,15 +3,14 @@ plugins {
     id("kotlin-android")
     // Must come after the Android and Kotlin plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
 android {
     namespace = "africa.freshly.client"
-    // 36 because flutter_plugin_android_lifecycle, geolocator_android,
-    // google_maps_flutter_android and sqflite_android all compile against it.
-    // compileSdk only decides which APIs are available at compile time and is
-    // backward compatible; targetSdk below is what changes runtime behaviour.
-    compileSdk = 36
+    // 35 is the current stable target. compileSdk only decides which APIs are 
+    // available at compile time; targetSdk is what changes runtime behaviour.
+    compileSdk = 35
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -31,15 +30,12 @@ android {
         // past it and fighting that costs more than the handful of Android 6
         // devices it would win back.
         minSdk = flutter.minSdkVersion
-        // Held at 35 deliberately. Moving to 36 opts into Android 16's
-        // edge-to-edge and other behaviour changes, which deserve their own
-        // pass rather than arriving as a side effect of a plugin bump.
         targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
         manifestPlaceholders["MAPS_API_KEY"] =
-            System.getenv("MAPS_API_KEY") ?: project.findProperty("MAPS_API_KEY") as String? ?: ""
+            System.getenv("MAPS_API_KEY") ?: project.findProperty("MAPS_API_KEY") as String? ?: "YOUR_MAPS_API_KEY_HERE"
     }
 
     signingConfigs {

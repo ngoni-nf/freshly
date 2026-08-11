@@ -24,6 +24,8 @@ dependencies:
   permission_handler: ^11.3.1
   cached_network_image: ^3.4.1
   hive_flutter: ^1.1.0
+  firebase_core: ^3.3.0
+  firebase_messaging: ^15.1.1
 
 # Every entry above is imported by a screen. Nothing is declared "for later" —
 # an unused native plugin still runs its Gradle and CocoaPods work on every

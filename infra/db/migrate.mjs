@@ -75,7 +75,18 @@ const client = new pg.Client({
   ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
 });
 
-const sha = (s) => createHash('sha256').update(s).digest('hex').slice(0, 16);
+/**
+ * Line endings are normalised before hashing.
+ *
+ * The checksum exists to catch an applied migration being edited underneath
+ * you. It should not fire because git rewrote the file: with core.autocrlf=true
+ * on Windows, a checkout converts every .sql to CRLF and the runner then
+ * refuses to apply anything, claiming history was modified when nothing was.
+ * .gitattributes now pins these files to LF as well; this is the belt to that
+ * pair of braces, and it keeps checksums portable across platforms.
+ */
+const sha = (s) =>
+  createHash('sha256').update(s.replace(/\r\n/g, '\n')).digest('hex').slice(0, 16);
 const sqlFiles = (dir) => readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
 
 async function ensureRegistry() {
