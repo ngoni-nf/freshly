@@ -150,6 +150,7 @@ class AuthSession {
     required this.countryCode,
     required this.profileComplete,
     required this.isNewUser,
+    this.serviceArea,
   });
 
   final String accessToken;
@@ -162,8 +163,14 @@ class AuthSession {
   final bool profileComplete;
   final bool isNewUser;
 
+  /// Null until the client has chosen where they want service. Carried on the
+  /// session so sign-in can route straight to the right screen instead of
+  /// sending a returning client through onboarding again.
+  final ServiceArea? serviceArea;
+
   factory AuthSession.fromJson(Map<String, dynamic> j) {
     final user = j['user'] as Map<String, dynamic>;
+    final area = j['serviceArea'] as Map<String, dynamic>?;
     return AuthSession(
       accessToken: j['accessToken'] as String,
       refreshToken: j['refreshToken'] as String,
@@ -174,6 +181,7 @@ class AuthSession {
       countryCode: user['countryCode'] as String,
       profileComplete: j['profileComplete'] as bool? ?? false,
       isNewUser: j['isNewUser'] as bool? ?? false,
+      serviceArea: area == null ? null : ServiceArea.fromJson(area),
     );
   }
 
@@ -465,6 +473,61 @@ class GridStatus {
 /// Distinct from [AuthSession], which is what a sign-in returned at a point in
 /// time. Roles and verification state can change while a token is still valid,
 /// so anything that gates behaviour reads this rather than the stored session.
+/// A metro Freshly operates in, with the centroid discovery falls back to
+/// when there is no usable GPS fix.
+class ServiceArea {
+  const ServiceArea({
+    required this.id,
+    required this.slug,
+    required this.name,
+    required this.lat,
+    required this.lng,
+    this.countryCode,
+  });
+
+  final String id;
+  final String slug;
+  final String name;
+  final double lat;
+  final double lng;
+  final String? countryCode;
+
+  factory ServiceArea.fromJson(Map<String, dynamic> j) => ServiceArea(
+        id: j['id'] as String,
+        slug: j['slug'] as String,
+        name: j['name'] as String,
+        lat: (j['lat'] as num).toDouble(),
+        lng: (j['lng'] as num).toDouble(),
+        countryCode: j['countryCode'] as String?,
+      );
+}
+
+/// A market Freshly is open in. Only live markets are returned, so a country
+/// missing from this list is one we cannot serve yet.
+class Market {
+  const Market({
+    required this.code,
+    required this.name,
+    required this.currency,
+    required this.dialPrefix,
+    required this.phoneLength,
+  });
+
+  final String code;
+  final String name;
+  final String currency;
+  final String dialPrefix;
+  final int phoneLength;
+
+  factory Market.fromJson(Map<String, dynamic> j) => Market(
+        code: j['code'] as String,
+        name: j['name'] as String,
+        currency: j['currency'] as String? ?? 'ZAR',
+        dialPrefix: j['dialPrefix'] as String? ?? '+27',
+        phoneLength: (j['phoneLength'] as num?)?.toInt() ?? 9,
+      );
+}
+
 class CurrentUser {
   const CurrentUser({
     required this.id,
@@ -477,6 +540,7 @@ class CurrentUser {
     this.providerId,
     this.kycStatus,
     this.isOnline = false,
+    this.serviceArea,
   });
 
   final String id;
@@ -490,11 +554,16 @@ class CurrentUser {
   final String? kycStatus;
   final bool isOnline;
 
+  /// Null until the client has been asked. The router uses that to decide
+  /// whether onboarding is finished.
+  final ServiceArea? serviceArea;
+
   bool get isProvider => roles.contains('provider');
   bool get isVerifiedProvider => isProvider && kycStatus == 'verified';
 
   factory CurrentUser.fromJson(Map<String, dynamic> j) {
     final provider = j['provider'] as Map<String, dynamic>?;
+    final area = j['serviceArea'] as Map<String, dynamic>?;
     return CurrentUser(
       id: j['id'] as String,
       fullName: j['fullName'] as String? ?? '',
@@ -506,6 +575,7 @@ class CurrentUser {
       providerId: provider?['id'] as String?,
       kycStatus: provider?['kycStatus'] as String?,
       isOnline: provider?['isOnline'] as bool? ?? false,
+      serviceArea: area == null ? null : ServiceArea.fromJson(area),
     );
   }
 }

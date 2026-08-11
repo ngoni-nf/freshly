@@ -39,6 +39,16 @@ class AuthNeedsProfile extends AuthState {
   final AuthSession session;
 }
 
+/// Signed in, profile complete, but has never said where they want service.
+///
+/// A distinct state rather than a flag, because the router has to send them
+/// somewhere specific. Discovery without an area is what produced "Freshly is
+/// not live in this area yet" for people standing in Rosebank.
+class AuthNeedsArea extends AuthState {
+  const AuthNeedsArea(this.session);
+  final AuthSession session;
+}
+
 class AuthSignedIn extends AuthState {
   const AuthSignedIn(this.session, {this.user});
   final AuthSession session;
@@ -81,12 +91,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
         countryCode: user.countryCode,
         profileComplete: user.profileComplete,
         isNewUser: false,
+        serviceArea: user.serviceArea,
       );
 
-      state = user.profileComplete
-          ? AuthSignedIn(session, user: user)
-          : AuthNeedsProfile(session);
+      state = switch ((user.profileComplete, user.serviceArea)) {
+        (false, _) => AuthNeedsProfile(session),
+        (true, null) => AuthNeedsArea(session),
+        (true, _) => AuthSignedIn(session, user: user),
+      };
       _ref.read(countryCodeProvider.notifier).state = user.countryCode;
+      if (user.serviceArea != null) {
+        _ref.read(serviceAreaProvider.notifier).state = user.serviceArea;
+      }
       _ref.read(realtimeProvider).connect(token);
     } on ApiException catch (e) {
       // An unreachable server is not a signed-out user. Sending someone back
@@ -105,13 +121,26 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   void signedIn(AuthSession session) {
-    state = session.profileComplete
-        ? AuthSignedIn(session)
-        : AuthNeedsProfile(session);
+    state = switch ((session.profileComplete, session.serviceArea)) {
+      (false, _) => AuthNeedsProfile(session),
+      (true, null) => AuthNeedsArea(session),
+      (true, _) => AuthSignedIn(session),
+    };
+    if (session.serviceArea != null) {
+      _ref.read(serviceAreaProvider.notifier).state = session.serviceArea;
+    }
     _ref.read(realtimeProvider).connect(session.accessToken);
   }
 
-  void profileCompleted(AuthSession session) => state = AuthSignedIn(session);
+  /// Profile done, but the area question comes next for a brand new account.
+  void profileCompleted(AuthSession session) => state =
+      session.serviceArea == null ? AuthNeedsArea(session) : AuthSignedIn(session);
+
+  /// Called once the client has picked where they want service.
+  void areaChosen(AuthSession session, ServiceArea area) {
+    _ref.read(serviceAreaProvider.notifier).state = area;
+    state = AuthSignedIn(session);
+  }
 
   void signedOut() {
     _ref.read(realtimeProvider).disconnect();
@@ -130,6 +159,22 @@ final authStateProvider =
 // ─── Market & grid ───────────────────────────────────────────────────────────
 
 final countryCodeProvider = StateProvider<String>((ref) => 'ZA');
+
+/// Where the client said they want service. Discovery falls back to this
+/// centroid whenever a live GPS fix is unavailable or lands outside every
+/// service area, so the feed shows something useful instead of a refusal.
+final serviceAreaProvider = StateProvider<ServiceArea?>((ref) => null);
+
+/// Markets Freshly is open in. Drives the country step at sign-up; a country
+/// absent from this list is one we cannot serve, and saying so up front beats
+/// letting someone enter a number and fail later.
+final marketsProvider = FutureProvider<List<Market>>(
+  (ref) => ref.watch(apiProvider).markets(),
+);
+
+final serviceAreasProvider = FutureProvider<List<ServiceArea>>(
+  (ref) => ref.watch(apiProvider).serviceAreas(),
+);
 
 /// Load-shedding status drives a banner on the dashboard and, at stage 4+,
 /// silently forces the power-backup filter in discovery.

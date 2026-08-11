@@ -2,7 +2,8 @@ import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import {
-  CompleteProfileDto, FirebaseSignInDto, RefreshDto, RequestOtpDto, VerifyOtpDto,
+  CompleteProfileDto, FirebaseSignInDto, RefreshDto, RequestOtpDto,
+  SetServiceAreaDto, VerifyOtpDto,
 } from './dto/auth.dto';
 import { CurrentUser, Public } from '../../common/decorators';
 
@@ -51,6 +52,12 @@ export class AuthController {
   @ApiOperation({ summary: 'Complete the profile and record consent' })
   completeProfile(@CurrentUser('userId') userId: string, @Body() dto: CompleteProfileDto) {
     return this.auth.completeProfile(userId, dto);
+  }
+
+  @Post('service-area')
+  @ApiOperation({ summary: 'Choose where you want service, asked once at sign-up' })
+  setServiceArea(@CurrentUser('userId') userId: string, @Body() dto: SetServiceAreaDto) {
+    return this.auth.setServiceArea(userId, dto.serviceAreaId);
   }
 
   @Public()

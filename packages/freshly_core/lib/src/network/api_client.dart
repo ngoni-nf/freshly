@@ -219,6 +219,26 @@ class FreshlyApi {
     await session.clear();
   }
 
+  // ─── Where we operate ────────────────────────────────────────────────────
+  /// Live markets. Public, because someone deciding whether to sign up is
+  /// entitled to know whether we cover them before handing over a number.
+  Future<List<Market>> markets() => _unwrap(
+        _dio.get('/markets'),
+        (d) => (d as List).map((e) => Market.fromJson(e as Map<String, dynamic>)).toList(),
+      );
+
+  Future<List<ServiceArea>> serviceAreas() => _unwrap(
+        _dio.get('/markets/areas'),
+        (d) => (d as List).map((e) => ServiceArea.fromJson(e as Map<String, dynamic>)).toList(),
+      );
+
+  /// Asked once at sign-up. Gives discovery an origin that does not depend on
+  /// a GPS fix arriving.
+  Future<ServiceArea> setServiceArea(String serviceAreaId) => _unwrap(
+        _dio.post('/auth/service-area', data: {'serviceAreaId': serviceAreaId}),
+        (d) => ServiceArea.fromJson(d as Map<String, dynamic>),
+      );
+
   // ─── Discovery ───────────────────────────────────────────────────────────
   Future<List<ProviderSummary>> searchProviders({
     required double lat,

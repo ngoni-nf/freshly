@@ -17,9 +17,15 @@ class PhoneScreen extends ConsumerStatefulWidget {
 
 class _PhoneScreenState extends ConsumerState<PhoneScreen> {
   final _controller = TextEditingController();
-  String _country = 'ZA';
   bool _busy = false;
   String? _error;
+
+  /// Chosen on the previous screen. The selector stays, because someone who
+  /// picked the wrong country should not have to restart, but it is no longer
+  /// the first time the question is asked.
+  String get _country => ref.read(countryCodeProvider);
+  set _country(String value) =>
+      ref.read(countryCodeProvider.notifier).state = value;
 
   static const _markets = {
     'ZA': (prefix: '+27', digits: 9, label: 'South Africa', flag: '🇿🇦'),

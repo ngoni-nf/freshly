@@ -79,6 +79,43 @@ export class MarketsService implements OnModuleInit {
   }
 
   /**
+   * The areas a new client can pick from at sign-up.
+   *
+   * Returns the centroid, because that is what discovery falls back to when
+   * there is no usable GPS fix. Public: someone deciding whether to sign up is
+   * entitled to know whether Freshly covers them before handing over a phone
+   * number.
+   */
+  async liveServiceAreas(): Promise<
+    Array<{ id: string; slug: string; name: string; countryCode: 'ZA' | 'ZW'; lat: number; lng: number }>
+  > {
+    const rows = await this.db.query<{
+      id: string;
+      slug: string;
+      name: string;
+      country_code: 'ZA' | 'ZW';
+      lat: string;
+      lng: string;
+    }>(
+      `SELECT id, slug, name, country_code,
+              ST_Y(centroid::geometry) AS lat,
+              ST_X(centroid::geometry) AS lng
+         FROM service_areas
+        WHERE is_live
+        ORDER BY country_code, name`,
+    );
+
+    return rows.map((r) => ({
+      id: r.id,
+      slug: r.slug,
+      name: r.name,
+      countryCode: r.country_code,
+      lat: Number(r.lat),
+      lng: Number(r.lng),
+    }));
+  }
+
+  /**
    * Resolve which country a coordinate belongs to, and refuse anything outside
    * a live service area. The pilot is geofenced deliberately: supply density
    * inside 10km beats thin coverage across a province.

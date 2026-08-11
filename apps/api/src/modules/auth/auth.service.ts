@@ -27,6 +27,8 @@ export interface AuthResult {
   expiresIn: number;
   isNewUser: boolean;
   profileComplete: boolean;
+  /** Null until the client has chosen where they want service. */
+  serviceArea: { id: string; slug: string; name: string; lat: number; lng: number } | null;
   user: {
     id: string;
     fullName: string;
@@ -256,6 +258,62 @@ export class AuthService {
     return { ok: true };
   }
 
+  /**
+   * Where the client wants service.
+   *
+   * Validated against live areas rather than trusted, and required to be in
+   * the user's own market — a South African account choosing a Zimbabwean area
+   * would be priced in the wrong currency by every downstream quote.
+   */
+  async setServiceArea(userId: string, serviceAreaId: string) {
+    const area = await this.db.queryOne<{
+      id: string;
+      slug: string;
+      name: string;
+      country_code: 'ZA' | 'ZW';
+      lat: string;
+      lng: string;
+    }>(
+      `SELECT a.id, a.slug, a.name, a.country_code,
+              ST_Y(a.centroid::geometry) AS lat,
+              ST_X(a.centroid::geometry) AS lng
+         FROM service_areas a
+        WHERE a.id = $1 AND a.is_live`,
+      [serviceAreaId],
+    );
+    if (!area) {
+      throw new BadRequestException({
+        code: 'area_not_live',
+        message: 'Freshly is not open in that area yet',
+      });
+    }
+
+    const user = await this.db.queryOne<{ country_code: 'ZA' | 'ZW' }>(
+      'SELECT country_code FROM users WHERE id = $1',
+      [userId],
+    );
+    if (user && user.country_code !== area.country_code) {
+      throw new BadRequestException({
+        code: 'area_wrong_country',
+        message: 'That area is in a different country to your account',
+      });
+    }
+
+    await this.db.query('UPDATE users SET preferred_service_area_id = $2 WHERE id = $1', [
+      userId,
+      area.id,
+    ]);
+
+    return {
+      id: area.id,
+      slug: area.slug,
+      name: area.name,
+      countryCode: area.country_code,
+      lat: Number(area.lat),
+      lng: Number(area.lng),
+    };
+  }
+
   async refresh(refreshToken: string): Promise<AuthResult> {
     const hash = this.crypto.hash(refreshToken);
     const row = await this.db.queryOne<{ user_id: string; id: string }>(
@@ -310,6 +368,24 @@ export class AuthService {
       [userId],
     );
 
+    // Returned so the app can restore the chosen area at launch instead of
+    // re-asking, and so discovery has an origin before any GPS fix arrives.
+    const area = await this.db.queryOne<{
+      id: string;
+      slug: string;
+      name: string;
+      lat: string;
+      lng: string;
+    }>(
+      `SELECT a.id, a.slug, a.name,
+              ST_Y(a.centroid::geometry) AS lat,
+              ST_X(a.centroid::geometry) AS lng
+         FROM users u
+         JOIN service_areas a ON a.id = u.preferred_service_area_id
+        WHERE u.id = $1`,
+      [userId],
+    );
+
     return {
       id: user.id,
       fullName: user.full_name,
@@ -318,6 +394,15 @@ export class AuthService {
       countryCode: user.country_code,
       avatarUrl: user.avatar_url,
       profileComplete: Boolean(user.full_name) && Boolean(user.consent_privacy_at),
+      serviceArea: area
+        ? {
+            id: area.id,
+            slug: area.slug,
+            name: area.name,
+            lat: Number(area.lat),
+            lng: Number(area.lng),
+          }
+        : null,
       provider: provider
         ? { id: provider.id, kycStatus: provider.kyc_status, isOnline: provider.is_online }
         : null,
@@ -359,12 +444,41 @@ export class AuthService {
       [user.id, this.crypto.hash(refreshToken)],
     );
 
+    // Returned with the session so the app can route straight to the right
+    // screen. Without it, a returning client would be sent through area
+    // selection again on every sign-in, or the app would need a second round
+    // trip before it could decide.
+    const area = await this.db.queryOne<{
+      id: string;
+      slug: string;
+      name: string;
+      lat: string;
+      lng: string;
+    }>(
+      `SELECT a.id, a.slug, a.name,
+              ST_Y(a.centroid::geometry) AS lat,
+              ST_X(a.centroid::geometry) AS lng
+         FROM users u
+         JOIN service_areas a ON a.id = u.preferred_service_area_id
+        WHERE u.id = $1`,
+      [user.id],
+    );
+
     return {
       accessToken,
       refreshToken,
       expiresIn: 900,
       isNewUser,
       profileComplete: Boolean(user.full_name) && Boolean(user.consent_privacy_at),
+      serviceArea: area
+        ? {
+            id: area.id,
+            slug: area.slug,
+            name: area.name,
+            lat: Number(area.lat),
+            lng: Number(area.lng),
+          }
+        : null,
       user: {
         id: user.id,
         fullName: user.full_name,

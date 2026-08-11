@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/auth/splash_screen.dart';
+import '../features/auth/country_screen.dart';
+import '../features/auth/area_screen.dart';
 import '../features/auth/phone_screen.dart';
 import '../features/auth/otp_screen.dart';
 import '../features/auth/profile_screen.dart';
@@ -30,14 +32,21 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       return switch (auth) {
         AuthUnknown() => path == '/' ? null : '/',
-        AuthSignedOut() => isAuthFlow ? null : '/auth/phone',
+        // Country first, so every later question is asked in the right market.
+        AuthSignedOut() => isAuthFlow ? null : '/auth/country',
         AuthNeedsProfile() => path == '/auth/profile' ? null : '/auth/profile',
+        // Onboarding is not finished until we know where they want service.
+        // Permissions may follow, but that screen is skippable and this is not.
+        AuthNeedsArea() =>
+          path == '/auth/area' || path == '/auth/permissions' ? null : '/auth/area',
         AuthSignedIn() => isAuthFlow || path == '/' ? '/home' : null,
       };
     },
     routes: [
       GoRoute(path: '/', builder: (_, __) => const SplashScreen()),
+      GoRoute(path: '/auth/country', builder: (_, __) => const CountryScreen()),
       GoRoute(path: '/auth/phone', builder: (_, __) => const PhoneScreen()),
+      GoRoute(path: '/auth/area', builder: (_, __) => const AreaScreen()),
       GoRoute(
         path: '/auth/otp',
         builder: (_, s) {

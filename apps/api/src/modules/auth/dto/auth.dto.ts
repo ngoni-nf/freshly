@@ -1,5 +1,11 @@
-import { IsBoolean, IsEmail, IsIn, IsOptional, IsString, Length, Matches } from 'class-validator';
+import { IsBoolean, IsEmail, IsIn, IsOptional, IsString, IsUUID, Length, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+export class SetServiceAreaDto {
+  @ApiProperty({ description: 'An id from GET /markets/areas' })
+  @IsUUID()
+  serviceAreaId!: string;
+}
 
 export class RequestOtpDto {
   @ApiProperty({ example: '0821234567', description: 'Local or E.164 mobile number' })

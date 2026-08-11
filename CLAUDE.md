@@ -183,6 +183,21 @@ while `OTP_DEV_BYPASS=true`.
   actions fail with `SFXCA: Failed to create temp directory. Error code 5`
   even elevated, which is Controlled Folder Access or AV, not permissions.
   WSL was the way through.
+- Running the smoke scripts several times in a row trips the OTP throttle, and
+  it surfaces as `sign-in returned no token` rather than anything about rate
+  limiting. That is the limiter working. Clear it with:
+
+  ```bash
+  wsl -d Ubuntu -u root -- bash -lc "redis-cli --scan --pattern 'ctr:*' | xargs -r redis-cli del"
+  ```
+- Supabase's linter flags every `public` table without RLS. Migration 011
+  enables deny-all RLS on all 48 tables we own and revokes `anon` and
+  `authenticated` outright. It is defence in depth, not the primary control:
+  nothing uses PostgREST, and those roles hold no USAGE on `public` anyway.
+  `public.spatial_ref_sys` will keep failing that lint forever — it belongs to
+  the PostGIS extension, is owned by `supabase_admin` so we cannot alter it,
+  and contains the public EPSG registry. Suppress that one finding rather than
+  taking ownership of an extension's tables.
 
 ## Zimbabwe is not just a second row
 

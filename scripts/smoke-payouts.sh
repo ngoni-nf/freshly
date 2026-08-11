@@ -16,6 +16,22 @@ step()  { printf '\n\033[1m%s\033[0m\n' "$1"; }
 
 jqv() { node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const o=JSON.parse(s);const v=$1;console.log(v===undefined?'':typeof v==='object'?JSON.stringify(v):v)}catch(e){console.log('')}})"; }
 
+step "0. Normalise state from any previous run"
+# Without this the script only passes once per db:reset: step 5 adds a verified
+# account, so a second run finds cash-out already possible and step 4's
+# expected refusal never happens. A test that passes exactly once is a trap.
+psql_bin=psql
+command -v psql > /dev/null 2>&1 || for c in "/c/Program Files/PostgreSQL"/*/bin; do
+  [ -x "$c/psql.exe" ] && PATH="$PATH:$c" && break
+done
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DB=$(grep '^DATABASE_URL=' "$ROOT/.env" | cut -d= -f2-)
+# Un-verify rather than delete: a past run's account is referenced by the
+# payout it funded, and payouts.payout_account_id is RESTRICT for good reason —
+# a disbursement must always be traceable to where the money was sent.
+$psql_bin "$DB" -qAtc "UPDATE payout_accounts SET is_verified = false" > /dev/null
+green "previous test accounts un-verified"
+
 step "1. Sign in as the provider"
 curl -s -X POST "$API/auth/otp/request" -H 'Content-Type: application/json' \
   -d "{\"phone\":\"$PROVIDER_PHONE\",\"countryCode\":\"ZA\"}" > /dev/null
@@ -58,12 +74,6 @@ DEFAULT_LAST4=$(curl -s "$API/payouts/wallet" -H "$AUTH" | jqv "o.account.last4"
 green "new account is the default"
 
 step "7. Verify only the readable account, then cash out"
-psql_bin=psql
-command -v psql > /dev/null 2>&1 || for c in "/c/Program Files/PostgreSQL"/*/bin; do
-  [ -x "$c/psql.exe" ] && PATH="$PATH:$c" && break
-done
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DB=$(grep '^DATABASE_URL=' "$ROOT/.env" | cut -d= -f2-)
 # Only the one added through the API has a real ciphertext; the seeded rows
 # stay unverified because their details genuinely cannot be read.
 $psql_bin "$DB" -qAtc "UPDATE payout_accounts SET is_verified = true WHERE account_last4 = '7890'" > /dev/null

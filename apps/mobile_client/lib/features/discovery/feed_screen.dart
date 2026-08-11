@@ -51,14 +51,9 @@ class DiscoveryFilters {
 final filtersProvider =
     StateProvider<DiscoveryFilters>((ref) => const DiscoveryFilters());
 
-final currentPositionProvider = FutureProvider<Position>((ref) async {
-  // Debug-only override, so a geofenced marketplace can be exercised on an
-  // emulator that insists it is in Mountain View. Never consulted in release.
-  final override = kDebugMode ? Env.devLatLng : null;
-  if (override != null) {
-    return Position(
-      latitude: override.lat,
-      longitude: override.lng,
+Position _fixedAt(double lat, double lng) => Position(
+      latitude: lat,
+      longitude: lng,
       timestamp: DateTime.now(),
       accuracy: 5,
       altitude: 0,
@@ -68,21 +63,46 @@ final currentPositionProvider = FutureProvider<Position>((ref) async {
       speed: 0,
       speedAccuracy: 0,
     );
+
+/// Where to search from.
+///
+/// Precedence, and the reasoning behind it:
+///   1. A debug override, so a geofenced marketplace can be exercised on an
+///      emulator that insists it is in Mountain View. Never read in release.
+///   2. A real GPS fix, because it is the only thing that gets the travel fee
+///      and the ETA right.
+///   3. The area the customer chose at sign-up.
+///
+/// The third rung is the point. Discovery used to have only the second, so a
+/// declined permission, a cold GPS or a basement produced "Freshly is not live
+/// in this area yet" — a statement about a place the customer never chose and
+/// could not change. Now the worst case is a slightly less precise feed.
+final currentPositionProvider = FutureProvider<Position>((ref) async {
+  final override = kDebugMode ? Env.devLatLng : null;
+  if (override != null) return _fixedAt(override.lat, override.lng);
+
+  final chosen = ref.watch(serviceAreaProvider);
+  Position fallback() {
+    if (chosen != null) return _fixedAt(chosen.lat, chosen.lng);
+    throw ApiException(
+      'location_unavailable',
+      'We could not work out where you are. Choose your area in settings and try again.',
+    );
   }
 
-  final enabled = await Geolocator.isLocationServiceEnabled();
-  if (!enabled) {
-    throw ApiException('location_off', 'Turn on location to find pros near you');
-  }
+  if (!await Geolocator.isLocationServiceEnabled()) return fallback();
+
   var permission = await Geolocator.checkPermission();
   if (permission == LocationPermission.denied) {
     permission = await Geolocator.requestPermission();
   }
   if (permission == LocationPermission.denied ||
       permission == LocationPermission.deniedForever) {
-    throw ApiException(
-        'location_denied', 'Freshly needs your location to find nearby pros');
+    // Declining location is a legitimate choice, not an error. They told us
+    // their area; that is enough to show a feed.
+    return fallback();
   }
+
   // A fresh high-accuracy fix is the ideal, not a requirement. Indoors, in a
   // basement salon, or on a handset with a cold GPS, it can take far longer
   // than anyone will wait — and the previous version had no time limit at all,
@@ -98,23 +118,26 @@ final currentPositionProvider = FutureProvider<Position>((ref) async {
     );
   } catch (_) {
     final last = await Geolocator.getLastKnownPosition();
-    if (last != null) return last;
-    throw ApiException(
-      'location_unavailable',
-      'We could not get your location. Move somewhere with a clearer signal and try again.',
-    );
+    return last ?? fallback();
   }
 });
+
+/// Set when the feed is showing the chosen area rather than where the phone
+/// actually is, so the screen can say so instead of quietly lying about
+/// distances.
+final searchedAwayFromHereProvider = StateProvider<bool>((ref) => false);
 
 final searchResultsProvider =
     FutureProvider.autoDispose<List<ProviderSummary>>((ref) async {
   final position = await ref.watch(currentPositionProvider.future);
   final filters = ref.watch(filtersProvider);
   final grid = await ref.watch(gridStatusProvider.future);
+  final chosen = ref.watch(serviceAreaProvider);
+  final api = ref.watch(apiProvider);
 
-  return ref.watch(apiProvider).searchProviders(
-        lat: position.latitude,
-        lng: position.longitude,
+  Future<List<ProviderSummary>> search(double lat, double lng) => api.searchProviders(
+        lat: lat,
+        lng: lng,
         radiusKm: filters.radiusKm,
         category: filters.category,
         venue: filters.venue,
@@ -125,7 +148,55 @@ final searchResultsProvider =
         requirePowerBackup: filters.requirePower || grid.forcesPowerFilter,
         instantOnly: filters.instantOnly,
       );
+
+  try {
+    final results = await search(position.latitude, position.longitude);
+    ref.read(searchedAwayFromHereProvider.notifier).state = false;
+    return results;
+  } on ApiException catch (e) {
+    // The phone is somewhere we do not cover — travelling, or a bad fix. Fall
+    // back to the area they chose rather than telling someone with a perfectly
+    // good home city that the app does not work.
+    if (e.code == 'outside_service_area' && chosen != null) {
+      final results = await search(chosen.lat, chosen.lng);
+      ref.read(searchedAwayFromHereProvider.notifier).state = true;
+      return results;
+    }
+    rethrow;
+  }
 });
+
+/// Shown when the feed is for the customer's chosen area rather than their
+/// current position — they are travelling, or the fix was unusable.
+class _ElsewhereBanner extends StatelessWidget {
+  const _ElsewhereBanner({required this.areaName});
+  final String areaName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(FreshlySpacing.md),
+      decoration: BoxDecoration(
+        color: FreshlyColors.mintSoft,
+        borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, color: FreshlyColors.mintDark),
+          const SizedBox(width: FreshlySpacing.sm),
+          Expanded(
+            child: Text(
+              'Showing $areaName. We could not place you inside one of our '
+              'areas, so travel times below are measured from there.',
+              style: const TextStyle(fontSize: 13, height: 1.4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class FeedScreen extends ConsumerStatefulWidget {
   const FeedScreen({required this.query, super.key});
@@ -218,17 +289,30 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     retryLabel: 'Search wider',
                   );
                 }
+                final elsewhere = ref.watch(searchedAwayFromHereProvider);
+                final area = ref.watch(serviceAreaProvider);
+
                 return RefreshIndicator(
                   onRefresh: () async => ref.invalidate(searchResultsProvider),
                   child: ListView.separated(
                     padding: const EdgeInsets.all(FreshlySpacing.md),
-                    itemCount: list.length,
+                    // The banner is one extra row at the top when the results
+                    // are not from where the phone actually is. Saying so
+                    // matters: every distance and ETA below is measured from
+                    // that area, not from here.
+                    itemCount: list.length + (elsewhere && area != null ? 1 : 0),
                     separatorBuilder: (_, __) =>
                         const SizedBox(height: FreshlySpacing.sm),
-                    itemBuilder: (_, i) => ProviderCard(
-                      provider: list[i],
-                      onTap: () => context.push('/provider/${list[i].id}'),
-                    ),
+                    itemBuilder: (_, i) {
+                      if (elsewhere && area != null) {
+                        if (i == 0) return _ElsewhereBanner(areaName: area.name);
+                        i -= 1;
+                      }
+                      return ProviderCard(
+                        provider: list[i],
+                        onTap: () => context.push('/provider/${list[i].id}'),
+                      );
+                    },
                   ),
                 );
               },
