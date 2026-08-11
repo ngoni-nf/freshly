@@ -2,9 +2,16 @@ import { IsBoolean, IsEmail, IsIn, IsOptional, IsString, IsUUID, Length, Matches
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class SetServiceAreaDto {
-  @ApiProperty({ description: 'An id from GET /markets/areas' })
+  @ApiPropertyOptional({ description: 'An id from GET /markets/areas' })
+  @IsOptional()
   @IsUUID()
-  serviceAreaId!: string;
+  serviceAreaId?: string;
+
+  /** Preferred over serviceAreaId: it names a suburb the user recognises. */
+  @ApiPropertyOptional({ description: 'An id from GET /markets/places' })
+  @IsOptional()
+  @IsUUID()
+  placeId?: string;
 }
 
 export class RequestOtpDto {

@@ -55,9 +55,9 @@ export class AuthController {
   }
 
   @Post('service-area')
-  @ApiOperation({ summary: 'Choose where you want service, asked once at sign-up' })
+  @ApiOperation({ summary: 'Choose or change where you want service' })
   setServiceArea(@CurrentUser('userId') userId: string, @Body() dto: SetServiceAreaDto) {
-    return this.auth.setServiceArea(userId, dto.serviceAreaId);
+    return this.auth.setServiceArea(userId, dto.serviceAreaId, dto.placeId);
   }
 
   @Post('push-token')

@@ -116,6 +116,78 @@ export class MarketsService implements OnModuleInit {
   }
 
   /**
+   * Suburb autocomplete.
+   *
+   * Only ever suggests somewhere we operate, because every place belongs to a
+   * live area by construction. A suggestion we cannot serve is worse than no
+   * suggestion — the customer discovers the refusal after choosing instead of
+   * before, having already told us where they live.
+   *
+   * An empty query returns the busiest suburbs rather than nothing, so the
+   * field is useful before the first keystroke.
+   */
+  async searchPlaces(
+    query: string | undefined,
+    limit = 8,
+  ): Promise<
+    Array<{
+      id: string;
+      name: string;
+      postalCode: string | null;
+      serviceAreaId: string;
+      serviceAreaName: string;
+      countryCode: 'ZA' | 'ZW';
+      lat: number;
+      lng: number;
+    }>
+  > {
+    const term = (query ?? '').trim().toLowerCase();
+
+    const rows = await this.db.query<{
+      id: string;
+      name: string;
+      postal_code: string | null;
+      service_area_id: string;
+      area_name: string;
+      country_code: 'ZA' | 'ZW';
+      lat: string;
+      lng: string;
+    }>(
+      // LIKE against the lowered name so the prefix index is usable. The
+      // parameter is escaped for LIKE metacharacters below rather than
+      // interpolated, so a name containing % cannot widen the search.
+      `SELECT p.id, p.name, p.postal_code, p.service_area_id,
+              a.name AS area_name, a.country_code,
+              ST_Y(p.centroid::geometry) AS lat,
+              ST_X(p.centroid::geometry) AS lng
+         FROM places p
+         JOIN service_areas a ON a.id = p.service_area_id
+        WHERE p.is_active
+          AND a.is_live
+          AND ($1 = '' OR lower(p.name) LIKE $1 || '%')
+        ORDER BY
+          -- An exact match first, then the busiest. Someone who has typed
+          -- "sandton" in full does not want Sandton Ext 4 above Sandton.
+          (lower(p.name) = $1) DESC,
+          p.popularity DESC,
+          p.name ASC
+        LIMIT $2`,
+      [term.replace(/[%_\\]/g, '\\$&'), Math.min(limit, 25)],
+    );
+
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      postalCode: r.postal_code,
+      serviceAreaId: r.service_area_id,
+      serviceAreaName: r.area_name,
+      countryCode: r.country_code,
+      lat: Number(r.lat),
+      lng: Number(r.lng),
+    }));
+  }
+
+  /**
    * Resolve which country a coordinate belongs to, and refuse anything outside
    * a live service area. The pilot is geofenced deliberately: supply density
    * inside 10km beats thin coverage across a province.

@@ -42,7 +42,16 @@ export interface AuthResult {
   isNewUser: boolean;
   profileComplete: boolean;
   /** Null until the client has chosen where they want service. */
-  serviceArea: { id: string; slug: string; name: string; lat: number; lng: number } | null;
+  serviceArea: {
+    id: string;
+    slug: string;
+    name: string;
+    lat: number;
+    lng: number;
+    /** The suburb they picked, when they picked one. Null if only an area. */
+    placeId: string | null;
+    placeName: string | null;
+  } | null;
   user: {
     id: string;
     fullName: string;
@@ -279,7 +288,45 @@ export class AuthService {
    * the user's own market — a South African account choosing a Zimbabwean area
    * would be priced in the wrong currency by every downstream quote.
    */
-  async setServiceArea(userId: string, serviceAreaId: string) {
+  /**
+   * Where the user wants service.
+   *
+   * A place may be given instead of an area, and is the better answer: people
+   * know they are in Rosebank, not in "Johannesburg North". The place decides
+   * the area, so the two can never disagree, and both are stored — the area is
+   * what dispatch and pricing need, the suburb is what we show back to them so
+   * the choice reads as a preference rather than something they must re-derive.
+   *
+   * Callable at any time, not only at sign-up: changing it is the same
+   * operation as setting it.
+   */
+  async setServiceArea(userId: string, serviceAreaId?: string, placeId?: string) {
+    let placeRow: { id: string; name: string; service_area_id: string } | null = null;
+
+    if (placeId) {
+      placeRow = await this.db.queryOne<{ id: string; name: string; service_area_id: string }>(
+        `SELECT p.id, p.name, p.service_area_id
+           FROM places p
+           JOIN service_areas a ON a.id = p.service_area_id
+          WHERE p.id = $1 AND p.is_active AND a.is_live`,
+        [placeId],
+      );
+      if (!placeRow) {
+        throw new BadRequestException({
+          code: 'place_not_live',
+          message: 'Freshly is not open in that area yet',
+        });
+      }
+      serviceAreaId = placeRow.service_area_id;
+    }
+
+    if (!serviceAreaId) {
+      throw new BadRequestException({
+        code: 'area_required',
+        message: 'Choose where you want service',
+      });
+    }
+
     const area = await this.db.queryOne<{
       id: string;
       slug: string;
@@ -313,10 +360,12 @@ export class AuthService {
       });
     }
 
-    await this.db.query('UPDATE users SET preferred_service_area_id = $2 WHERE id = $1', [
-      userId,
-      area.id,
-    ]);
+    // Clears the suburb when only an area was given, so the two never drift
+    // into claiming the user is in a suburb of somewhere they no longer are.
+    await this.db.query(
+      'UPDATE users SET preferred_service_area_id = $2, preferred_place_id = $3 WHERE id = $1',
+      [userId, area.id, placeRow?.id ?? null],
+    );
 
     return {
       id: area.id,
@@ -325,6 +374,8 @@ export class AuthService {
       countryCode: area.country_code,
       lat: Number(area.lat),
       lng: Number(area.lng),
+      placeId: placeRow?.id ?? null,
+      placeName: placeRow?.name ?? null,
     };
   }
 
@@ -390,12 +441,23 @@ export class AuthService {
       name: string;
       lat: string;
       lng: string;
+      place_id: string | null;
+      place_name: string | null;
+      place_lat: string | null;
+      place_lng: string | null;
     }>(
+      // The suburb's centroid is the better origin when we have one: it is
+      // where the user actually is, rather than the middle of a whole metro.
       `SELECT a.id, a.slug, a.name,
               ST_Y(a.centroid::geometry) AS lat,
-              ST_X(a.centroid::geometry) AS lng
+              ST_X(a.centroid::geometry) AS lng,
+              p.id   AS place_id,
+              p.name AS place_name,
+              ST_Y(p.centroid::geometry) AS place_lat,
+              ST_X(p.centroid::geometry) AS place_lng
          FROM users u
          JOIN service_areas a ON a.id = u.preferred_service_area_id
+         LEFT JOIN places p ON p.id = u.preferred_place_id AND p.is_active
         WHERE u.id = $1`,
       [userId],
     );
@@ -413,8 +475,12 @@ export class AuthService {
             id: area.id,
             slug: area.slug,
             name: area.name,
-            lat: Number(area.lat),
-            lng: Number(area.lng),
+            // The suburb centroid when we have one: it is where the user
+            // actually is, not the middle of an entire metro.
+            lat: Number(area.place_lat ?? area.lat),
+            lng: Number(area.place_lng ?? area.lng),
+            placeId: area.place_id,
+            placeName: area.place_name,
           }
         : null,
       provider: provider
@@ -498,12 +564,21 @@ export class AuthService {
       name: string;
       lat: string;
       lng: string;
+      place_id: string | null;
+      place_name: string | null;
+      place_lat: string | null;
+      place_lng: string | null;
     }>(
       `SELECT a.id, a.slug, a.name,
               ST_Y(a.centroid::geometry) AS lat,
-              ST_X(a.centroid::geometry) AS lng
+              ST_X(a.centroid::geometry) AS lng,
+              p.id   AS place_id,
+              p.name AS place_name,
+              ST_Y(p.centroid::geometry) AS place_lat,
+              ST_X(p.centroid::geometry) AS place_lng
          FROM users u
          JOIN service_areas a ON a.id = u.preferred_service_area_id
+         LEFT JOIN places p ON p.id = u.preferred_place_id AND p.is_active
         WHERE u.id = $1`,
       [user.id],
     );
@@ -522,8 +597,12 @@ export class AuthService {
             id: area.id,
             slug: area.slug,
             name: area.name,
-            lat: Number(area.lat),
-            lng: Number(area.lng),
+            // The suburb centroid when we have one: it is where the user
+            // actually is, not the middle of an entire metro.
+            lat: Number(area.place_lat ?? area.lat),
+            lng: Number(area.place_lng ?? area.lng),
+            placeId: area.place_id,
+            placeName: area.place_name,
           }
         : null,
       user: {

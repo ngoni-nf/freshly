@@ -1,5 +1,5 @@
-import { Controller, Get } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Query } from '@nestjs/common';
+import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/decorators';
 import { MarketsService } from './markets.service';
 
@@ -13,6 +13,14 @@ export class MarketsController {
   @ApiOperation({ summary: 'Service areas a client can choose from at sign-up' })
   areas() {
     return this.markets.liveServiceAreas();
+  }
+
+  @Public()
+  @Get('places')
+  @ApiQuery({ name: 'q', required: false, description: 'What the user has typed so far' })
+  @ApiOperation({ summary: 'Suburb autocomplete, restricted to areas we serve' })
+  places(@Query('q') q?: string, @Query('limit') limit?: string) {
+    return this.markets.searchPlaces(q, limit ? Number(limit) : undefined);
   }
 
   @Public()

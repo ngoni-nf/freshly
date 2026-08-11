@@ -16,6 +16,10 @@ export interface ProviderSearchResult {
   isOnline: boolean;
   fromPrice: { minor: number; currency: string };
   categories: string[];
+  venueMode: 'mobile' | 'in_shop' | 'both';
+  businessMode: 'solo' | 'salon' | 'salon_staff';
+  /** Null unless this provider actually receives clients somewhere. */
+  shopAddress: string | null;
   etaMinutes: number | null;
 }
 
@@ -53,6 +57,9 @@ export class DiscoveryService {
       from_price_minor: string;
       currency: string;
       categories: string[];
+      venue_mode: 'mobile' | 'in_shop' | 'both';
+      business_mode: 'solo' | 'salon' | 'salon_staff';
+      shop_address: string | null;
     }>(
       `SELECT * FROM fn_search_providers($1, $2, $3, $4::service_category_enum, $5::service_venue_enum,
                                           $6, $7, $8, $9, $10, $11)`,
@@ -85,8 +92,16 @@ export class DiscoveryService {
         isOnline: r.is_online,
         fromPrice: { minor: Number(r.from_price_minor), currency: r.currency },
         categories: r.categories ?? [],
-        // Only quote an ETA for someone who could actually leave now.
-        etaMinutes: r.is_online ? estimateEta(distanceKm) : null,
+        venueMode: r.venue_mode,
+        // A salon is a place you go to and a solo provider is a person who
+        // comes to you. The app cannot present the choice sensibly without
+        // being told which it is looking at.
+        businessMode: r.business_mode,
+        shopAddress: r.shop_address,
+        // Only quote an ETA for someone who could actually leave now, and only
+        // for work they would travel to do — an ETA against a salon address
+        // reads as "they are coming to you", which is the opposite of the truth.
+        etaMinutes: r.is_online && r.venue_mode !== 'in_shop' ? estimateEta(distanceKm) : null,
       };
     });
   }
