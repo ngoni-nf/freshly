@@ -4,8 +4,8 @@ import { Throttle } from '@nestjs/throttler';
 import { CurrentUser, Idempotent, Roles } from '../../common/decorators';
 import { BookingsService } from './bookings.service';
 import {
-  AdvanceStatusDto, CancelBookingDto, CheckoutDto, CreateBookingDto,
-  QuoteBookingDto, ReviewDto, VerifyPinDto,
+  AddonResponseDto, AdvanceStatusDto, CancelBookingDto, ChatMessageDto, CheckoutDto,
+  CreateBookingDto, QuoteBookingDto, ReviewDto, VerifyPinDto,
 } from './dto/bookings.dto';
 
 @ApiTags('bookings')
@@ -128,9 +128,21 @@ export class BookingsController {
   sendChat(
     @CurrentUser('userId') userId: string,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: { body: string },
+    @Body() dto: ChatMessageDto,
   ) {
     return this.bookings.sendChatMessage(userId, id, dto.body);
+  }
+
+  @Post(':id/addons/:itemId/respond')
+  @Idempotent()
+  @ApiOperation({ summary: 'Approve or decline an add-on suggested mid-service' })
+  respondToAddon(
+    @CurrentUser('userId') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('itemId', ParseUUIDPipe) itemId: string,
+    @Body() dto: AddonResponseDto,
+  ) {
+    return this.bookings.respondToAddon(userId, id, itemId, dto.approve);
   }
 
   @Post(':id/chat/read')

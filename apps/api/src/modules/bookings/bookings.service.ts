@@ -6,6 +6,7 @@ import {
   DomainError, IllegalTransitionError, NotFoundError, RateLimitedError,
 } from '../../common/errors/domain.errors';
 import { RedisService } from '../../common/redis/redis.service';
+import { applyBps, taxIncludedIn } from '../../common/money/money';
 import { MarketsService } from '../markets/markets.service';
 import { PricingService, Quote } from '../pricing/pricing.service';
 import { EscrowService } from '../payments/escrow.service';
@@ -371,9 +372,9 @@ export class BookingsService {
   async respondToAddon(clientId: string, bookingId: string, itemId: string, approve: boolean) {
     const booking = await this.db.queryOne<{
       id: string; client_id: string; status: string; currency: string;
-      total_minor: string; commission_bps: number;
+      total_minor: string; commission_bps: number; country_code: 'ZA' | 'ZW';
     }>(
-      `SELECT id, client_id, status, currency, total_minor, commission_bps
+      `SELECT id, client_id, status, currency, total_minor, commission_bps, country_code
          FROM bookings WHERE id = $1`,
       [bookingId],
     );
@@ -405,12 +406,25 @@ export class BookingsService {
 
     const amountMinor = Number(item.price_minor);
 
-    // 1. Authorize the delta.
+    // 1. Authorize the delta. Outside the transaction, because this is a call
+    //    to a payment gateway and a row lock must never be held across one.
     await this.escrow.authorize(bookingId, primaryIntent.method, `addon-${itemId}`, amountMinor);
 
     // 2. Commit to database.
-    const commissionAddon = Math.floor((amountMinor * booking.commission_bps) / 10000);
+    //
+    //    applyBps, not Math.floor. It is one of only two places in the system
+    //    permitted to round, and it rounds half-up — flooring here would
+    //    under-charge commission by a cent on most add-ons, every time, which
+    //    is exactly the drift the single-rounding-site rule exists to stop.
+    const commissionAddon = applyBps(amountMinor, booking.commission_bps);
     const payoutAddon = amountMinor - commissionAddon;
+
+    // VAT is levied on platform revenue, and platform revenue just grew. Left
+    // alone, the tax entry written at capture would be short by the VAT on
+    // every add-on ever approved — understated tax, discovered by SARS rather
+    // than by us.
+    const market = this.markets.get(booking.country_code);
+    const vatAddon = taxIncludedIn(commissionAddon, market.vatBps);
 
     await this.db.transaction(async (tx) => {
       await tx.query(
@@ -424,9 +438,10 @@ export class BookingsService {
                 commission_minor = commission_minor + $3,
                 provider_payout_minor = provider_payout_minor + $4,
                 addons_minor = addons_minor + $2,
+                vat_on_fees_minor = vat_on_fees_minor + $5,
                 updated_at = now()
           WHERE id = $1`,
-        [bookingId, amountMinor, commissionAddon, payoutAddon],
+        [bookingId, amountMinor, commissionAddon, payoutAddon, vatAddon],
       );
 
       await tx.emitEvent('booking', bookingId, 'booking.addon_approved', {
@@ -615,6 +630,19 @@ export class BookingsService {
   }
 
   async markChatAsRead(userId: string, bookingId: string) {
+    // Scoped like the other two. Without it any signed-in user could clear the
+    // unread state on a conversation between two strangers — not a disclosure,
+    // but a message the recipient never sees marked as though they had.
+    const allowed = await this.db.queryOne<{ id: string }>(
+      `SELECT b.id FROM bookings b
+         LEFT JOIN providers p ON p.id = b.provider_id
+        WHERE b.id = $1 AND (b.client_id = $2 OR p.user_id = $2)`,
+      [bookingId, userId],
+    );
+    if (!allowed) {
+      throw new ForbiddenException({ code: 'not_your_booking', message: 'Not permitted' });
+    }
+
     await this.db.query(
       `UPDATE chat_messages SET is_read = true
         WHERE booking_id = $1 AND author_id <> $2 AND NOT is_read`,

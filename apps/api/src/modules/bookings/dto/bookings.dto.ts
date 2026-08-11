@@ -1,9 +1,23 @@
 import { Type } from 'class-transformer';
 import {
-  ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsInt, IsNumber, IsOptional,
+  ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional,
   IsString, IsUUID, Length, Matches, Max, Min, ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+export class ChatMessageDto {
+  /// Was a plain `{ body: string }` type, which ValidationPipe cannot see, so
+  /// the field was neither length-limited nor checked to be a string at all.
+  /// Long enough for a real message about a gate code, short enough that
+  /// nobody pastes a novel into a push notification.
+  @ApiProperty({ example: "I'm at the gate, buzzer 4B" })
+  @IsString() @Length(1, 2000) body!: string;
+}
+
+export class AddonResponseDto {
+  @ApiProperty({ description: 'The client accepting or refusing the extra work' })
+  @IsBoolean() approve!: boolean;
+}
 
 export class DestinationDto {
   @ApiProperty() @IsNumber() @Min(-90) @Max(90) lat!: number;
