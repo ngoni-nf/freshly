@@ -74,6 +74,7 @@ export class EscrowService {
     bookingId: string,
     method: string,
     idempotencyKey: string,
+    explicitAmountMinor?: number,
   ): Promise<{ status: string; redirectUrl?: string; gatewayReference: string }> {
     const booking = await this.db.queryOne<BookingMoney & { country_code: 'ZA' | 'ZW'; reference: string }>(
       `SELECT id, reference, country_code, currency, total_minor, commission_minor,
@@ -84,10 +85,11 @@ export class EscrowService {
     );
     if (!booking) throw new PaymentError('Booking not found');
 
+    const amountMinor = explicitAmountMinor ?? Number(booking.total_minor);
     const gateway = this.gatewayFor(booking.country_code);
     const result = await gateway.authorize({
       bookingId,
-      amountMinor: Number(booking.total_minor),
+      amountMinor,
       currency: booking.currency,
       method,
       customerReference: booking.reference,
@@ -120,7 +122,7 @@ export class EscrowService {
         [
           bookingId, gateway.name, method, result.gatewayReference,
           result.status === 'authorized' ? 'authorized' : 'authorizing',
-          booking.currency, Number(booking.total_minor),
+          booking.currency, amountMinor,
           result.authorizationExpiresAt ?? null, idempotencyKey,
           JSON.stringify(result.raw ?? {}),
         ],
@@ -131,16 +133,19 @@ export class EscrowService {
         // The customer's instrument is debited into escrow. Nothing is
         // recognised as revenue yet — that only happens on capture.
         await this.writeEntries(tx, group, booking.currency, bookingId, [
-          { account: 'client_source', direction: 'debit', amountMinor: Number(booking.total_minor), description: 'Funds held at checkout' },
-          { account: 'escrow', direction: 'credit', amountMinor: Number(booking.total_minor), description: 'Escrow hold' },
+          { account: 'client_source', direction: 'debit', amountMinor, description: explicitAmountMinor ? 'Extra funds held (add-on)' : 'Funds held at checkout' },
+          { account: 'escrow', direction: 'credit', amountMinor, description: explicitAmountMinor ? 'Additional escrow hold' : 'Escrow hold' },
         ]);
 
-        await tx.query(
-          `UPDATE bookings SET status = 'authorized' WHERE id = $1 AND status = 'pending_auth'`,
-          [bookingId],
-        );
-        await tx.emitEvent('booking', bookingId, 'booking.authorized', {
-          totalMinor: Number(booking.total_minor),
+        if (!explicitAmountMinor) {
+          await tx.query(
+            `UPDATE bookings SET status = 'authorized' WHERE id = $1 AND status = 'pending_auth'`,
+            [bookingId],
+          );
+        }
+
+        await tx.emitEvent('booking', bookingId, explicitAmountMinor ? 'escrow.incremental_authorized' : 'booking.authorized', {
+          authorizedMinor: amountMinor,
           currency: booking.currency,
         });
       }
@@ -167,35 +172,40 @@ export class EscrowService {
       );
       if (!booking) throw new PaymentError('Booking not found');
 
-      const intent = await tx.queryOne<{ id: string; gateway_reference: string; escrow_status: string; authorized_minor: string }>(
+      const intents = await tx.query<{ id: string; gateway_reference: string; escrow_status: string; authorized_minor: string }>(
         `SELECT id, gateway_reference, escrow_status, authorized_minor
-           FROM payment_intents WHERE booking_id = $1 FOR UPDATE`,
+           FROM payment_intents WHERE booking_id = $1 AND escrow_status = 'authorized' FOR UPDATE`,
         [bookingId],
       );
-      if (!intent) throw new PaymentError('No payment was recorded for this booking');
-
-      // Capturing twice is the classic double-charge. The row is locked and
-      // the state checked inside the same transaction.
-      if (intent.escrow_status === 'captured') {
-        return { capturedMinor: Number(intent.authorized_minor) };
-      }
-      if (intent.escrow_status !== 'authorized') {
-        throw new PaymentError(`Cannot capture a payment in state ${intent.escrow_status}`);
+      if (intents.length === 0) {
+        // If everything is already captured, we're done.
+        const captured = await tx.queryOne<{ total: string }>(
+          `SELECT SUM(captured_minor) as total FROM payment_intents
+            WHERE booking_id = $1 AND escrow_status = 'captured'`,
+          [bookingId],
+        );
+        return { capturedMinor: Number(captured?.total ?? 0) };
       }
 
       const gateway = this.gatewayFor(booking.country_code);
-      const totalMinor = Number(booking.total_minor);
-      const result = await gateway.capture(intent.gateway_reference, totalMinor);
-      if (result.status === 'failed') {
-        throw new PaymentError(result.failureMessage ?? 'Could not capture the payment');
+      let totalCaptured = 0;
+
+      for (const intent of intents) {
+        const result = await gateway.capture(intent.gateway_reference, Number(intent.authorized_minor));
+        if (result.status === 'failed') {
+          throw new PaymentError(result.failureMessage ?? 'Could not capture a payment authorization');
+        }
+
+        await tx.query(
+          `UPDATE payment_intents
+              SET escrow_status = 'captured', captured_minor = $2, updated_at = now()
+            WHERE id = $1`,
+          [intent.id, result.capturedMinor],
+        );
+        totalCaptured += result.capturedMinor;
       }
 
-      await tx.query(
-        `UPDATE payment_intents
-            SET escrow_status = 'captured', captured_minor = $2, updated_at = now()
-          WHERE id = $1`,
-        [intent.id, result.capturedMinor],
-      );
+      const totalMinor = Number(booking.total_minor);
 
       const commission = Number(booking.commission_minor);
       const serviceFee = Number(booking.service_fee_minor);
@@ -243,40 +253,47 @@ export class EscrowService {
         );
       }
 
+      // `result` belongs to the capture loop above, which runs once per
+      // authorization and may run more than once. totalCaptured is the
+      // accumulated figure and the only one in scope or correct here.
       await tx.emitEvent('booking', bookingId, 'booking.captured', {
-        capturedMinor: result.capturedMinor,
+        capturedMinor: totalCaptured,
         payoutMinor: payout,
       });
 
-      return { capturedMinor: result.capturedMinor };
+      return { capturedMinor: totalCaptured };
     }, 'REPEATABLE READ');
   }
 
   /** Release a hold without taking anything — expiry, or a provider cancellation. */
   async release(bookingId: string, reason: string): Promise<void> {
     await this.db.transaction(async (tx) => {
-      const intent = await tx.queryOne<{ id: string; gateway_reference: string; escrow_status: string; authorized_minor: string; currency: string }>(
+      const intents = await tx.query<{ id: string; gateway_reference: string; escrow_status: string; authorized_minor: string; currency: string }>(
         `SELECT id, gateway_reference, escrow_status, authorized_minor, currency
-           FROM payment_intents WHERE booking_id = $1 FOR UPDATE`,
+           FROM payment_intents WHERE booking_id = $1 AND escrow_status = 'authorized' FOR UPDATE`,
         [bookingId],
       );
-      if (!intent || intent.escrow_status !== 'authorized') return;
+      if (intents.length === 0) return;
 
       const booking = await tx.queryOne<{ country_code: 'ZA' | 'ZW' }>(
         'SELECT country_code FROM bookings WHERE id = $1', [bookingId],
       );
-      await this.gatewayFor(booking!.country_code).void(intent.gateway_reference);
+      const gateway = this.gatewayFor(booking!.country_code);
 
-      await tx.query(
-        `UPDATE payment_intents SET escrow_status = 'released', updated_at = now() WHERE id = $1`,
-        [intent.id],
-      );
+      for (const intent of intents) {
+        await gateway.void(intent.gateway_reference);
 
-      const group = randomUUID();
-      await this.writeEntries(tx, group, intent.currency, bookingId, [
-        { account: 'escrow', direction: 'debit', amountMinor: Number(intent.authorized_minor), description: `Hold released: ${reason}` },
-        { account: 'client_source', direction: 'credit', amountMinor: Number(intent.authorized_minor), description: 'Returned to customer' },
-      ]);
+        await tx.query(
+          `UPDATE payment_intents SET escrow_status = 'released', updated_at = now() WHERE id = $1`,
+          [intent.id],
+        );
+
+        const group = randomUUID();
+        await this.writeEntries(tx, group, intent.currency, bookingId, [
+          { account: 'escrow', direction: 'debit', amountMinor: Number(intent.authorized_minor), description: `Hold released: ${reason}` },
+          { account: 'client_source', direction: 'credit', amountMinor: Number(intent.authorized_minor), description: 'Returned to customer' },
+        ]);
+      }
 
       await tx.emitEvent('booking', bookingId, 'escrow.released', { reason });
     });
@@ -287,26 +304,29 @@ export class EscrowService {
     if (feeMinor <= 0) return this.release(bookingId, reason);
 
     await this.db.transaction(async (tx) => {
-      const intent = await tx.queryOne<{ id: string; gateway_reference: string; escrow_status: string; authorized_minor: string; currency: string }>(
+      const intents = await tx.query<{ id: string; gateway_reference: string; escrow_status: string; authorized_minor: string; currency: string }>(
         `SELECT id, gateway_reference, escrow_status, authorized_minor, currency
-           FROM payment_intents WHERE booking_id = $1 FOR UPDATE`,
+           FROM payment_intents WHERE booking_id = $1 AND escrow_status = 'authorized' FOR UPDATE`,
         [bookingId],
       );
-      if (!intent || intent.escrow_status !== 'authorized') return;
+      if (intents.length === 0) return;
 
       const booking = await tx.queryOne<{ country_code: 'ZA' | 'ZW'; provider_id: string | null }>(
         'SELECT country_code, provider_id FROM bookings WHERE id = $1', [bookingId],
       );
 
       const gateway = this.gatewayFor(booking!.country_code);
-      const captured = await gateway.capture(intent.gateway_reference, feeMinor);
+
+      // Capture from the first intent, release the rest.
+      const primary = intents[0];
+      const captured = await gateway.capture(primary.gateway_reference, feeMinor);
       if (captured.status === 'failed') throw new PaymentError('Could not capture the cancellation fee');
 
       await tx.query(
         `UPDATE payment_intents
             SET escrow_status = 'partially_captured', captured_minor = $2, updated_at = now()
           WHERE id = $1`,
-        [intent.id, feeMinor],
+        [primary.id, feeMinor],
       );
 
       // The provider keeps most of a cancellation fee — they lost the slot and
@@ -315,18 +335,33 @@ export class EscrowService {
       const platformShare = feeMinor - providerShare;
       const group = randomUUID();
 
-      await this.writeEntries(tx, group, intent.currency, bookingId, [
+      await this.writeEntries(tx, group, primary.currency, bookingId, [
         { account: 'escrow', direction: 'debit', amountMinor: feeMinor, description: `Cancellation fee: ${reason}` },
         { account: 'provider_payable', direction: 'credit', amountMinor: providerShare, description: 'Cancellation compensation', providerId: booking!.provider_id },
         { account: 'platform_commission', direction: 'credit', amountMinor: platformShare, description: 'Cancellation handling' },
       ]);
 
-      const remainder = Number(intent.authorized_minor) - feeMinor;
-      if (remainder > 0) {
+      const primaryRemainder = Number(primary.authorized_minor) - feeMinor;
+      if (primaryRemainder > 0) {
         const refundGroup = randomUUID();
-        await this.writeEntries(tx, refundGroup, intent.currency, bookingId, [
-          { account: 'escrow', direction: 'debit', amountMinor: remainder, description: 'Balance returned' },
-          { account: 'client_source', direction: 'credit', amountMinor: remainder, description: 'Returned to customer' },
+        await this.writeEntries(tx, refundGroup, primary.currency, bookingId, [
+          { account: 'escrow', direction: 'debit', amountMinor: primaryRemainder, description: 'Balance returned' },
+          { account: 'client_source', direction: 'credit', amountMinor: primaryRemainder, description: 'Returned to customer' },
+        ]);
+      }
+
+      // Release any secondary intents in full.
+      for (let i = 1; i < intents.length; i++) {
+        const intent = intents[i];
+        await gateway.void(intent.gateway_reference);
+        await tx.query(
+          `UPDATE payment_intents SET escrow_status = 'released', updated_at = now() WHERE id = $1`,
+          [intent.id],
+        );
+        const group = randomUUID();
+        await this.writeEntries(tx, group, intent.currency, bookingId, [
+          { account: 'escrow', direction: 'debit', amountMinor: Number(intent.authorized_minor), description: 'Extra hold released on cancellation' },
+          { account: 'client_source', direction: 'credit', amountMinor: Number(intent.authorized_minor), description: 'Returned to customer' },
         ]);
       }
 
@@ -337,7 +372,7 @@ export class EscrowService {
            ON CONFLICT (provider_id) DO UPDATE
              SET available_minor = provider_wallets.available_minor + EXCLUDED.available_minor,
                  updated_at = now()`,
-          [booking!.provider_id, intent.currency, providerShare],
+          [booking!.provider_id, primary.currency, providerShare],
         );
       }
     });

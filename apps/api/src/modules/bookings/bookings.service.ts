@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { randomInt } from 'node:crypto';
 import { DatabaseService } from '../../common/database/database.service';
 import { PiiCryptoService } from '../../common/crypto/pii-crypto.service';
@@ -6,6 +6,13 @@ import {
   DomainError, IllegalTransitionError, NotFoundError, RateLimitedError,
 } from '../../common/errors/domain.errors';
 import { RedisService } from '../../common/redis/redis.service';
+import { MarketsService } from '../markets/markets.service';
+import { PricingService, Quote } from '../pricing/pricing.service';
+import { EscrowService } from '../payments/escrow.service';
+import { DispatchService } from '../dispatch/dispatch.service';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
+import { PushService } from '../notifications/push.service';
+import { CreateBookingDto, QuoteBookingDto } from './dto/bookings.dto';
 
 /**
  * Five guesses at a four-digit code, then a fifteen-minute cool-off. Enough
@@ -14,11 +21,6 @@ import { RedisService } from '../../common/redis/redis.service';
  */
 const PIN_MAX_ATTEMPTS = 5;
 const PIN_ATTEMPT_WINDOW_SECONDS = 900;
-import { MarketsService } from '../markets/markets.service';
-import { PricingService, Quote } from '../pricing/pricing.service';
-import { EscrowService } from '../payments/escrow.service';
-import { DispatchService } from '../dispatch/dispatch.service';
-import { CreateBookingDto, QuoteBookingDto } from './dto/bookings.dto';
 
 interface ServiceRow {
   id: string;
@@ -42,6 +44,8 @@ export class BookingsService {
     private readonly dispatch: DispatchService,
     private readonly crypto: PiiCryptoService,
     private readonly redis: RedisService,
+    private readonly realtime: RealtimeGateway,
+    private readonly push: PushService,
   ) {}
 
   // ─── Quoting ───────────────────────────────────────────────────────────────
@@ -364,19 +368,101 @@ export class BookingsService {
     return { status: 'completed' };
   }
 
+  async respondToAddon(clientId: string, bookingId: string, itemId: string, approve: boolean) {
+    const booking = await this.db.queryOne<{
+      id: string; client_id: string; status: string; currency: string;
+      total_minor: string; commission_bps: number;
+    }>(
+      `SELECT id, client_id, status, currency, total_minor, commission_bps
+         FROM bookings WHERE id = $1`,
+      [bookingId],
+    );
+    if (!booking) throw new NotFoundError('Booking', bookingId);
+    if (booking.client_id !== clientId) {
+      throw new ForbiddenException({ code: 'not_your_booking', message: 'Not permitted' });
+    }
+
+    const item = await this.db.queryOne<{ id: string; name_snapshot: string; price_minor: string }>(
+      `SELECT id, name_snapshot, price_minor FROM booking_items
+        WHERE id = $1 AND booking_id = $2 AND is_addon AND client_approved_at IS NULL`,
+      [itemId, bookingId],
+    );
+    if (!item) throw new NotFoundError('Add-on item', itemId);
+
+    if (!approve) {
+      await this.db.query('DELETE FROM booking_items WHERE id = $1', [itemId]);
+      return { status: 'rejected' };
+    }
+
+    // Mid-service add-ons usually use the SAME method as the primary intent.
+    const primaryIntent = await this.db.queryOne<{ method: string }>(
+      `SELECT method FROM payment_intents WHERE booking_id = $1 ORDER BY created_at ASC LIMIT 1`,
+      [bookingId],
+    );
+    if (!primaryIntent) {
+      throw new DomainError('payment_not_found', 'No primary payment method recorded');
+    }
+
+    const amountMinor = Number(item.price_minor);
+
+    // 1. Authorize the delta.
+    await this.escrow.authorize(bookingId, primaryIntent.method, `addon-${itemId}`, amountMinor);
+
+    // 2. Commit to database.
+    const commissionAddon = Math.floor((amountMinor * booking.commission_bps) / 10000);
+    const payoutAddon = amountMinor - commissionAddon;
+
+    await this.db.transaction(async (tx) => {
+      await tx.query(
+        `UPDATE booking_items SET client_approved_at = now() WHERE id = $1`,
+        [itemId],
+      );
+
+      await tx.query(
+        `UPDATE bookings
+            SET total_minor = total_minor + $2,
+                commission_minor = commission_minor + $3,
+                provider_payout_minor = provider_payout_minor + $4,
+                addons_minor = addons_minor + $2,
+                updated_at = now()
+          WHERE id = $1`,
+        [bookingId, amountMinor, commissionAddon, payoutAddon],
+      );
+
+      await tx.emitEvent('booking', bookingId, 'booking.addon_approved', {
+        itemId,
+        name: item.name_snapshot,
+        amountMinor,
+      });
+    });
+
+    return { status: 'approved', amountMinor };
+  }
+
   async cancel(userId: string, bookingId: string, reason: string) {
     const booking = await this.db.queryOne<{
-      status: string; client_id: string; provider_id: string | null; country_code: 'ZA' | 'ZW';
+      status: string; client_id: string; provider_id: string | null; provider_user_id: string | null;
+      country_code: 'ZA' | 'ZW';
       total_minor: string; service_fee_minor: string; scheduled_start: Date | null;
+      arrived_at: Date | null;
     }>(
-      `SELECT status, client_id, provider_id, country_code, total_minor, service_fee_minor, scheduled_start
-         FROM bookings WHERE id = $1`,
+      // The provider's *user* id, not their provider id. The two are different
+      // tables, and comparing a providers.id against a users.id below meant the
+      // provider branch could never be true — every provider cancelling their
+      // own job was refused. It went unnoticed while nothing but the client
+      // could cancel; declaring a no-show is the first thing that needed it.
+      `SELECT b.status, b.client_id, b.provider_id, p.user_id AS provider_user_id,
+              b.country_code, b.total_minor, b.service_fee_minor, b.scheduled_start,
+              b.arrived_at
+         FROM bookings b
+         LEFT JOIN providers p ON p.id = b.provider_id
+        WHERE b.id = $1`,
       [bookingId],
     );
     if (!booking) throw new NotFoundError('Booking', bookingId);
 
     const isClient = booking.client_id === userId;
-    if (!isClient && booking.provider_id !== userId) {
+    if (!isClient && booking.provider_user_id !== userId) {
       throw new ForbiddenException({ code: 'not_your_booking', message: 'Not permitted' });
     }
     if (['completed', 'cancelled', 'expired'].includes(booking.status)) {
@@ -384,6 +470,38 @@ export class BookingsService {
     }
 
     const market = this.markets.get(booking.country_code);
+
+    // A no-show captures half the booking on the provider's word alone, so
+    // every condition that makes it fair has to hold here. The app shows a
+    // countdown and disables the button until it expires, but that is a
+    // courtesy to an honest provider, not a control: the same call from curl
+    // would otherwise take the money at 'accepted', from a provider who never
+    // left home.
+    if (reason === 'no_show') {
+      if (isClient) {
+        throw new DomainError(
+          'no_show_provider_only',
+          'Only the provider can report that nobody was there',
+        );
+      }
+      if (booking.status !== 'arrived' || !booking.arrived_at) {
+        throw new DomainError(
+          'no_show_requires_arrival',
+          'Mark yourself arrived before reporting a no-show',
+        );
+      }
+      const waitedMinutes = (Date.now() - booking.arrived_at.getTime()) / 60_000;
+      if (waitedMinutes < market.noShowGraceMinutes) {
+        const remaining = Math.ceil(market.noShowGraceMinutes - waitedMinutes);
+        throw new DomainError(
+          'no_show_too_soon',
+          `Please wait ${remaining} more minute${remaining === 1 ? '' : 's'} for the client`,
+          HttpStatus.CONFLICT,
+          { retryAfterSeconds: remaining * 60 },
+        );
+      }
+    }
+
     const minutesUntilStart = booking.scheduled_start
       ? Math.round((booking.scheduled_start.getTime() - Date.now()) / 60_000)
       : null;
@@ -416,6 +534,93 @@ export class BookingsService {
     });
 
     return { status: 'cancelled', feeMinor: outcome.feeMinor, refundMinor: outcome.refundMinor };
+  }
+
+  // ─── Chat ─────────────────────────────────────────────────────────────────
+
+  async getChatHistory(userId: string, bookingId: string) {
+    // Participant check
+    const allowed = await this.db.queryOne<{ id: string }>(
+      `SELECT b.id FROM bookings b
+         LEFT JOIN providers p ON p.id = b.provider_id
+        WHERE b.id = $1 AND (b.client_id = $2 OR p.user_id = $2)`,
+      [bookingId, userId],
+    );
+    if (!allowed) throw new ForbiddenException({ code: 'not_your_booking', message: 'Not permitted' });
+
+    const rows = await this.db.query<Record<string, any>>(
+      `SELECT id, author_id, body, is_read, created_at
+         FROM chat_messages
+        WHERE booking_id = $1
+        ORDER BY created_at ASC`,
+      [bookingId],
+    );
+
+    return rows.map((r) => ({
+      id: r.id,
+      bookingId,
+      authorId: r.author_id,
+      body: r.body,
+      isRead: r.is_read,
+      createdAt: r.created_at.toISOString(),
+    }));
+  }
+
+  async sendChatMessage(authorId: string, bookingId: string, body: string) {
+    const booking = await this.db.queryOne<{ client_id: string; provider_user_id: string | null }>(
+      `SELECT b.client_id, p.user_id as provider_user_id
+         FROM bookings b
+         LEFT JOIN providers p ON p.id = b.provider_id
+        WHERE b.id = $1`,
+      [bookingId],
+    );
+    if (!booking) throw new NotFoundError('Booking', bookingId);
+
+    if (booking.client_id !== authorId && booking.provider_user_id !== authorId) {
+      throw new ForbiddenException({ code: 'not_your_booking', message: 'Not permitted' });
+    }
+
+    const row = await this.db.queryOne<Record<string, any>>(
+      `INSERT INTO chat_messages (booking_id, author_id, body)
+       VALUES ($1, $2, $3)
+       RETURNING id, created_at`,
+      [bookingId, authorId, body],
+    );
+
+    const message = {
+      id: row!.id,
+      bookingId,
+      authorId,
+      body,
+      isRead: false,
+      createdAt: row!.created_at.toISOString(),
+    };
+
+    // Push to realtime
+    this.realtime.emitToBooking(bookingId, 'chat.message', message);
+
+    // Push notification to the recipient
+    const recipientId = authorId === booking.client_id ? booking.provider_user_id : booking.client_id;
+    if (recipientId) {
+      const senderName = authorId === booking.client_id ? 'Client' : (booking as any).provider_name || 'Professional';
+      this.push.sendToUser(recipientId, {
+        title: `Message from ${senderName}`,
+        body,
+        data: { type: 'chat', bookingId },
+        channelId: authorId === booking.client_id ? 'freshly_dispatch' : 'freshly_bookings',
+      });
+    }
+
+    return message;
+  }
+
+  async markChatAsRead(userId: string, bookingId: string) {
+    await this.db.query(
+      `UPDATE chat_messages SET is_read = true
+        WHERE booking_id = $1 AND author_id <> $2 AND NOT is_read`,
+      [bookingId, userId],
+    );
+    return { ok: true };
   }
 
   // ─── Reads ─────────────────────────────────────────────────────────────────

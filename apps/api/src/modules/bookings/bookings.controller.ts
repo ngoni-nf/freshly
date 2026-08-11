@@ -111,4 +111,34 @@ export class BookingsController {
   ) {
     return this.bookings.complete(providerId, id);
   }
+
+  // ─── Chat ────────────────────────────────────────────────────────────────
+
+  @Get(':id/chat')
+  @ApiOperation({ summary: 'Chat history for a booking' })
+  getChat(
+    @CurrentUser('userId') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.bookings.getChatHistory(userId, id);
+  }
+
+  @Post(':id/chat')
+  @ApiOperation({ summary: 'Send a chat message' })
+  sendChat(
+    @CurrentUser('userId') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: { body: string },
+  ) {
+    return this.bookings.sendChatMessage(userId, id, dto.body);
+  }
+
+  @Post(':id/chat/read')
+  @ApiOperation({ summary: 'Mark all messages as read' })
+  readChat(
+    @CurrentUser('userId') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.bookings.markChatAsRead(userId, id);
+  }
 }
