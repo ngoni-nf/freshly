@@ -3,13 +3,25 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
 
+import 'notifications.dart';
 import 'router.dart';
 
-class FreshlyPartnerApp extends ConsumerWidget {
+class FreshlyPartnerApp extends ConsumerStatefulWidget {
   const FreshlyPartnerApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FreshlyPartnerApp> createState() => _FreshlyPartnerAppState();
+}
+
+class _FreshlyPartnerAppState extends ConsumerState<FreshlyPartnerApp> {
+  @override
+  void initState() {
+    super.initState();
+    ref.read(pushNotificationProvider).initialize();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return MaterialApp.router(
       title: 'Freshly Partner',
       debugShowCheckedModeBanner: false,

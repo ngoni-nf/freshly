@@ -243,6 +243,11 @@ class FreshlyApi {
     await session.clear();
   }
 
+  Future<void> updatePushToken(String token) => _unwrap(
+        _dio.post('/auth/push-token', data: {'pushToken': token}),
+        (_) {},
+      );
+
   // ─── Where we operate ────────────────────────────────────────────────────
   /// Live markets. Public, because someone deciding whether to sign up is
   /// entitled to know whether we cover them before handing over a number.
@@ -256,10 +261,29 @@ class FreshlyApi {
         (d) => (d as List).map((e) => ServiceArea.fromJson(e as Map<String, dynamic>)).toList(),
       );
 
-  /// Asked once at sign-up. Gives discovery an origin that does not depend on
-  /// a GPS fix arriving.
-  Future<ServiceArea> setServiceArea(String serviceAreaId) => _unwrap(
-        _dio.post('/auth/service-area', data: {'serviceAreaId': serviceAreaId}),
+  /// Suburb autocomplete. Only ever suggests somewhere we actually operate, so
+  /// a result the user picks can always be served.
+  ///
+  /// An empty query returns the busiest suburbs, which makes the field useful
+  /// before the first keystroke.
+  Future<List<Place>> places({String? query, int limit = 8}) => _unwrap(
+        _dio.get('/markets/places', queryParameters: {
+          if (query != null && query.isNotEmpty) 'q': query,
+          'limit': limit,
+        }),
+        (d) => (d as List).map((e) => Place.fromJson(e as Map<String, dynamic>)).toList(),
+      );
+
+  /// Where the user wants service. Asked at sign-up and changeable at any time
+  /// afterwards — it is the same call either way.
+  ///
+  /// Prefer [placeId]: a suburb is what the person recognises, and it decides
+  /// the area on the server, so the two can never disagree.
+  Future<ServiceArea> setServiceArea({String? serviceAreaId, String? placeId}) => _unwrap(
+        _dio.post('/auth/service-area', data: {
+          if (serviceAreaId != null) 'serviceAreaId': serviceAreaId,
+          if (placeId != null) 'placeId': placeId,
+        }),
         (d) => ServiceArea.fromJson(d as Map<String, dynamic>),
       );
 

@@ -7,6 +7,26 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/providers.dart';
 import '../../widgets/load_shedding_banner.dart';
+import '../discovery/feed_screen.dart' show currentPositionProvider;
+
+/// Salons near the customer, for "At a shop".
+///
+/// Deliberately not the feed's provider: the dashboard asks a narrower
+/// question — premises you can walk into — and should not inherit whatever
+/// filters the customer last left discovery in. The radius is wider than the
+/// mobile default because a shop does not travel, so the only thing that
+/// matters is whether the customer is willing to.
+final nearbyShopsProvider =
+    FutureProvider.autoDispose<List<ProviderSummary>>((ref) async {
+  final position = await ref.watch(currentPositionProvider.future);
+  return ref.watch(apiProvider).searchProviders(
+        lat: position.latitude,
+        lng: position.longitude,
+        venue: 'in_shop',
+        radiusKm: 15,
+        limit: 10,
+      );
+});
 
 /// Screen A.6 — the front door.
 ///
@@ -80,9 +100,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   ?.copyWith(
                                       fontWeight: FontWeight.w700,
                                       letterSpacing: -0.5)),
-                          const Text('Freshness on demand.',
-                              style: TextStyle(
-                                  color: FreshlyColors.inkMuted, fontSize: 13)),
+                          // The chosen location, and the way to change it.
+                          // Where somebody wants service is a preference, and
+                          // a preference you cannot revisit is a trap.
+                          InkWell(
+                            onTap: () => context.push('/location'),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.location_on_outlined,
+                                    size: 14, color: FreshlyColors.inkMuted),
+                                const SizedBox(width: 2),
+                                Text(
+                                  ref.watch(serviceAreaProvider)?.displayName ??
+                                      'Freshness on demand.',
+                                  style: const TextStyle(
+                                      color: FreshlyColors.inkMuted,
+                                      fontSize: 13),
+                                ),
+                                const Icon(Icons.expand_more,
+                                    size: 16, color: FreshlyColors.inkMuted),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -191,6 +231,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ),
 
+              // ── Salons, when they are shopping for one ─────────────────────
+              // Only in shop mode. In mobile mode a list of premises is noise:
+              // the whole proposition there is that nobody has to travel.
+              if (!_mobileMode) ...[
+                const SizedBox(height: FreshlySpacing.lg),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
+                  child: Text('Salons near you',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
+                ),
+                const _NearbyShops(),
+              ],
+
               const SizedBox(height: FreshlySpacing.lg),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
@@ -264,6 +318,72 @@ class _CategoryTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _NearbyShops extends ConsumerWidget {
+  const _NearbyShops();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final shops = ref.watch(nearbyShopsProvider);
+
+    return shops.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.all(FreshlySpacing.lg),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, __) => Padding(
+        padding: const EdgeInsets.all(FreshlySpacing.md),
+        child: Text(
+          e is ApiException ? e.message : 'We could not load salons near you.',
+          style: const TextStyle(color: FreshlyColors.inkMuted),
+        ),
+      ),
+      data: (list) {
+        if (list.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(FreshlySpacing.md),
+            child: Text(
+              'No salons near you yet. Switch to "To me" and a pro will come '
+              'to you instead.',
+              style: TextStyle(color: FreshlyColors.inkMuted, height: 1.4),
+            ),
+          );
+        }
+        return Column(
+          children: list.map((p) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  FreshlySpacing.md, FreshlySpacing.sm, FreshlySpacing.md, 0),
+              child: Card(
+                child: ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: FreshlyColors.mintSoft,
+                    child: Icon(Icons.storefront_outlined,
+                        color: FreshlyColors.mintDark),
+                  ),
+                  title: Text(p.displayName,
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                  // The address is the whole point of a salon listing: it is
+                  // how somebody decides whether they are willing to travel.
+                  subtitle: Text(
+                    [
+                      if (p.shopAddress != null) p.shopAddress!,
+                      '${p.distanceKm.toStringAsFixed(1)} km · from ${p.fromPrice.format()}',
+                    ].join('\n'),
+                    style: const TextStyle(height: 1.3),
+                  ),
+                  isThreeLine: p.shopAddress != null,
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/provider/${p.id}'),
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
     );
   }
 }

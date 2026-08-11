@@ -1,17 +1,14 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../app/providers.dart';
 
 /// Screen B.2 — identity verification.
-///
-/// This is the gate between signing up and being allowed to work, so the whole
-/// design goal is to make the current state unambiguous. A provider who has
-/// submitted documents and hears nothing assumes they were rejected and stops
-/// opening the app; one who is rejected and is not told why resubmits the same
-/// photograph three times.
 class VerificationScreen extends ConsumerStatefulWidget {
   const VerificationScreen({super.key});
 
@@ -26,6 +23,10 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
   String _documentType = 'national_id';
   bool _busy = false;
 
+  XFile? _frontImage;
+  XFile? _backImage;
+  XFile? _selfieImage;
+
   @override
   void dispose() {
     _idController.dispose();
@@ -33,15 +34,49 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
     super.dispose();
   }
 
+  Future<String?> _upload(XFile? file) async {
+    if (file == null) return null;
+
+    final bytes = await file.readAsBytes();
+    final api = ref.read(apiProvider);
+
+    // 1. Get a signed URL. The API returns the limits allowed for this type.
+    final instruction = await api.getUploadUrl('image/jpeg');
+
+    // 2. Enforce the limit the server returned.
+    if (bytes.length > instruction.maxSize) {
+      throw ApiException('file_too_large',
+          'This image is too large. Max size is ${instruction.maxSize ~/ 1024} KB.');
+    }
+
+    // 3. Upload to the cloud provider.
+    await api.uploadFile(instruction.url, bytes, 'image/jpeg');
+
+    return instruction.key;
+  }
+
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (_frontImage == null || _selfieImage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please upload your ID and a selfie')),
+      );
+      return;
+    }
 
     setState(() => _busy = true);
     try {
+      final frontKey = await _upload(_frontImage);
+      final backKey = await _upload(_backImage);
+      final selfieKey = await _upload(_selfieImage);
+
       await ref.read(apiProvider).submitKyc(
             documentType: _documentType,
             idNumber: _idController.text,
             fullName: _nameController.text,
+            documentFrontKey: frontKey,
+            documentBackKey: backKey,
+            selfieKey: selfieKey,
           );
       ref.invalidate(kycStatusProvider);
       if (mounted) FocusScope.of(context).unfocus();
@@ -53,6 +88,22 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<void> _pickImage(String kind) async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(
+      source: ImageSource.camera,
+      maxWidth: 1600,
+      imageQuality: 85,
+    );
+    if (image == null) return;
+
+    setState(() {
+      if (kind == 'front') _frontImage = image;
+      if (kind == 'back') _backImage = image;
+      if (kind == 'selfie') _selfieImage = image;
+    });
   }
 
   @override
@@ -157,10 +208,41 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
                       ? 'Enter the number on the document'
                       : null,
                 ),
+                const SizedBox(height: FreshlySpacing.lg),
+                const Text('Photos',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                const SizedBox(height: FreshlySpacing.sm),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ImagePickerBox(
+                        label: 'ID Front',
+                        image: _frontImage,
+                        onTap: () => _pickImage('front'),
+                      ),
+                    ),
+                    const SizedBox(width: FreshlySpacing.md),
+                    Expanded(
+                      child: _ImagePickerBox(
+                        label: 'ID Back',
+                        image: _backImage,
+                        onTap: () => _pickImage('back'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: FreshlySpacing.md),
+                _ImagePickerBox(
+                  label: 'Selfie',
+                  image: _selfieImage,
+                  onTap: () => _pickImage('selfie'),
+                  large: true,
+                ),
                 const SizedBox(height: FreshlySpacing.sm),
                 const Text(
-                  'Your ID number is encrypted. Only the last four digits are ever '
-                  'shown, to you or to us.',
+                  'Your ID number and photos are encrypted. Only the last four '
+                  'digits are ever shown, to you or to us.',
                   style: TextStyle(
                       color: FreshlyColors.inkMuted, fontSize: 12, height: 1.4),
                 ),
@@ -174,6 +256,66 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _ImagePickerBox extends StatelessWidget {
+  const _ImagePickerBox({
+    required this.label,
+    this.image,
+    required this.onTap,
+    this.large = false,
+  });
+
+  final String label;
+  final XFile? image;
+  final VoidCallback onTap;
+  final bool large;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+      child: Container(
+        height: large ? 120 : 100,
+        decoration: BoxDecoration(
+          color: FreshlyColors.line.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+          border: Border.all(color: FreshlyColors.line),
+          image: image != null
+              ? DecorationImage(
+                  image: FileImage(File(image!.path)),
+                  fit: BoxFit.cover,
+                )
+              : null,
+        ),
+        child: image == null
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.camera_alt_outlined,
+                      color: FreshlyColors.inkMuted),
+                  const SizedBox(height: 4),
+                  Text(label,
+                      style: const TextStyle(
+                          fontSize: 12, color: FreshlyColors.inkMuted)),
+                ],
+              )
+            : Align(
+                alignment: Alignment.bottomRight,
+                child: Container(
+                  margin: const EdgeInsets.all(FreshlySpacing.xs),
+                  padding: const EdgeInsets.all(2),
+                  decoration: const BoxDecoration(
+                    color: FreshlyColors.mint,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check, color: Colors.white, size: 14),
+                ),
+              ),
       ),
     );
   }

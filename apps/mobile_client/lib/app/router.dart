@@ -63,6 +63,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           path: '/auth/permissions',
           builder: (_, __) => const PermissionsScreen()),
       GoRoute(path: '/home', builder: (_, __) => const DashboardScreen()),
+      // The same screen, reached after sign-up rather than during it. Where
+      // somebody wants service is a preference, not a fact fixed at
+      // registration.
+      GoRoute(
+        path: '/location',
+        builder: (_, __) => const AreaScreen(isOnboarding: false),
+      ),
       GoRoute(
           path: '/discover',
           builder: (_, s) => FeedScreen(query: s.uri.queryParameters)),

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
 
+import '../../app/notifications.dart';
 import '../../app/providers.dart';
 
 /// Partner sign-in. Same phone-first flow as the client app, with copy that
@@ -57,6 +58,7 @@ class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
             platform: Theme.of(context).platform == TargetPlatform.iOS
                 ? 'ios'
                 : 'android',
+            pushToken: ref.read(pushTokenProvider),
           );
       if (!session.isProvider) {
         setState(() => _error =

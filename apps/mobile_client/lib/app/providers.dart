@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
 
 import 'env.dart';
+import 'notifications.dart' show pushTokenProvider;
 
 final sessionStoreProvider = Provider<SessionStore>((ref) => SessionStore());
 
@@ -104,6 +107,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         _ref.read(serviceAreaProvider.notifier).state = user.serviceArea;
       }
       _ref.read(realtimeProvider).connect(token);
+      _registerPushToken();
     } on ApiException catch (e) {
       // Only a genuine 401 means the stored session is dead — and by the time
       // one reaches here the client has already tried to refresh it. Anything
@@ -130,6 +134,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
       _ref.read(serviceAreaProvider.notifier).state = session.serviceArea;
     }
     _ref.read(realtimeProvider).connect(session.accessToken);
+    _registerPushToken();
+  }
+
+  /// Push registration needs a session, and FCM hands us the token at launch —
+  /// before there is one. So the token is also sent here, once signing in has
+  /// given it somewhere to belong. Without this a device only ever registers
+  /// if its token happens to rotate while the app is open, which for most
+  /// installs is never.
+  void _registerPushToken() {
+    final token = _ref.read(pushTokenProvider);
+    if (token == null) return;
+    // Not awaited and errors ignored: missing push is a degraded app, a throw
+    // on the sign-in path is a broken one.
+    unawaited(_ref.read(apiProvider).updatePushToken(token).catchError((_) {}));
   }
 
   /// Profile done, but the area question comes next for a brand new account.

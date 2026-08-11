@@ -202,6 +202,9 @@ class ProviderSummary {
     required this.fromPrice,
     required this.categories,
     required this.etaMinutes,
+    this.venueMode = VenueMode.mobile,
+    this.businessMode = BusinessMode.solo,
+    this.shopAddress,
   });
 
   final String id;
@@ -216,6 +219,15 @@ class ProviderSummary {
   final Money fromPrice;
   final List<ServiceCategory> categories;
   final int? etaMinutes;
+  final VenueMode venueMode;
+  final BusinessMode businessMode;
+
+  /// Null unless this provider receives clients somewhere.
+  final String? shopAddress;
+
+  /// A salon is a place you travel to; a solo provider comes to you. The
+  /// distinction changes what the card should say, not just what it shows.
+  bool get isShop => venueMode == VenueMode.inShop || businessMode == BusinessMode.salon;
 
   factory ProviderSummary.fromJson(Map<String, dynamic> j) => ProviderSummary(
         id: j['providerId'] as String,
@@ -232,6 +244,70 @@ class ProviderSummary {
             .map((c) => ServiceCategory.fromWire(c as String))
             .toList(),
         etaMinutes: j['etaMinutes'] as int?,
+        venueMode: VenueMode.fromWire(j['venueMode'] as String?),
+        businessMode: BusinessMode.fromWire(j['businessMode'] as String?),
+        shopAddress: j['shopAddress'] as String?,
+      );
+}
+
+enum VenueMode {
+  mobile('mobile'),
+  inShop('in_shop'),
+  both('both');
+
+  const VenueMode(this.wire);
+  final String wire;
+
+  /// Defaults to mobile rather than throwing. An unrecognised venue is a
+  /// deployment skew, and refusing to render the whole feed over one is worse
+  /// than showing a provider slightly wrong.
+  static VenueMode fromWire(String? wire) =>
+      VenueMode.values.firstWhere((v) => v.wire == wire, orElse: () => VenueMode.mobile);
+}
+
+enum BusinessMode {
+  solo('solo'),
+  salon('salon'),
+  salonStaff('salon_staff');
+
+  const BusinessMode(this.wire);
+  final String wire;
+
+  static BusinessMode fromWire(String? wire) =>
+      BusinessMode.values.firstWhere((b) => b.wire == wire, orElse: () => BusinessMode.solo);
+}
+
+/// A suburb, as a person would name it. Always inside an area we serve.
+class Place {
+  const Place({
+    required this.id,
+    required this.name,
+    required this.serviceAreaId,
+    required this.serviceAreaName,
+    required this.lat,
+    required this.lng,
+    this.postalCode,
+    this.countryCode,
+  });
+
+  final String id;
+  final String name;
+  final String serviceAreaId;
+  final String serviceAreaName;
+  final double lat;
+  final double lng;
+  final String? postalCode;
+  final String? countryCode;
+
+  factory Place.fromJson(Map<String, dynamic> j) => Place(
+        id: j['id'] as String,
+        name: j['name'] as String,
+        serviceAreaId: j['serviceAreaId'] as String,
+        serviceAreaName: j['serviceAreaName'] as String,
+        lat: (j['lat'] as num).toDouble(),
+        lng: (j['lng'] as num).toDouble(),
+        postalCode: j['postalCode'] as String?,
+        countryCode: j['countryCode'] as String?,
       );
 }
 
@@ -483,6 +559,8 @@ class ServiceArea {
     required this.lat,
     required this.lng,
     this.countryCode,
+    this.placeId,
+    this.placeName,
   });
 
   final String id;
@@ -492,6 +570,14 @@ class ServiceArea {
   final double lng;
   final String? countryCode;
 
+  /// The suburb the user actually chose, when they chose one.
+  final String? placeId;
+  final String? placeName;
+
+  /// What to show them. "Rosebank" is an answer they recognise;
+  /// "Johannesburg North" is one they would have to work out.
+  String get displayName => placeName ?? name;
+
   factory ServiceArea.fromJson(Map<String, dynamic> j) => ServiceArea(
         id: j['id'] as String,
         slug: j['slug'] as String,
@@ -499,6 +585,8 @@ class ServiceArea {
         lat: (j['lat'] as num).toDouble(),
         lng: (j['lng'] as num).toDouble(),
         countryCode: j['countryCode'] as String?,
+        placeId: j['placeId'] as String?,
+        placeName: j['placeName'] as String?,
       );
 }
 
