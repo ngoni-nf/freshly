@@ -157,8 +157,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
               // ── Categories ─────────────────────────────────────────────────
               Padding(
-                padding: const EdgeInsets.fromLTRB(FreshlySpacing.md, 0,
-                    FreshlySpacing.md, FreshlySpacing.sm),
+                padding: const EdgeInsets.fromLTRB(
+                    FreshlySpacing.md, 0, FreshlySpacing.md, FreshlySpacing.sm),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [

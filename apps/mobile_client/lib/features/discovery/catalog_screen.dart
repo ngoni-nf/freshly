@@ -28,11 +28,14 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
       appBar: AppBar(
         title: Text(_selectedCategory?.label ?? 'Browse Services'),
         leading: _selectedCategory != null
-            ? BackButton(onPressed: () => setState(() => _selectedCategory = null))
+            ? BackButton(
+                onPressed: () => setState(() => _selectedCategory = null))
             : null,
       ),
       body: _selectedCategory == null
-          ? const _SpecialityGrid()
+          ? _SpecialityGrid(onSelect: (cat) {
+              setState(() => _selectedCategory = cat);
+            })
           : _ServiceList(
               category: _selectedCategory!,
               onSelect: (service) {
@@ -47,7 +50,8 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
 }
 
 class _SpecialityGrid extends ConsumerWidget {
-  const _SpecialityGrid();
+  const _SpecialityGrid({required this.onSelect});
+  final ValueChanged<ServiceCategory> onSelect;
 
   static const _icons = {
     ServiceCategory.barber: Icons.content_cut,
@@ -86,10 +90,7 @@ class _SpecialityGrid extends ConsumerWidget {
         itemBuilder: (context, i) {
           final item = list[i];
           return InkWell(
-            onTap: () {
-              final state = context.findAncestorStateOfType<_CatalogScreenState>();
-              state?.setState(() => state._selectedCategory = item.category);
-            },
+            onTap: () => onSelect(item.category),
             borderRadius: BorderRadius.circular(FreshlySpacing.radius),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -108,11 +109,13 @@ class _SpecialityGrid extends ConsumerWidget {
                 Text(
                   item.category.label,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 13),
                 ),
                 Text(
                   '${item.providerCount} pros',
-                  style: const TextStyle(color: FreshlyColors.inkMuted, fontSize: 11),
+                  style: const TextStyle(
+                      color: FreshlyColors.inkMuted, fontSize: 11),
                 ),
               ],
             ),
@@ -143,7 +146,8 @@ class _ServiceList extends ConsumerWidget {
           final service = list[i];
           return ListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(service.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+            title: Text(service.name,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -151,20 +155,25 @@ class _ServiceList extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.only(top: 2, bottom: 4),
                     child: Text(service.description!,
-                        style: const TextStyle(fontSize: 13, color: FreshlyColors.inkMuted)),
+                        style: const TextStyle(
+                            fontSize: 13, color: FreshlyColors.inkMuted)),
                   ),
                 Row(
                   children: [
-                    const Icon(Icons.access_time, size: 14, color: FreshlyColors.inkMuted),
+                    const Icon(Icons.access_time,
+                        size: 14, color: FreshlyColors.inkMuted),
                     const SizedBox(width: 4),
                     Text('${service.typicalDurationMinutes} min',
-                        style: const TextStyle(fontSize: 12, color: FreshlyColors.inkMuted)),
+                        style: const TextStyle(
+                            fontSize: 12, color: FreshlyColors.inkMuted)),
                     if (service.requiresPower) ...[
                       const SizedBox(width: FreshlySpacing.md),
-                      const Icon(Icons.bolt, size: 14, color: FreshlyColors.mint),
+                      const Icon(Icons.bolt,
+                          size: 14, color: FreshlyColors.mint),
                       const SizedBox(width: 4),
                       const Text('Power needed',
-                          style: TextStyle(fontSize: 12, color: FreshlyColors.mint)),
+                          style: TextStyle(
+                              fontSize: 12, color: FreshlyColors.mint)),
                     ],
                   ],
                 ),

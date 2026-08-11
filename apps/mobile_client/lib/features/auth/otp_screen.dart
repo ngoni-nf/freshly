@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/notifications.dart';
 import '../../app/providers.dart';
 
 class OtpScreen extends ConsumerStatefulWidget {
@@ -57,6 +58,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
             platform: Theme.of(context).platform == TargetPlatform.iOS
                 ? 'ios'
                 : 'android',
+            pushToken: ref.read(pushTokenProvider),
           );
       ref.read(authStateProvider.notifier).signedIn(session);
       // context.go returns void; only context.push returns a Future, so there

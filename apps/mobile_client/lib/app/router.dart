@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:freshly_core/freshly_core.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/auth/splash_screen.dart';
