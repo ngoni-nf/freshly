@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/providers.dart';
 import '../../widgets/load_shedding_banner.dart';
+import '../../widgets/provider_compact_card.dart';
+import '../booking/booking_draft.dart';
 import '../discovery/feed_screen.dart' show currentPositionProvider;
 
 /// Salons near the customer, for "At a shop".
@@ -16,6 +18,8 @@ import '../discovery/feed_screen.dart' show currentPositionProvider;
 /// filters the customer last left discovery in. The radius is wider than the
 /// mobile default because a shop does not travel, so the only thing that
 /// matters is whether the customer is willing to.
+final dashboardVenueProvider = StateProvider<String>((ref) => 'mobile');
+
 final nearbyShopsProvider =
     FutureProvider.autoDispose<List<ProviderSummary>>((ref) async {
   final position = await ref.watch(currentPositionProvider.future);
@@ -25,6 +29,32 @@ final nearbyShopsProvider =
         venue: 'in_shop',
         radiusKm: 15,
         limit: 10,
+      );
+});
+
+final topRatedProvidersProvider =
+    FutureProvider.autoDispose<List<ProviderSummary>>((ref) async {
+  final position = await ref.watch(currentPositionProvider.future);
+  final venue = ref.watch(dashboardVenueProvider);
+  return ref.watch(apiProvider).searchProviders(
+        lat: position.latitude,
+        lng: position.longitude,
+        venue: venue,
+        minRating: 4.8,
+        limit: 8,
+      );
+});
+
+final powerBackupProvidersProvider =
+    FutureProvider.autoDispose<List<ProviderSummary>>((ref) async {
+  final position = await ref.watch(currentPositionProvider.future);
+  final venue = ref.watch(dashboardVenueProvider);
+  return ref.watch(apiProvider).searchProviders(
+        lat: position.latitude,
+        lng: position.longitude,
+        venue: venue,
+        requirePowerBackup: true,
+        limit: 8,
       );
 });
 
@@ -41,7 +71,6 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  bool _mobileMode = true;
   final _searchController = TextEditingController();
   bool _parsing = false;
 
@@ -52,9 +81,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     try {
       final intent = await ref.read(apiProvider).parseIntent(text);
       if (!mounted) return;
+      final venue = ref.read(dashboardVenueProvider);
       unawaited(context.push(Uri(path: '/discover', queryParameters: {
         if (intent.category != null) 'category': intent.category!.wire,
-        'venue': _mobileMode ? 'mobile' : 'in_shop',
+        'venue': venue,
         if (intent.powerBackupRequired) 'power': 'true',
         if (intent.bookingType == 'instant') 'instant': 'true',
         'q': intent.rawQuery,
@@ -71,6 +101,38 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   void _openCategory(ServiceCategory category) {
     context.push('/catalog?category=${category.wire}');
+  }
+
+  Future<void> _rebook(Booking b) async {
+    if (b.providerId == null) return;
+    setState(() => _parsing = true);
+    try {
+      final data = await ref.read(apiProvider).providerProfile(b.providerId!);
+      final services = (data['services'] as List? ?? [])
+          .map((s) => ServiceItem.fromJson(s as Map<String, dynamic>))
+          .where((s) => b.serviceIds.contains(s.id))
+          .toList();
+
+      if (!mounted) return;
+      if (services.isEmpty) {
+        throw ApiException('services_unavailable',
+            'These services are no longer available. Please choose new ones.');
+      }
+
+      unawaited(context.push('/book/logistics',
+          extra: BookingDraft(
+            providerId: b.providerId!,
+            providerName: b.providerName ?? 'Professional',
+            services: services,
+          )));
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _parsing = false);
+    }
   }
 
   @override
@@ -150,9 +212,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         icon: Icon(Icons.storefront_outlined),
                         label: Text('At a shop')),
                   ],
-                  selected: {_mobileMode},
-                  onSelectionChanged: (s) =>
-                      setState(() => _mobileMode = s.first),
+                  selected: {ref.watch(dashboardVenueProvider) == 'mobile'},
+                  onSelectionChanged: (s) => ref
+                      .read(dashboardVenueProvider.notifier)
+                      .state = s.first ? 'mobile' : 'in_shop',
                   showSelectedIcon: false,
                 ),
               ),
@@ -231,10 +294,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ),
 
+              const SizedBox(height: FreshlySpacing.lg),
+              _CollectionSection(
+                title: 'Top rated near you',
+                provider: topRatedProvidersProvider,
+                onSeeAll: () => context.push('/discover?rating=4.5'),
+              ),
+
+              const SizedBox(height: FreshlySpacing.lg),
+              _CollectionSection(
+                title: 'Load-shedding ready',
+                provider: powerBackupProvidersProvider,
+                onSeeAll: () => context.push('/discover?power=true'),
+              ),
+
               // ── Salons, when they are shopping for one ─────────────────────
               // Only in shop mode. In mobile mode a list of premises is noise:
               // the whole proposition there is that nobody has to travel.
-              if (!_mobileMode) ...[
+              if (ref.watch(dashboardVenueProvider) == 'in_shop') ...[
                 const SizedBox(height: FreshlySpacing.lg),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
@@ -421,7 +498,14 @@ class _RecentBookings extends ConsumerWidget {
                   trailing: b.status.isLive
                       ? const Icon(Icons.navigation_outlined,
                           color: FreshlyColors.mint)
-                      : const Icon(Icons.refresh),
+                      : TextButton(
+                          onPressed: () {
+                            final state = context
+                                .findAncestorStateOfType<_DashboardScreenState>();
+                            state?._rebook(b);
+                          },
+                          child: const Text('Rebook'),
+                        ),
                   onTap: () => b.status.isLive
                       ? context.push('/track/${b.id}')
                       : context.push('/provider/${b.providerId}'),
@@ -431,6 +515,76 @@ class _RecentBookings extends ConsumerWidget {
           }).toList(),
         );
       },
+    );
+  }
+}
+
+class _CollectionSection extends ConsumerWidget {
+  const _CollectionSection({
+    required this.title,
+    required this.provider,
+    required this.onSeeAll,
+  });
+
+  final String title;
+  final AutoDisposeFutureProvider<List<ProviderSummary>> provider;
+  final VoidCallback onSeeAll;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final results = ref.watch(provider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(title,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 17)),
+              TextButton(onPressed: onSeeAll, child: const Text('See all')),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 200,
+          child: results.when(
+            loading: () => ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
+              itemCount: 3,
+              separatorBuilder: (_, __) =>
+                  const SizedBox(width: FreshlySpacing.sm),
+              itemBuilder: (_, __) => Container(
+                width: 160,
+                decoration: BoxDecoration(
+                  color: FreshlyColors.line.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+                ),
+              ),
+            ),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (list) {
+              if (list.isEmpty) return const SizedBox.shrink();
+              return ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
+                itemCount: list.length,
+                separatorBuilder: (_, __) =>
+                    const SizedBox(width: FreshlySpacing.sm),
+                itemBuilder: (context, i) => ProviderCompactCard(
+                  provider: list[i],
+                  onTap: () => context.push('/provider/${list[i].id}'),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

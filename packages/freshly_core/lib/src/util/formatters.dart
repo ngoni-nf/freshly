@@ -33,6 +33,16 @@ String formatSlot(DateTime when) {
   return DateFormat('EEE d MMM, HH:mm').format(when);
 }
 
+/// A date without a time, for things that happened rather than things that are
+/// about to. "Last seen 3 Aug" is useful; "Last seen 3 Aug, 14:32" is noise.
+///
+/// The year appears only when it is not the current one, which keeps the
+/// common case short without ever being ambiguous.
+String formatDate(DateTime when) {
+  final pattern = when.year == DateTime.now().year ? 'd MMM' : 'd MMM yyyy';
+  return DateFormat(pattern).format(when);
+}
+
 String formatCountdown(Duration d) {
   if (d.isNegative) return '0:00';
   final m = d.inMinutes;

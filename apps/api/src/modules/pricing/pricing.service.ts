@@ -160,16 +160,22 @@ export class PricingService {
   cancellationFee(
     market: MarketConfig,
     quote: { totalMinor: number; serviceFeeMinor: number },
-    context: { minutesUntilStart: number | null; providerEnRoute: boolean; cancelledBy: 'client' | 'provider' },
+    context: {
+      minutesUntilStart: number | null;
+      providerEnRoute: boolean;
+      cancelledBy: 'client' | 'provider';
+      reason?: string;
+    },
   ): { feeMinor: number; refundMinor: number; reason: string } {
-    if (context.cancelledBy === 'provider') {
+    if (context.cancelledBy === 'provider' && context.reason !== 'no_show') {
       return { feeMinor: 0, refundMinor: quote.totalMinor, reason: 'provider_cancelled' };
     }
 
+    const isNoShow = context.reason === 'no_show';
     const insideWindow =
       context.minutesUntilStart !== null && context.minutesUntilStart <= market.cancellationWindowMinutes;
 
-    if (!insideWindow && !context.providerEnRoute) {
+    if (!insideWindow && !context.providerEnRoute && !isNoShow) {
       return { feeMinor: 0, refundMinor: quote.totalMinor, reason: 'free_cancellation' };
     }
 
@@ -178,7 +184,7 @@ export class PricingService {
     return {
       feeMinor,
       refundMinor: quote.totalMinor - feeMinor,
-      reason: context.providerEnRoute ? 'provider_en_route' : 'late_cancellation',
+      reason: isNoShow ? 'client_no_show' : (context.providerEnRoute ? 'provider_en_route' : 'late_cancellation'),
     };
   }
 }

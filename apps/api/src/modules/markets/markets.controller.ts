@@ -36,6 +36,9 @@ export class MarketsController {
       timezone: m.timezone,
       serviceFeeMinor: m.serviceFeeMinor,
       vatLabel: m.vatLabel,
+      cancellationWindowMinutes: m.cancellationWindowMinutes,
+      cancellationFeeBps: m.cancellationFeeBps,
+      noShowGraceMinutes: m.noShowGraceMinutes,
     }));
   }
 }

@@ -132,12 +132,48 @@ export class CatalogService {
   }
 
   /** A provider's own menu, including anything currently withdrawn. */
+  /**
+   * Take a service off the menu.
+   *
+   * Deleted outright only when nothing has ever been booked against it.
+   * A service that appears in a booking is referenced by `booking_items`, and
+   * that row is part of an order somebody paid for — the price it charged and
+   * the ledger entries that settled it. Deleting it would either fail on the
+   * foreign key or, worse, take history with it.
+   *
+   * So a used service is deactivated instead. It stops being offered, which is
+   * the only thing the provider asked for, and every past booking keeps its
+   * own `name_snapshot` regardless.
+   */
+  async removeFromMenu(providerId: string, serviceId: string): Promise<{ ok: true }> {
+    const service = await this.db.queryOne<{ id: string }>(
+      'SELECT id FROM services WHERE id = $1 AND provider_id = $2',
+      [serviceId, providerId],
+    );
+    if (!service) throw new NotFoundError('Service', serviceId);
+
+    const used = await this.db.queryOne<{ id: string }>(
+      'SELECT id FROM booking_items WHERE service_id = $1 LIMIT 1',
+      [serviceId],
+    );
+
+    if (used) {
+      await this.db.query('UPDATE services SET is_active = false WHERE id = $1', [serviceId]);
+    } else {
+      await this.db.query('DELETE FROM services WHERE id = $1', [serviceId]);
+    }
+    return { ok: true };
+  }
+
   async menu(providerId: string) {
     const rows = await this.db.query<Record<string, any>>(
+      // Active only: this is what the provider currently offers, and a
+      // deactivated service that stayed on the list would make removing one
+      // look like it had failed.
       `SELECT s.id, s.name, s.category, s.price_minor, s.currency, s.duration_minutes,
               s.venue_mode, s.is_active, s.requires_credential, s.template_id
          FROM services s
-        WHERE s.provider_id = $1
+        WHERE s.provider_id = $1 AND s.is_active
         ORDER BY s.category, s.sort_order, s.name`,
       [providerId],
     );

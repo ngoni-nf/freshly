@@ -316,6 +316,81 @@ export class ProvidersService {
       payout: { minor: Number(r.provider_payout_minor), currency: r.currency },
     }));
   }
+
+  async listMyClients(providerId: string) {
+    const rows = await this.db.query<Record<string, any>>(
+      `SELECT DISTINCT u.id, u.full_name, u.avatar_url, u.phone_e164,
+              MAX(b.created_at) as last_booking_at,
+              COUNT(b.id) as booking_count
+         FROM users u
+         JOIN bookings b ON b.client_id = u.id
+        WHERE b.provider_id = $1 AND b.status = 'completed'
+        GROUP BY u.id
+        ORDER BY last_booking_at DESC`,
+      [providerId],
+    );
+
+    return rows.map((r) => ({
+      id: r.id,
+      fullName: r.full_name,
+      avatarUrl: r.avatar_url,
+      phone: r.phone_e164,
+      lastBookingAt: r.last_booking_at.toISOString(),
+      bookingCount: Number(r.booking_count),
+    }));
+  }
+
+  async clientDetail(providerId: string, clientId: string) {
+    const user = await this.db.queryOne<Record<string, any>>(
+      `SELECT id, full_name, avatar_url, phone_e164, rating, rating_count, created_at
+         FROM users WHERE id = $1`,
+      [clientId],
+    );
+    if (!user) throw new NotFoundError('Client', clientId);
+
+    const history = await this.db.query<Record<string, any>>(
+      `SELECT b.id, b.reference, b.status, b.created_at, b.total_minor, b.currency,
+              ARRAY(SELECT name_snapshot FROM booking_items WHERE booking_id = b.id) as services
+         FROM bookings b
+        WHERE b.provider_id = $1 AND b.client_id = $2
+        ORDER BY b.created_at DESC`,
+      [providerId, clientId],
+    );
+
+    const note = await this.db.queryOne<{ notes: string }>(
+      'SELECT notes FROM provider_client_notes WHERE provider_id = $1 AND client_user_id = $2',
+      [providerId, clientId],
+    );
+
+    return {
+      id: user.id,
+      fullName: user.full_name,
+      avatarUrl: user.avatar_url,
+      phone: user.phone_e164,
+      rating: Number(user.rating),
+      ratingCount: user.rating_count,
+      joinedAt: user.created_at.toISOString(),
+      notes: note?.notes ?? '',
+      history: history.map((h) => ({
+        id: h.id,
+        reference: h.reference,
+        status: h.status,
+        createdAt: h.created_at.toISOString(),
+        total: { minor: Number(h.total_minor), currency: h.currency },
+        services: h.services,
+      })),
+    };
+  }
+
+  async updateClientNotes(providerId: string, clientId: string, notes: string) {
+    await this.db.query(
+      `INSERT INTO provider_client_notes (provider_id, client_user_id, notes)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (provider_id, client_user_id) DO UPDATE SET notes = EXCLUDED.notes, updated_at = now()`,
+      [providerId, clientId, notes],
+    );
+    return { ok: true };
+  }
 }
 
 /** Reviews and schedules show a first name only. Full names are not needed. */

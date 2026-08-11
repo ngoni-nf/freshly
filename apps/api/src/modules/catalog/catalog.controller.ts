@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
@@ -48,5 +48,15 @@ export class CatalogController {
   @ApiOperation({ summary: 'Add a catalogue service to your menu at your own price' })
   addToMenu(@CurrentUser('providerId') providerId: string, @Body() dto: AddToMenuDto) {
     return this.catalog.addToMenu(providerId, dto);
+  }
+
+  @Roles('provider')
+  @Delete('me/menu/:id')
+  @ApiOperation({ summary: 'Stop offering a service' })
+  removeFromMenu(
+    @CurrentUser('providerId') providerId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.catalog.removeFromMenu(providerId, id);
   }
 }

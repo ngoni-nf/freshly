@@ -395,6 +395,7 @@ export class BookingsService {
         minutesUntilStart,
         providerEnRoute: ['en_route', 'arrived'].includes(booking.status),
         cancelledBy: isClient ? 'client' : 'provider',
+        reason,
       },
     );
 

@@ -5,6 +5,9 @@ import {
   ArrayMaxSize, IsArray, IsBoolean, IsIn, IsNumber, IsOptional, IsString, Length, Max, Min,
 } from 'class-validator';
 
+import { CurrentUser, Public, Roles } from '../../common/decorators';
+import { ProvidersService } from './providers.service';
+
 class PortfolioItemDto {
   /// The key returned by POST /storage/uploads. Checked server-side against
   /// the caller's own namespace — it is not enough that it is well-formed.
@@ -14,8 +17,6 @@ class PortfolioItemDto {
   @Length(1, 40, { each: true })
   tags?: string[];
 }
-import { CurrentUser, Public, Roles } from '../../common/decorators';
-import { ProvidersService } from './providers.service';
 
 class PresenceDto {
   @IsBoolean() isOnline!: boolean;
@@ -125,5 +126,33 @@ export class ProvidersController {
     return this.providers.addAvailabilityBlock(
       providerId, new Date(dto.start), new Date(dto.end), dto.reason ?? 'manual',
     );
+  }
+
+  @Roles('provider')
+  @Get('me/clients')
+  @ApiOperation({ summary: 'Clients who have previously booked this provider' })
+  listClients(@CurrentUser('providerId') providerId: string) {
+    return this.providers.listMyClients(providerId);
+  }
+
+  @Roles('provider')
+  @Get('me/clients/:id')
+  @ApiOperation({ summary: 'Client detail: contact, history and private notes' })
+  clientDetail(
+    @CurrentUser('providerId') providerId: string,
+    @Param('id', ParseUUIDPipe) clientId: string,
+  ) {
+    return this.providers.clientDetail(providerId, clientId);
+  }
+
+  @Roles('provider')
+  @Post('me/clients/:id/notes')
+  @ApiOperation({ summary: 'Add or update private provider-only notes for a client' })
+  updateClientNotes(
+    @CurrentUser('providerId') providerId: string,
+    @Param('id', ParseUUIDPipe) clientId: string,
+    @Body() dto: { notes: string },
+  ) {
+    return this.providers.updateClientNotes(providerId, clientId, dto.notes);
   }
 }
