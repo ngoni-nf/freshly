@@ -105,16 +105,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
       _ref.read(realtimeProvider).connect(token);
     } on ApiException catch (e) {
-      // An unreachable server is not a signed-out user. Sending someone back
-      // to the phone screen because their train went into a tunnel loses their
-      // session for no reason; the API client will refresh or 401 properly
-      // once the network returns.
-      if (e.isOffline) {
-        state = const AuthSignedOut();
-      } else {
+      // Only a genuine 401 means the stored session is dead — and by the time
+      // one reaches here the client has already tried to refresh it. Anything
+      // else (offline, a 500, a timeout) is the server's problem, not proof
+      // the user is signed out, so the tokens are kept and the next launch can
+      // succeed. Discarding them on a transient error is how a working
+      // session gets destroyed by a bad five minutes.
+      if (e.isAuthFailure) {
         await _ref.read(sessionStoreProvider).clear();
-        state = const AuthSignedOut();
       }
+      state = const AuthSignedOut();
     } catch (_) {
       state = const AuthSignedOut();
     }

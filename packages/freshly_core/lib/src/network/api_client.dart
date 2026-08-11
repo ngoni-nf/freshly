@@ -84,6 +84,30 @@ class FreshlyApi {
     handler.next(options);
   }
 
+  /// Endpoints where a 401 must NOT trigger a refresh.
+  ///
+  /// Only sign-in itself and the refresh call, which would recurse. This was
+  /// previously any path containing '/auth/', which silently included
+  /// `/auth/me` — the one call made at every launch. An access token expires
+  /// after fifteen minutes, so opening the app the next morning produced a 401
+  /// on `/auth/me`, no refresh was attempted, and `_restore` reacted by
+  /// clearing a perfectly good thirty-day refresh token. Every user was
+  /// signed out on the next launch.
+  static const _neverRefresh = [
+    '/auth/refresh',
+    '/auth/otp/request',
+    '/auth/otp/verify',
+    '/auth/firebase',
+  ];
+
+  /// Whether a 401 on this path should trigger a token refresh.
+  ///
+  /// Public and pure so the rule can be asserted directly. The bug it replaced
+  /// was invisible in the app until a session had aged past the access token
+  /// TTL, which is exactly the kind of thing a test should catch instead.
+  static bool shouldAttemptRefresh(String path) =>
+      !_neverRefresh.any(path.startsWith);
+
   /// A 401 triggers exactly one refresh attempt, shared across every request
   /// that failed concurrently. Without the completer, a screen that fires four
   /// parallel calls on resume would rotate the refresh token four times and
@@ -93,7 +117,7 @@ class FreshlyApi {
     final response = error.response;
 
     if (response?.statusCode == 401 &&
-        !error.requestOptions.path.contains('/auth/')) {
+        shouldAttemptRefresh(error.requestOptions.path)) {
       try {
         await _refreshSession();
         final retried = await _dio.fetch(error.requestOptions);

@@ -2,6 +2,38 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:freshly_core/freshly_core.dart';
 
 void main() {
+  group('token refresh on 401', () {
+    // The regression this guards: the rule was "any path containing /auth/",
+    // which silently included /auth/me — the one call made at every launch.
+    // An access token lives fifteen minutes, so opening the app the next day
+    // 401'd on /auth/me, no refresh was attempted, and the stored session was
+    // discarded. Every user was signed out on the next launch, holding a
+    // perfectly valid thirty-day refresh token.
+    test('refreshes for authenticated endpoints, including /auth/me', () {
+      for (final path in [
+        '/auth/me',
+        '/auth/profile',
+        '/auth/service-area',
+        '/auth/logout',
+        '/bookings',
+        '/payouts/wallet',
+      ]) {
+        expect(FreshlyApi.shouldAttemptRefresh(path), isTrue, reason: path);
+      }
+    });
+
+    test('does not refresh for sign-in or for refresh itself', () {
+      for (final path in [
+        '/auth/refresh',
+        '/auth/otp/request',
+        '/auth/otp/verify',
+        '/auth/firebase',
+      ]) {
+        expect(FreshlyApi.shouldAttemptRefresh(path), isFalse, reason: path);
+      }
+    });
+  });
+
   group('Money', () {
     test('formats South African rand from minor units', () {
       expect(const Money(minor: 18000, currency: 'ZAR').format(), 'R180.00');
