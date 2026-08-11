@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
@@ -95,6 +97,49 @@ class _JobScreenState extends ConsumerState<JobScreen> {
     }
   }
 
+  /// Declaring a no-show cancels the booking and charges the client a fee, so
+  /// it is confirmed first. It lives here rather than in the button, because
+  /// only this State owns `_busy` and the booking id the call needs.
+  Future<void> _noShow() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Declare No-Show?'),
+        content: const Text(
+          'If the client is not here, you can declare a no-show. '
+          'A cancellation fee will be charged to the client to cover your travel.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Wait longer')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: FreshlyColors.crimson),
+            child: const Text('Declare No-Show'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _busy = true);
+    try {
+      await ref.read(apiProvider).cancelBooking(widget.bookingId, 'no_show');
+      ref.invalidate(jobProvider(widget.bookingId));
+      ref.invalidate(scheduleProvider);
+      if (mounted) context.go('/');
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final job = ref.watch(jobProvider(widget.bookingId));
@@ -170,6 +215,12 @@ class _JobScreenState extends ConsumerState<JobScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: FreshlySpacing.sm),
+            if (booking.status == BookingStatus.arrived)
+              _NoShowButton(
+                arrivedAt: booking.arrivedAt,
+                onPressed: _noShow,
+              ),
             const SizedBox(height: FreshlySpacing.lg),
             if (booking.status == BookingStatus.inProgress)
               OutlinedButton.icon(
@@ -196,6 +247,80 @@ class _JobScreenState extends ConsumerState<JobScreen> {
         ),
         orElse: () => const SizedBox.shrink(),
       ),
+    );
+  }
+}
+
+class _NoShowButton extends ConsumerStatefulWidget {
+  const _NoShowButton({required this.arrivedAt, required this.onPressed});
+  final DateTime? arrivedAt;
+  final VoidCallback onPressed;
+
+  @override
+  ConsumerState<_NoShowButton> createState() => _NoShowButtonState();
+}
+
+class _NoShowButtonState extends ConsumerState<_NoShowButton> {
+  Timer? _timer;
+  int _secondsRemaining = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  void _startTimer() {
+    final markets = ref.read(marketsProvider).value;
+    final country = ref.read(countryCodeProvider);
+
+    final market = markets?.firstWhere((m) => m.code == country,
+        orElse: () => markets.first);
+    final graceMinutes = market?.noShowGraceMinutes ?? 10;
+
+    void update() {
+      if (widget.arrivedAt == null) return;
+      final graceEnd = widget.arrivedAt!.add(Duration(minutes: graceMinutes));
+      final diff = graceEnd.difference(DateTime.now()).inSeconds;
+      setState(() => _secondsRemaining = diff > 0 ? diff : 0);
+    }
+
+    update();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => update());
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = _secondsRemaining <= 0;
+
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: enabled ? widget.onPressed : null,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: FreshlyColors.crimson,
+              side: enabled ? const BorderSide(color: FreshlyColors.crimson) : null,
+            ),
+            child: Text(enabled ? 'Declare No-Show' : 'Wait for client…'),
+          ),
+        ),
+        if (!enabled)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'Available in ${(_secondsRemaining / 60).floor()}:${(_secondsRemaining % 60).toString().padLeft(2, '0')}',
+              style: const TextStyle(fontSize: 12, color: FreshlyColors.inkMuted),
+            ),
+          ),
+      ],
     );
   }
 }
