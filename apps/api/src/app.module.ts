@@ -29,6 +29,7 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
 import { KycModule } from './modules/kyc/kyc.module';
 import { SafetyModule } from './modules/safety/safety.module';
 import { CredentialsModule } from './modules/credentials/credentials.module';
+import { StorageModule } from './modules/storage/storage.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { CredentialsModule } from './modules/credentials/credentials.module';
     KycModule,
     SafetyModule,
     CredentialsModule,
+    StorageModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

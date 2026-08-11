@@ -1,13 +1,17 @@
 const fs = require('fs');
 const { Client } = require('pg');
 
-const env = Object.fromEntries(
-  fs
-    .readFileSync('.env', 'utf8')
-    .split(/\r?\n/)
-    .filter((l) => l && !l.startsWith('#') && l.includes('='))
-    .map((l) => [l.slice(0, l.indexOf('=')).trim(), l.slice(l.indexOf('=') + 1).trim()]),
-);
+// A real environment variable wins, so this runs in CI where there is no .env.
+const fromFile = fs.existsSync('.env')
+  ? Object.fromEntries(
+      fs
+        .readFileSync('.env', 'utf8')
+        .split(/\r?\n/)
+        .filter((l) => l && !l.startsWith('#') && l.includes('='))
+        .map((l) => [l.slice(0, l.indexOf('=')).trim(), l.slice(l.indexOf('=') + 1).trim()]),
+    )
+  : {};
+const env = { ...fromFile, ...process.env };
 
 const c = new Client({ connectionString: env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 

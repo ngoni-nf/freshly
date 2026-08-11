@@ -58,6 +58,12 @@ jobs:
       - name: Unit tests
         run: npm run test -w @freshly/api
 
+      # Runs against the database directly, no API process needed. It is the
+      # only check that proves an unlicensed provider cannot list microblading,
+      # which is enforced by a trigger and so cannot be unit tested.
+      - name: Credential gate
+        run: node scripts/check-credential-gate.cjs
+
       - name: End-to-end tests
         env:
           RUN_E2E: '1'
@@ -69,9 +75,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Must match the local toolchain. On 3.24 the apps do not compile at all:
+      # DropdownButtonFormField.initialValue and the *ThemeData slots are 3.32+.
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.x'
+          flutter-version: '3.38.1'
           channel: stable
           cache: true
 

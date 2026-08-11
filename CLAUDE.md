@@ -98,9 +98,20 @@ refuse to run until their outstanding contract detail is confirmed. Enabling
 one is deleting a guard, not writing an integration. A plausible-looking
 guessed payload that pays the wrong account is worse than a refusal to start.
 
+Storage brokers uploads through the API: it signs a short-lived, single-object
+URL, so the service role key never leaves the process and the app never talks
+to Storage directly. Keys are derived server-side and namespaced under the
+owner's id — a client-supplied path is a traversal and an overwrite of someone
+else's identity document waiting to happen.
+
 Not built yet: admin portal (`apps/admin`), salon staff management, Firebase
-FCM and Crashlytics wiring in the apps, document/selfie upload for KYC (the
-submission takes S3 keys; nothing produces them yet).
+FCM and Crashlytics wiring in the apps.
+
+Deployment is prepared but never executed — see `docs/DEPLOYMENT.md`. The
+Dockerfile, `fly.toml` and the deploy workflow have not run, because there is
+no container runtime here and no hosting account. Keep the API and the
+database in the same region: a request makes several round trips, so splitting
+them pays the crossing per query rather than once per request.
 
 Blocked on a human: `DATABASE_URL`, so nothing has been run against a real
 database yet — every claim above is from tests, typecheck and the emulator.

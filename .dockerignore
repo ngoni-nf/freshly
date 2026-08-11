@@ -1,0 +1,29 @@
+# Keep the build context small and, more importantly, keep secrets and build
+# artefacts out of the image entirely.
+.env
+.env.*
+!.env.example
+
+node_modules
+**/node_modules
+**/dist
+**/build
+
+apps/mobile_client
+apps/mobile_partner
+**/.dart_tool
+**/*.apk
+**/*.aab
+**/*.jks
+**/*.keystore
+google-services.json
+GoogleService-Info.plist
+
+.git
+.github
+.agents
+.claude
+docs
+scripts/*.sh
+*.md
+!infra/db/**/*.md

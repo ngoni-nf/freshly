@@ -71,6 +71,12 @@ const schema = z.object({
   ESKOMSEPUSH_API_KEY: z.string().optional(),
   ZESA_STATUS_FEED_URL: z.string().optional(),
 
+  // Supabase Storage. The service role key is the most dangerous secret in
+  // this file — it bypasses RLS entirely — so it lives only in the API
+  // process and is never handed to an app.
+  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+
   S3_ENDPOINT: z.string().default('http://localhost:9000'),
   S3_BUCKET: z.string().default('freshly-media'),
   S3_ACCESS_KEY: z.string().optional(),

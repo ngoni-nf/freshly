@@ -1,0 +1,53 @@
+# ---------------------------------------------------------------------------
+# Fly.io deployment for the Freshly API.
+#
+# Region: `dub` (Ireland) because the Supabase project is aws-1-eu-west-1, and
+# a request here makes several database round trips. Putting the API in
+# Johannesburg while the database sits in Ireland pays the ~150ms crossing per
+# QUERY, not per request, which is far worse than paying it once on the HTTP
+# call. If the database ever moves to a region nearer South Africa, move this
+# with it — the two must stay together.
+#
+# `app` is a placeholder: `fly launch` will set your real app name.
+# ---------------------------------------------------------------------------
+app = "freshly-api"
+primary_region = "dub"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3000"
+  # The database is reached over the public internet, so TLS is not optional.
+  DATABASE_SSL = "true"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  # Never scale to zero. Dispatch waves run on in-process timers and the
+  # realtime gateway holds websockets open; a suspended machine drops both,
+  # and a provider simply never receives the offer.
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+  [[http_service.checks]]
+    interval = "15s"
+    timeout = "3s"
+    grace_period = "20s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+# Note on scaling past one machine: socket.io needs its Redis adapter before a
+# second instance is added, or a client connected to machine B never receives
+# an offer published from machine A. One machine is correct until that is done.
