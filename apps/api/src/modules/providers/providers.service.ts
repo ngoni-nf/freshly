@@ -340,7 +340,35 @@ export class ProvidersService {
     }));
   }
 
+  /**
+   * A client is only "yours" if they have actually booked you.
+   *
+   * Without this the endpoint reads any user row by id, so a provider could
+   * walk ids and harvest the name and mobile number of every person on the
+   * platform — including other providers' clients, and people who have never
+   * booked anyone. The notes and history queries below were already scoped;
+   * the identity itself was not, which made the scoping on the other two
+   * beside the point.
+   *
+   * Completed rather than any status, matching listMyClients: a booking that
+   * was cancelled before anyone met does not make someone your client.
+   */
+  private async assertIsMyClient(providerId: string, clientId: string): Promise<void> {
+    const relationship = await this.db.queryOne<{ id: string }>(
+      `SELECT id FROM bookings
+        WHERE provider_id = $1 AND client_id = $2 AND status = 'completed'
+        LIMIT 1`,
+      [providerId, clientId],
+    );
+    // Deliberately the same error as a client who does not exist. Telling a
+    // caller "that person exists but is not yours" is still an oracle for
+    // whether an id belongs to a real user.
+    if (!relationship) throw new NotFoundError('Client', clientId);
+  }
+
   async clientDetail(providerId: string, clientId: string) {
+    await this.assertIsMyClient(providerId, clientId);
+
     const user = await this.db.queryOne<Record<string, any>>(
       `SELECT id, full_name, avatar_url, phone_e164, rating, rating_count, created_at
          FROM users WHERE id = $1`,
@@ -383,6 +411,10 @@ export class ProvidersService {
   }
 
   async updateClientNotes(providerId: string, clientId: string, notes: string) {
+    // Same gate as reading. Otherwise the table becomes free storage keyed to
+    // any user id a provider cares to name.
+    await this.assertIsMyClient(providerId, clientId);
+
     await this.db.query(
       `INSERT INTO provider_client_notes (provider_id, client_user_id, notes)
        VALUES ($1, $2, $3)

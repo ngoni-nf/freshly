@@ -22,6 +22,14 @@ class PresenceDto {
   @IsBoolean() isOnline!: boolean;
 }
 
+class ClientNotesDto {
+  /// A plain `{ notes: string }` type here validated nothing — ValidationPipe
+  /// works off the class, so the field was unbounded and not even checked to
+  /// be a string. Capped because this is free-text a provider types once and
+  /// the platform then stores forever.
+  @IsString() @Length(0, 4000) notes!: string;
+}
+
 class LocationDto {
   @Type(() => Number) @IsNumber() @Min(-90) @Max(90) lat!: number;
   @Type(() => Number) @IsNumber() @Min(-180) @Max(180) lng!: number;
@@ -151,7 +159,7 @@ export class ProvidersController {
   updateClientNotes(
     @CurrentUser('providerId') providerId: string,
     @Param('id', ParseUUIDPipe) clientId: string,
-    @Body() dto: { notes: string },
+    @Body() dto: ClientNotesDto,
   ) {
     return this.providers.updateClientNotes(providerId, clientId, dto.notes);
   }

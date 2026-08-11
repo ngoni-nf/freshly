@@ -448,6 +448,7 @@ export class BookingsService {
     const row = await this.db.queryOne<Record<string, any>>(
       `SELECT b.id, b.reference, b.status, b.booking_type, b.venue_mode, b.scheduled_start,
               b.destination_address, b.total_minor, b.currency, b.provider_id, b.created_at,
+              b.arrived_at,
               p.display_name AS provider_name,
               ARRAY(SELECT service_id FROM booking_items WHERE booking_id = b.id AND NOT is_addon) AS service_ids
          FROM bookings b
@@ -539,6 +540,7 @@ function mapBooking(r: Record<string, any>) {
     providerId: r.provider_id,
     providerName: r.provider_name ?? null,
     serviceIds: r.service_ids ?? [],
+    arrivedAt: r.arrived_at?.toISOString() ?? null,
     createdAt: r.created_at.toISOString(),
   };
 }
