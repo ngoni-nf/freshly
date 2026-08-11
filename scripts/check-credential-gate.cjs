@@ -55,10 +55,21 @@ async function expectAccept(label, sql, params) {
   // about a provider who holds no licence, so an leftover credential from an
   // interrupted run would make them silently pass for the wrong reason.
   const cleanup = async () => {
-    await c.query('DELETE FROM services WHERE provider_id = $1 AND name LIKE $2', [
-      provider,
-      '%[check %',
-    ]);
+    // Deactivate first, then delete only what nothing references. A service the
+    // smoke test happened to book cannot be removed — booking_items points at
+    // it, correctly, because a booking must always say what was bought. Left
+    // as a delete, this failed silently and demo data slowly filled up with
+    // "test" services at R500 that showed up in the app.
+    await c.query(
+      'UPDATE services SET is_active = false WHERE provider_id = $1 AND name LIKE $2',
+      [provider, '%[check %'],
+    );
+    await c.query(
+      `DELETE FROM services
+        WHERE provider_id = $1 AND name LIKE $2
+          AND id NOT IN (SELECT service_id FROM booking_items WHERE service_id IS NOT NULL)`,
+      [provider, '%[check %'],
+    );
     await c.query(
       `DELETE FROM provider_credentials
         WHERE provider_id = $1 AND category = 'brows' AND credential_kind = 'skin_penetration_permit'`,
