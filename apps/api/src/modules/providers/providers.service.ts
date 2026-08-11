@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../common/database/database.service';
 import { RedisService } from '../../common/redis/redis.service';
-import { KycRequiredError, NotFoundError } from '../../common/errors/domain.errors';
+import { DomainError, KycRequiredError, NotFoundError } from '../../common/errors/domain.errors';
 import { MarketsService } from '../markets/markets.service';
 
 @Injectable()
@@ -71,6 +71,100 @@ export class ProvidersService {
         author: firstNameOnly(r.full_name), createdAt: r.created_at.toISOString(),
       })),
     };
+  }
+
+  /**
+   * The provider's own portfolio, including items still awaiting moderation.
+   *
+   * Deliberately different from the public profile, which shows only approved
+   * items. A provider who uploads a photo and cannot see it assumes the upload
+   * failed and uploads it again; showing it with its status is the difference
+   * between "in review" and "broken".
+   */
+  async myPortfolio(providerId: string) {
+    const rows = await this.db.query<{
+      id: string;
+      media_key: string;
+      ai_tags: string[];
+      moderation_status: string;
+      sort_order: number;
+      created_at: Date;
+    }>(
+      `SELECT id, media_key, ai_tags, moderation_status, sort_order, created_at
+         FROM portfolio_items
+        WHERE provider_id = $1
+        ORDER BY sort_order, created_at DESC`,
+      [providerId],
+    );
+
+    return rows.map((r) => ({
+      id: r.id,
+      url: r.media_key,
+      tags: r.ai_tags ?? [],
+      moderationStatus: r.moderation_status,
+      createdAt: r.created_at.toISOString(),
+    }));
+  }
+
+  /**
+   * Register an already-uploaded photo against the provider.
+   *
+   * The key is checked against the caller's own namespace rather than trusted.
+   * Storage derives every key as `<ownerId>/<purpose>/<uuid>`, so a caller who
+   * could name any key could claim someone else's photo as their own work —
+   * or point their portfolio at an identity document.
+   */
+  async addPortfolioItem(
+    providerId: string,
+    userId: string,
+    mediaKey: string,
+    tags: string[],
+  ) {
+    if (!mediaKey.startsWith(`${userId}/portfolio/`)) {
+      throw new DomainError(
+        'invalid_media_key',
+        'That upload does not belong to you',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    const row = await this.db.queryOne<{
+      id: string;
+      media_key: string;
+      ai_tags: string[];
+      moderation_status: string;
+      created_at: Date;
+    }>(
+      // sort_order puts the newest first without renumbering every other row.
+      `INSERT INTO portfolio_items (provider_id, media_key, ai_tags, sort_order)
+       VALUES ($1, $2, $3,
+               COALESCE((SELECT MIN(sort_order) - 1 FROM portfolio_items WHERE provider_id = $1), 0))
+       RETURNING id, media_key, ai_tags, moderation_status, created_at`,
+      [providerId, mediaKey, tags],
+    );
+
+    return {
+      id: row!.id,
+      url: row!.media_key,
+      tags: row!.ai_tags ?? [],
+      moderationStatus: row!.moderation_status,
+      createdAt: row!.created_at.toISOString(),
+    };
+  }
+
+  /**
+   * Scoped to the caller's own provider id, so a valid item id belonging to
+   * somebody else deletes nothing rather than deleting theirs.
+   */
+  async removePortfolioItem(providerId: string, itemId: string): Promise<{ ok: true }> {
+    const row = await this.db.queryOne<{ id: string }>(
+      'DELETE FROM portfolio_items WHERE id = $1 AND provider_id = $2 RETURNING id',
+      [itemId, providerId],
+    );
+    if (!row) {
+      throw new NotFoundError('portfolio_item', 'That photo is no longer there');
+    }
+    return { ok: true };
   }
 
   /**

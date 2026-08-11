@@ -1,9 +1,19 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  IsBoolean, IsIn, IsNumber, IsOptional, IsString, Length, Max, Min,
+  ArrayMaxSize, IsArray, IsBoolean, IsIn, IsNumber, IsOptional, IsString, Length, Max, Min,
 } from 'class-validator';
+
+class PortfolioItemDto {
+  /// The key returned by POST /storage/uploads. Checked server-side against
+  /// the caller's own namespace — it is not enough that it is well-formed.
+  @IsString() @Length(8, 400) mediaKey!: string;
+
+  @IsOptional() @IsArray() @ArrayMaxSize(10) @IsString({ each: true })
+  @Length(1, 40, { each: true })
+  tags?: string[];
+}
 import { CurrentUser, Public, Roles } from '../../common/decorators';
 import { ProvidersService } from './providers.service';
 
@@ -59,6 +69,34 @@ export class ProvidersController {
   @ApiOperation({ summary: 'Public provider profile with services and portfolio' })
   profile(@Param('id', ParseUUIDPipe) id: string) {
     return this.providers.profile(id);
+  }
+
+  @Roles('provider')
+  @Get('me/portfolio')
+  @ApiOperation({ summary: "The provider's own work, including items in review" })
+  myPortfolio(@CurrentUser('providerId') providerId: string) {
+    return this.providers.myPortfolio(providerId);
+  }
+
+  @Roles('provider')
+  @Post('me/portfolio')
+  @ApiOperation({ summary: 'Register a photo already uploaded via /storage/uploads' })
+  addPortfolioItem(
+    @CurrentUser('providerId') providerId: string,
+    @CurrentUser('userId') userId: string,
+    @Body() dto: PortfolioItemDto,
+  ) {
+    return this.providers.addPortfolioItem(providerId, userId, dto.mediaKey, dto.tags ?? []);
+  }
+
+  @Roles('provider')
+  @Delete('me/portfolio/:id')
+  @ApiOperation({ summary: 'Remove one of your own photos' })
+  removePortfolioItem(
+    @CurrentUser('providerId') providerId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.providers.removePortfolioItem(providerId, id);
   }
 
   @Roles('provider')
