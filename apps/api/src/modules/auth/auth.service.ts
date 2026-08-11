@@ -21,6 +21,20 @@ interface UserRow {
   consent_privacy_at: Date | null;
 }
 
+/** Seconds until the token expires, taken from its own claims. */
+function expiresInSeconds(accessToken: string): number {
+  try {
+    const payload = JSON.parse(
+      Buffer.from(accessToken.split('.')[1], 'base64url').toString(),
+    ) as { exp?: number; iat?: number };
+    if (payload.exp && payload.iat) return payload.exp - payload.iat;
+  } catch {
+    // A token we just signed should always parse; if it somehow does not,
+    // a conservative answer is better than a confident wrong one.
+  }
+  return 900;
+}
+
 export interface AuthResult {
   accessToken: string;
   refreshToken: string;
@@ -467,7 +481,10 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      expiresIn: 900,
+      // Read from the token rather than hardcoded. It said 900 regardless of
+      // JWT_ACCESS_TTL, so changing the TTL made the API lie to the client
+      // about when its token dies.
+      expiresIn: expiresInSeconds(accessToken),
       isNewUser,
       profileComplete: Boolean(user.full_name) && Boolean(user.consent_privacy_at),
       serviceArea: area

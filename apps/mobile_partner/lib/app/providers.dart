@@ -228,6 +228,17 @@ final kycStatusProvider = FutureProvider.autoDispose<Map<String, dynamic>>(
   (ref) => ref.watch(apiProvider).kycStatus(),
 );
 
+// ─── Menu ────────────────────────────────────────────────────────────────────
+
+final myMenuProvider = FutureProvider.autoDispose<List<ProviderMenuItem>>(
+  (ref) => ref.watch(apiProvider).getMyMenu(),
+);
+
+final catalogServicesProvider =
+    FutureProvider.family<List<CatalogService>, ServiceCategory?>(
+  (ref, category) => ref.watch(apiProvider).catalogServices(category: category),
+);
+
 /// Live dispatch offers. Held in memory only — an offer that outlives the app
 /// is an offer the client has already given to somebody else.
 class OfferQueue extends StateNotifier<List<DispatchOffer>> {

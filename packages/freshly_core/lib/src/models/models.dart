@@ -502,6 +502,87 @@ class ServiceArea {
       );
 }
 
+class CategorySummary {
+  const CategorySummary({
+    required this.category,
+    required this.providerCount,
+  });
+
+  final ServiceCategory category;
+  final int providerCount;
+
+  factory CategorySummary.fromJson(Map<String, dynamic> j) => CategorySummary(
+        category: ServiceCategory.fromWire(j['category'] as String),
+        providerCount: j['providerCount'] as int? ?? 0,
+      );
+}
+
+class CatalogService {
+  const CatalogService({
+    required this.id,
+    required this.name,
+    required this.category,
+    required this.typicalDurationMinutes,
+    required this.requiresPower,
+    required this.requiresLicence,
+    this.description,
+  });
+
+  final String id;
+  final String name;
+  final ServiceCategory category;
+  final int typicalDurationMinutes;
+  final bool requiresPower;
+  final bool requiresLicence;
+  final String? description;
+
+  factory CatalogService.fromJson(Map<String, dynamic> j) => CatalogService(
+        id: j['id'] as String,
+        name: j['name'] as String,
+        category: ServiceCategory.fromWire(j['category'] as String),
+        typicalDurationMinutes: j['typicalDurationMinutes'] as int? ?? 0,
+        requiresPower: j['requiresPower'] as bool? ?? false,
+        requiresLicence: j['requiresLicence'] as bool? ?? false,
+        description: j['description'] as String?,
+      );
+}
+
+class ProviderMenuItem {
+  const ProviderMenuItem({
+    required this.id,
+    required this.catalogServiceId,
+    required this.name,
+    required this.category,
+    required this.price,
+    required this.durationMinutes,
+    required this.requiresPower,
+    required this.requiresLicence,
+    this.description,
+  });
+
+  final String id;
+  final String catalogServiceId;
+  final String name;
+  final ServiceCategory category;
+  final Money price;
+  final int durationMinutes;
+  final bool requiresPower;
+  final bool requiresLicence;
+  final String? description;
+
+  factory ProviderMenuItem.fromJson(Map<String, dynamic> j) => ProviderMenuItem(
+        id: j['id'] as String,
+        catalogServiceId: j['catalogServiceId'] as String,
+        name: j['name'] as String,
+        category: ServiceCategory.fromWire(j['category'] as String),
+        price: Money(minor: j['priceMinor'] as int, currency: j['currency'] as String),
+        durationMinutes: j['durationMinutes'] as int,
+        requiresPower: j['requiresPower'] as bool? ?? false,
+        requiresLicence: j['requiresLicence'] as bool? ?? false,
+        description: j['description'] as String?,
+      );
+}
+
 /// A market Freshly is open in. Only live markets are returned, so a country
 /// missing from this list is one we cannot serve yet.
 class Market {
@@ -525,6 +606,27 @@ class Market {
         currency: j['currency'] as String? ?? 'ZAR',
         dialPrefix: j['dialPrefix'] as String? ?? '+27',
         phoneLength: (j['phoneLength'] as num?)?.toInt() ?? 9,
+      );
+}
+
+class UploadInstruction {
+  const UploadInstruction({
+    required this.url,
+    required this.key,
+    required this.maxSize,
+    required this.contentTypes,
+  });
+
+  final String url;
+  final String key;
+  final int maxSize;
+  final List<String> contentTypes;
+
+  factory UploadInstruction.fromJson(Map<String, dynamic> j) => UploadInstruction(
+        url: j['url'] as String,
+        key: j['key'] as String,
+        maxSize: j['maxSize'] as int,
+        contentTypes: (j['contentTypes'] as List).cast<String>(),
       );
 }
 

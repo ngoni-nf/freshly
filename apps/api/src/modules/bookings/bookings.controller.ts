@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { CurrentUser, Idempotent, Roles } from '../../common/decorators';
 import { BookingsService } from './bookings.service';
 import {
@@ -84,6 +85,12 @@ export class BookingsController {
   }
 
   @Roles('provider')
+  /**
+   * Tighter than the global 120 a minute, which is far too generous for a
+   * four-digit code. The per-booking counter in the service is the real
+   * control; this stops a caller hammering many bookings at once.
+   */
+  @Throttle({ short: { ttl: 60_000, limit: 10 } })
   @Post(':id/verify-pin')
   @ApiOperation({ summary: "Verify the client's code and start the service" })
   verifyPin(

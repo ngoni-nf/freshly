@@ -10,6 +10,7 @@ import '../features/job/pin_pad_screen.dart';
 import '../features/onboarding/signin_screen.dart';
 import '../features/onboarding/verification_screen.dart';
 import '../features/wallet/wallet_screen.dart';
+import '../features/profile/menu_screen.dart';
 import 'providers.dart';
 
 final partnerRouterProvider = Provider<GoRouter>((ref) {
@@ -34,6 +35,7 @@ final partnerRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
               path: '/signin', builder: (_, __) => const PartnerSignInScreen()),
           GoRoute(path: '/wallet', builder: (_, __) => const WalletScreen()),
+          GoRoute(path: '/menu', builder: (_, __) => const MenuScreen()),
           GoRoute(
               path: '/verification',
               builder: (_, __) => const VerificationScreen()),

@@ -12,6 +12,7 @@ import '../features/auth/permissions_screen.dart';
 import '../features/home/dashboard_screen.dart';
 import '../features/discovery/feed_screen.dart';
 import '../features/discovery/provider_screen.dart';
+import '../features/discovery/catalog_screen.dart';
 import '../features/booking/booking_draft.dart';
 import '../features/booking/logistics_screen.dart';
 import '../features/booking/checkout_screen.dart';
@@ -64,6 +65,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/discover',
           builder: (_, s) => FeedScreen(query: s.uri.queryParameters)),
+      GoRoute(
+        path: '/catalog',
+        builder: (_, s) {
+          final cat = s.uri.queryParameters['category'];
+          return CatalogScreen(
+            initialCategory: cat != null ? ServiceCategory.fromWire(cat) : null,
+          );
+        },
+      ),
       GoRoute(
           path: '/provider/:id',
           builder: (_, s) =>

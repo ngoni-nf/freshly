@@ -2,7 +2,18 @@ import { BadRequestException, ForbiddenException, Injectable, Logger } from '@ne
 import { randomInt } from 'node:crypto';
 import { DatabaseService } from '../../common/database/database.service';
 import { PiiCryptoService } from '../../common/crypto/pii-crypto.service';
-import { DomainError, IllegalTransitionError, NotFoundError } from '../../common/errors/domain.errors';
+import {
+  DomainError, IllegalTransitionError, NotFoundError, RateLimitedError,
+} from '../../common/errors/domain.errors';
+import { RedisService } from '../../common/redis/redis.service';
+
+/**
+ * Five guesses at a four-digit code, then a fifteen-minute cool-off. Enough
+ * for a client reading it out over a noisy shop; nowhere near enough to walk
+ * ten thousand combinations.
+ */
+const PIN_MAX_ATTEMPTS = 5;
+const PIN_ATTEMPT_WINDOW_SECONDS = 900;
 import { MarketsService } from '../markets/markets.service';
 import { PricingService, Quote } from '../pricing/pricing.service';
 import { EscrowService } from '../payments/escrow.service';
@@ -30,6 +41,7 @@ export class BookingsService {
     private readonly escrow: EscrowService,
     private readonly dispatch: DispatchService,
     private readonly crypto: PiiCryptoService,
+    private readonly redis: RedisService,
   ) {}
 
   // ─── Quoting ───────────────────────────────────────────────────────────────
@@ -286,8 +298,33 @@ export class BookingsService {
       throw new ForbiddenException({ code: 'not_your_booking', message: 'This booking is not assigned to you' });
     }
 
+    // Rate limited per booking, before the code is even compared.
+    //
+    // The PIN is four digits and it is the only thing standing between a
+    // provider and the customer's money. Unlimited guesses reduce "the client
+    // authorises release" to a formality — ten thousand combinations at the
+    // global 120 requests a minute is a little over an hour of trying.
+    //
+    // Counted in Redis, so if Redis is unavailable this throws and the
+    // verification fails closed. For a control of this kind that is the
+    // correct direction to fail.
+    const attempts = await this.redis.incrementWindow(
+      `pin:${bookingId}`,
+      PIN_ATTEMPT_WINDOW_SECONDS,
+    );
+    if (attempts > PIN_MAX_ATTEMPTS) {
+      this.logger.warn(
+        `pin attempts exhausted on booking ${bookingId} by provider ${providerId}`,
+      );
+      throw new RateLimitedError(PIN_ATTEMPT_WINDOW_SECONDS);
+    }
+
     if (!this.crypto.verifyHash(pin, booking.completion_pin_hash)) {
-      throw new DomainError('pin_invalid', 'That code does not match. Ask the client to check their app.', 400);
+      throw new DomainError(
+        'pin_invalid',
+        `That code does not match. ${PIN_MAX_ATTEMPTS - attempts} attempt(s) left, then ask the client to reopen their app.`,
+        400,
+      );
     }
 
     await this.db.transaction(async (tx) => {
@@ -297,6 +334,10 @@ export class BookingsService {
       );
       await tx.emitEvent('booking', bookingId, 'booking.started', { providerId });
     });
+
+    // Only a correct code clears the counter, so a provider cannot reset their
+    // own budget by guessing until one happens to land.
+    await this.redis.client.del(`ctr:pin:${bookingId}`);
 
     return { status: 'in_progress' };
   }

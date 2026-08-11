@@ -12,6 +12,7 @@ import '../../widgets/provider_card.dart';
 class DiscoveryFilters {
   const DiscoveryFilters({
     this.category,
+    this.serviceId,
     this.venue = 'mobile',
     this.radiusKm = 10,
     this.maxPriceMinor,
@@ -21,6 +22,7 @@ class DiscoveryFilters {
   });
 
   final ServiceCategory? category;
+  final String? serviceId;
   final String venue;
   final double radiusKm;
   final int? maxPriceMinor;
@@ -30,6 +32,7 @@ class DiscoveryFilters {
 
   DiscoveryFilters copyWith({
     ServiceCategory? category,
+    String? serviceId,
     String? venue,
     double? radiusKm,
     int? maxPriceMinor,
@@ -39,6 +42,7 @@ class DiscoveryFilters {
   }) =>
       DiscoveryFilters(
         category: category ?? this.category,
+        serviceId: serviceId ?? this.serviceId,
         venue: venue ?? this.venue,
         radiusKm: radiusKm ?? this.radiusKm,
         maxPriceMinor: maxPriceMinor ?? this.maxPriceMinor,
@@ -141,6 +145,7 @@ final searchResultsProvider =
         lng: lng,
         radiusKm: filters.radiusKm,
         category: filters.category,
+        serviceId: filters.serviceId,
         venue: filters.venue,
         maxPriceMinor: filters.maxPriceMinor,
         minRating: filters.minRating,
@@ -216,6 +221,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
         category: widget.query['category'] != null
             ? ServiceCategory.fromWire(widget.query['category']!)
             : null,
+        serviceId: widget.query['serviceId'],
         venue: widget.query['venue'] ?? 'mobile',
         requirePower: widget.query['power'] == 'true',
         instantOnly: widget.query['instant'] == 'true',

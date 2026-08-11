@@ -50,10 +50,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   void _openCategory(ServiceCategory category) {
-    context.push(Uri(path: '/discover', queryParameters: {
-      'category': category.wire,
-      'venue': _mobileMode ? 'mobile' : 'in_shop',
-    }).toString());
+    context.push('/catalog?category=${category.wire}');
   }
 
   @override
@@ -159,12 +156,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
 
               // ── Categories ─────────────────────────────────────────────────
-              const Padding(
-                padding: EdgeInsets.fromLTRB(
-                    FreshlySpacing.md, 0, FreshlySpacing.md, FreshlySpacing.sm),
-                child: Text('What do you need?',
-                    style:
-                        TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(FreshlySpacing.md, 0,
+                    FreshlySpacing.md, FreshlySpacing.sm),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('What do you need?',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 17)),
+                    TextButton(
+                      onPressed: () => context.push('/catalog'),
+                      child: const Text('See all'),
+                    ),
+                  ],
+                ),
               ),
               SizedBox(
                 height: 108,

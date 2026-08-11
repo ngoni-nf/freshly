@@ -56,6 +56,11 @@ class CommandScreen extends ConsumerWidget {
                       ),
                     ),
                     IconButton(
+                      onPressed: () => context.push('/menu'),
+                      icon: const Icon(Icons.style_outlined),
+                      tooltip: 'My services',
+                    ),
+                    IconButton(
                       onPressed: () => context.push('/availability'),
                       icon: const Icon(Icons.calendar_month_outlined),
                       tooltip: 'Availability',
@@ -186,48 +191,94 @@ class CommandScreen extends ConsumerWidget {
                       ),
                     );
                   }
+
+                  final instant =
+                      jobs.where((j) => j['scheduledStart'] == null).toList();
+                  final scheduled =
+                      jobs.where((j) => j['scheduledStart'] != null).toList();
+
                   return Column(
-                    children: jobs.map((job) {
-                      final status = job['status'] as BookingStatus;
-                      final money = job['total'] as Money;
-                      return Padding(
-                        padding: const EdgeInsets.fromLTRB(FreshlySpacing.md, 0,
-                            FreshlySpacing.md, FreshlySpacing.sm),
-                        child: Card(
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: FreshlyColors.mintSoft,
-                              child: Text(
-                                job['scheduledStart'] != null
-                                    ? TimeOfDay.fromDateTime(
-                                            job['scheduledStart'] as DateTime)
-                                        .format(context)
-                                        .split(' ')
-                                        .first
-                                    : 'Now',
-                                style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: FreshlyColors.mintDark),
-                              ),
-                            ),
-                            title: Text(job['address'] as String,
-                                maxLines: 1, overflow: TextOverflow.ellipsis),
-                            subtitle: Text(
-                                '${job['reference']} · ${status.clientLabel}'),
-                            trailing: Text(money.format(compact: true),
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700)),
-                            onTap: () => context.push('/job/${job['id']}'),
-                          ),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (instant.isNotEmpty) ...[
+                        const Padding(
+                          padding:
+                              EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
+                          child: Text('Active now',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: FreshlyColors.mintDark)),
                         ),
-                      );
-                    }).toList(),
+                        const SizedBox(height: FreshlySpacing.xs),
+                        ...instant.map((j) => _JobCard(job: j)),
+                        const SizedBox(height: FreshlySpacing.md),
+                      ],
+                      if (scheduled.isNotEmpty) ...[
+                        const Padding(
+                          padding:
+                              EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
+                          child: Text('Coming up',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: FreshlyColors.inkMuted)),
+                        ),
+                        const SizedBox(height: FreshlySpacing.xs),
+                        ...scheduled.map((j) => _JobCard(job: j)),
+                      ],
+                    ],
                   );
                 },
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _JobCard extends StatelessWidget {
+  const _JobCard({required this.job});
+  final Map<String, dynamic> job;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = job['status'] as BookingStatus;
+    final money = job['total'] as Money;
+    final start = job['scheduledStart'] as DateTime?;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          FreshlySpacing.md, 0, FreshlySpacing.md, FreshlySpacing.sm),
+      child: Card(
+        child: ListTile(
+          leading: CircleAvatar(
+            backgroundColor: start == null
+                ? FreshlyColors.mintSoft
+                : FreshlyColors.inkMuted.withValues(alpha: 0.1),
+            child: Text(
+              start != null
+                  ? TimeOfDay.fromDateTime(start)
+                      .format(context)
+                      .split(' ')
+                      .first
+                  : 'Now',
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: start == null
+                      ? FreshlyColors.mintDark
+                      : FreshlyColors.inkMuted),
+            ),
+          ),
+          title: Text(job['address'] as String,
+              maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Text('${job['reference']} · ${status.clientLabel}'),
+          trailing: Text(money.format(compact: true),
+              style: const TextStyle(fontWeight: FontWeight.w700)),
+          onTap: () => context.push('/job/${job['id']}'),
         ),
       ),
     );

@@ -184,3 +184,14 @@ final gridStatusProvider = FutureProvider.autoDispose<GridStatus>((ref) async {
   final country = ref.watch(countryCodeProvider);
   return ref.watch(apiProvider).gridStatus(country);
 });
+
+// ─── Catalog ─────────────────────────────────────────────────────────────────
+
+final catalogCategoriesProvider = FutureProvider<List<CategorySummary>>(
+  (ref) => ref.watch(apiProvider).catalogCategories(),
+);
+
+final catalogServicesProvider =
+    FutureProvider.family<List<CatalogService>, ServiceCategory?>(
+  (ref, category) => ref.watch(apiProvider).catalogServices(category: category),
+);

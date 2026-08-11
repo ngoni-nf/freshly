@@ -269,6 +269,7 @@ class FreshlyApi {
     required double lng,
     double radiusKm = 10,
     ServiceCategory? category,
+    String? serviceId,
     String? venue,
     int? maxPriceMinor,
     double minRating = 0,
@@ -283,6 +284,7 @@ class FreshlyApi {
           'lng': lng,
           'radiusKm': radiusKm,
           if (category != null) 'category': category.wire,
+          if (serviceId != null) 'serviceId': serviceId,
           if (venue != null) 'venue': venue,
           if (maxPriceMinor != null) 'maxPriceMinor': maxPriceMinor,
           'minRating': minRating,
@@ -302,6 +304,46 @@ class FreshlyApi {
   Future<GridStatus> gridStatus(String countryCode) => _unwrap(
         _dio.get('/grid/status', queryParameters: {'countryCode': countryCode}),
         (d) => GridStatus.fromJson(d as Map<String, dynamic>),
+      );
+
+  // ─── Catalog ─────────────────────────────────────────────────────────────
+  Future<List<CategorySummary>> catalogCategories() => _unwrap(
+        _dio.get('/catalog/categories'),
+        (d) => (d as List)
+            .map((e) => CategorySummary.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+
+  Future<List<CatalogService>> catalogServices({ServiceCategory? category}) =>
+      _unwrap(
+        _dio.get('/catalog/services', queryParameters: {
+          if (category != null) 'category': category.wire,
+        }),
+        (d) => (d as List)
+            .map((e) => CatalogService.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+
+  Future<List<ProviderMenuItem>> getMyMenu() => _unwrap(
+        _dio.get('/catalog/me/menu'),
+        (d) => (d as List)
+            .map((e) => ProviderMenuItem.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+
+  Future<ProviderMenuItem> updateMenuItem({
+    required String catalogServiceId,
+    required int priceMinor,
+  }) =>
+      _unwrap(
+        _dio.post('/catalog/me/menu',
+            data: {'catalogServiceId': catalogServiceId, 'priceMinor': priceMinor}),
+        (d) => ProviderMenuItem.fromJson(d as Map<String, dynamic>),
+      );
+
+  Future<void> removeMenuItem(String catalogServiceId) => _unwrap(
+        _dio.delete('/catalog/me/menu/$catalogServiceId'),
+        (_) {},
       );
 
   Future<ParsedIntent> parseIntent(String text) => _unwrap(
@@ -539,6 +581,33 @@ class FreshlyApi {
 
   Future<void> abortSos(String sosId) =>
       _unwrap(_dio.post('/safety/sos/$sosId/abort'), (_) {});
+
+  // ─── Storage ─────────────────────────────────────────────────────────────
+  Future<UploadInstruction> getUploadUrl(String contentType) => _unwrap(
+        _dio.post('/storage/uploads', data: {'contentType': contentType}),
+        (d) => UploadInstruction.fromJson(d as Map<String, dynamic>),
+      );
+
+  /// Uploads a file to a signed URL.
+  ///
+  /// The Authorization header is NOT sent — a signed URL carries its own proof
+  /// of permission, and a service role token or a user JWT will cause most
+  /// cloud providers to reject the request.
+  Future<void> uploadFile(String url, List<int> bytes, String contentType) async {
+    final res = await Dio().put(
+      url,
+      data: Stream.fromIterable([bytes]),
+      options: Options(
+        headers: {
+          'Content-Type': contentType,
+          'Content-Length': bytes.length,
+        },
+      ),
+    );
+    if (res.statusCode! < 200 || res.statusCode! >= 300) {
+      throw ApiException('upload_failed', 'Could not upload file');
+    }
+  }
 }
 
 class ParsedIntent {
