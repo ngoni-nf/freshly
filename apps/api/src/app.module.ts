@@ -28,6 +28,7 @@ import { AiModule } from './modules/ai/ai.module';
 import { PayoutsModule } from './modules/payouts/payouts.module';
 import { KycModule } from './modules/kyc/kyc.module';
 import { SafetyModule } from './modules/safety/safety.module';
+import { CredentialsModule } from './modules/credentials/credentials.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { SafetyModule } from './modules/safety/safety.module';
     PayoutsModule,
     KycModule,
     SafetyModule,
+    CredentialsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

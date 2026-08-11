@@ -2,36 +2,53 @@ import '../util/money.dart';
 
 enum CountryCode { za, zw }
 
+/// One value per provider specialization, matching service_category_enum.
+///
+/// Brows and lashes are separate because they are separate professions with
+/// separate training and, for permanent makeup, separate licensing. Braiding
+/// and locs stay separate because customers search for them separately.
 enum ServiceCategory {
   barber,
+  beard,
+  scalp,
   hair,
-  nails,
-  makeup,
-  aesthetics,
   braiding,
   locs,
-  massage,
-  browsLashes;
+  extensions,
+  color,
+  nails,
+  makeup,
+  lashes,
+  brows,
+  aesthetics,
+  bodyGrooming,
+  massage;
 
   String get wire => switch (this) {
-        ServiceCategory.browsLashes => 'brows_lashes',
+        ServiceCategory.bodyGrooming => 'body_grooming',
         _ => name,
       };
 
   String get label => switch (this) {
         ServiceCategory.barber => 'Barber',
+        ServiceCategory.beard => 'Beard',
+        ServiceCategory.scalp => 'Scalp & Hair Loss',
         ServiceCategory.hair => 'Hair',
-        ServiceCategory.nails => 'Nails',
-        ServiceCategory.makeup => 'Makeup',
-        ServiceCategory.aesthetics => 'Aesthetics',
         ServiceCategory.braiding => 'Braiding',
         ServiceCategory.locs => 'Locs',
+        ServiceCategory.extensions => 'Weaves & Wigs',
+        ServiceCategory.color => 'Colour & Chemical',
+        ServiceCategory.nails => 'Nails',
+        ServiceCategory.makeup => 'Makeup',
+        ServiceCategory.lashes => 'Lashes',
+        ServiceCategory.brows => 'Brows',
+        ServiceCategory.aesthetics => 'Skincare',
+        ServiceCategory.bodyGrooming => 'Waxing & Hair Removal',
         ServiceCategory.massage => 'Massage',
-        ServiceCategory.browsLashes => 'Brows & Lashes',
       };
 
   static ServiceCategory fromWire(String value) => switch (value) {
-        'brows_lashes' => ServiceCategory.browsLashes,
+        'body_grooming' => ServiceCategory.bodyGrooming,
         _ => ServiceCategory.values.firstWhere((c) => c.name == value,
             orElse: () => ServiceCategory.barber),
       };

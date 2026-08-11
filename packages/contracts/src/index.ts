@@ -6,9 +6,15 @@
 export type CountryCode = 'ZA' | 'ZW';
 export type CurrencyCode = 'ZAR' | 'USD' | 'ZWG';
 
+/** One value per provider specialization. Matches service_category_enum. */
 export type ServiceCategory =
-  | 'barber' | 'hair' | 'nails' | 'makeup' | 'aesthetics'
-  | 'braiding' | 'locs' | 'massage' | 'brows_lashes';
+  | 'barber' | 'beard' | 'scalp'
+  | 'hair' | 'braiding' | 'locs' | 'extensions' | 'color'
+  | 'nails'
+  | 'makeup' | 'lashes' | 'brows'
+  | 'aesthetics' | 'body_grooming' | 'massage';
+
+export type CredentialStatus = 'pending' | 'verified' | 'rejected' | 'expired';
 
 export type BookingType = 'instant' | 'scheduled';
 export type VenueMode = 'mobile' | 'in_shop' | 'both';

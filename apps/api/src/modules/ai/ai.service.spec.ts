@@ -19,11 +19,25 @@ describe('AiService fallback parsing', () => {
     ['cornrows for my daughter', 'braiding'],
     ['gel nails and a pedicure', 'nails'],
     ['bridal makeup trial', 'makeup'],
-    ['lash extensions', 'brows_lashes'],
+    ['lash extensions', 'lashes'],
     ['deep tissue massage', 'massage'],
+    // The taxonomy split: each of these used to collapse into one of the
+    // original nine and reach the wrong professional.
+    ['microblading consultation', 'brows'],
+    ['brazilian wax', 'body_grooming'],
+    ['laser hair removal', 'body_grooming'],
+    ['balayage and toner', 'color'],
+    ['sew-in weave install', 'extensions'],
+    ['beard trim and hot towel', 'beard'],
+    ['scalp micropigmentation', 'scalp'],
   ])('classifies %j as %s', async (text, expected) => {
     const result = await parse(text);
     expect(result.serviceCategory).toBe(expected);
+  });
+
+  it('separates lashes from brows, which are different professionals', async () => {
+    expect((await parse('lash lift and tint')).serviceCategory).toBe('lashes');
+    expect((await parse('brow lamination')).serviceCategory).toBe('brows');
   });
 
   it('sends locs work to locs, not braiding', async () => {

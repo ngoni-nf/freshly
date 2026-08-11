@@ -44,8 +44,12 @@ void main() {
 
   group('ServiceCategory', () {
     test('round-trips the one wire value that is not the enum name', () {
-      expect(ServiceCategory.browsLashes.wire, 'brows_lashes');
-      expect(ServiceCategory.fromWire('brows_lashes'), ServiceCategory.browsLashes);
+      expect(ServiceCategory.bodyGrooming.wire, 'body_grooming');
+      expect(
+          ServiceCategory.fromWire('body_grooming'), ServiceCategory.bodyGrooming);
+      // Brows and lashes are now distinct professions, not one merged value.
+      expect(ServiceCategory.brows.wire, 'brows');
+      expect(ServiceCategory.lashes.wire, 'lashes');
     });
   });
 }

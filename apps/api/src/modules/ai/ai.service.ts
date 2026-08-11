@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { SERVICE_CATEGORIES } from '../../common/catalog/service-categories';
 
 export interface ParsedBookingIntent {
   serviceCategory: string | null;
@@ -12,9 +13,8 @@ export interface ParsedBookingIntent {
   confidence: number;
 }
 
-const CATEGORIES = [
-  'barber', 'hair', 'nails', 'makeup', 'aesthetics', 'braiding', 'locs', 'massage', 'brows_lashes',
-];
+// Mutable copy: the Gemini schema type wants string[], not a readonly tuple.
+const CATEGORIES: string[] = [...SERVICE_CATEGORIES];
 
 /**
  * The concierge.
@@ -102,15 +102,24 @@ export class AiService {
     // would have matched "twist" under braiding and sent the customer to the
     // wrong professional entirely.
     const keywords: Array<[string, string[]]> = [
-      ['locs', ['loc', 'locs', 'dread', 'dreads', 'dreadlock', 'retwist', 'starter locs']],
-      ['braiding', ['braid', 'braids', 'cornrow', 'cornrows', 'knotless', 'box braids', 'twists', 'faux locs']],
-      ['brows_lashes', ['brow', 'brows', 'lash', 'lashes', 'eyebrow', 'threading', 'microblading']],
-      ['nails', ['nail', 'nails', 'gel', 'acrylic', 'acrylics', 'tips', 'manicure', 'pedicure', 'polish']],
+      ['locs', ['loc', 'locs', 'dread', 'dreads', 'dreadlock', 'retwist', 'starter locs', 'sisterlocks', 'interlocking']],
+      ['braiding', ['braid', 'braids', 'cornrow', 'cornrows', 'knotless', 'box braids', 'twists', 'faux locs', 'passion twists']],
+      // Lashes before brows: "lash lift" must not be caught by a brow rule,
+      // and after the taxonomy split these are two different professionals.
+      ['lashes', ['lash', 'lashes', 'lash lift', 'volume lash', 'mega volume', 'lash extensions']],
+      ['brows', ['brow', 'brows', 'eyebrow', 'threading', 'microblading', 'powder brow', 'lamination', 'henna brow', 'lip blush']],
+      ['scalp', ['scalp', 'smp', 'micropigmentation', 'hair tattoo', 'dandruff', 'thinning', 'hair loss']],
+      ['nails', ['nail', 'nails', 'gel', 'acrylic', 'acrylics', 'tips', 'manicure', 'pedicure', 'polish', 'biab', 'polygel']],
+      ['beard', ['beard', 'goatee', 'moustache', 'hot towel', 'straight razor']],
       ['barber', ['fade', 'chiskop', 'line-up', 'lineup', 'barber', 'haircut', 'cut', 'shave', 'trim', 'taper']],
-      ['makeup', ['makeup', 'make-up', 'beat', 'bridal', 'foundation']],
-      ['massage', ['massage', 'deep tissue', 'swedish']],
-      ['aesthetics', ['facial', 'wax', 'waxing', 'peel', 'aesthetic', 'microneedling']],
-      ['hair', ['hair', 'blow-dry', 'blowdry', 'weave', 'relaxer', 'silk press', 'colour', 'color', 'wig']],
+      ['makeup', ['makeup', 'make-up', 'beat', 'bridal', 'foundation', 'airbrush', 'glam']],
+      ['massage', ['massage', 'deep tissue', 'swedish', 'hot stone', 'lymphatic']],
+      // Waxing and laser moved out of aesthetics into their own specialization.
+      ['body_grooming', ['wax', 'waxing', 'brazilian', 'hollywood', 'sugaring', 'laser', 'manscaping', 'hair removal']],
+      ['aesthetics', ['facial', 'peel', 'aesthetic', 'microneedling', 'dermaplaning', 'hydrafacial', 'led therapy']],
+      ['extensions', ['weave', 'wig', 'sew-in', 'sew in', 'tape-in', 'microlink', 'i-tip', 'closure', 'frontal']],
+      ['color', ['colour', 'color', 'balayage', 'highlights', 'bleach', 'toner', 'relaxer', 'keratin', 'brazilian blowout']],
+      ['hair', ['hair', 'blow-dry', 'blowdry', 'silk press', 'blowout', 'updo', 'flat iron', 'trim ends']],
     ];
 
     // Whole-word matching, so "retwist" cannot satisfy "twist" and "locs"

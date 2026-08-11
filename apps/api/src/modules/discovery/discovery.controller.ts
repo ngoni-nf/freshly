@@ -4,6 +4,7 @@ import { Type } from 'class-transformer';
 import { IsBoolean, IsIn, IsInt, IsNumber, IsOptional, Max, Min } from 'class-validator';
 import { Public } from '../../common/decorators';
 import { DiscoveryService } from './discovery.service';
+import { SERVICE_CATEGORIES } from '../../common/catalog/service-categories';
 
 export class SearchProvidersDto {
   @Type(() => Number) @IsNumber() @Min(-90) @Max(90)
@@ -16,7 +17,7 @@ export class SearchProvidersDto {
   radiusKm?: number;
 
   @IsOptional()
-  @IsIn(['barber', 'hair', 'nails', 'makeup', 'aesthetics', 'braiding', 'locs', 'massage', 'brows_lashes'])
+  @IsIn(SERVICE_CATEGORIES)
   category?: string;
 
   @IsOptional() @IsIn(['mobile', 'in_shop', 'both'])

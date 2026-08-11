@@ -214,14 +214,20 @@ class _CategoryTile extends StatelessWidget {
 
   static const _icons = {
     ServiceCategory.barber: Icons.content_cut,
+    ServiceCategory.beard: Icons.face_outlined,
+    ServiceCategory.scalp: Icons.psychology_alt_outlined,
     ServiceCategory.hair: Icons.brush_outlined,
-    ServiceCategory.nails: Icons.back_hand_outlined,
-    ServiceCategory.makeup: Icons.face_retouching_natural,
-    ServiceCategory.aesthetics: Icons.spa_outlined,
     ServiceCategory.braiding: Icons.waves,
     ServiceCategory.locs: Icons.grain,
+    ServiceCategory.extensions: Icons.layers_outlined,
+    ServiceCategory.color: Icons.palette_outlined,
+    ServiceCategory.nails: Icons.back_hand_outlined,
+    ServiceCategory.makeup: Icons.face_retouching_natural,
+    ServiceCategory.lashes: Icons.visibility_outlined,
+    ServiceCategory.brows: Icons.remove_red_eye_outlined,
+    ServiceCategory.aesthetics: Icons.spa_outlined,
+    ServiceCategory.bodyGrooming: Icons.auto_fix_high_outlined,
     ServiceCategory.massage: Icons.self_improvement,
-    ServiceCategory.browsLashes: Icons.remove_red_eye_outlined,
   };
 
   @override

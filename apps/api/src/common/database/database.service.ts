@@ -174,6 +174,16 @@ export async function createPool(config: ConfigService): Promise<Pool> {
   });
 
   const logger = new Logger('DatabasePool');
+
+  // pg emits 'error' on idle clients when the server hangs up — a pooler
+  // recycling connections, a failover, a network blip. With no listener Node
+  // treats it as unhandled and kills the process, so a transient ECONNRESET
+  // from Supabase took the whole API down rather than costing one connection.
+  // The pool replaces the client on its own; this only has to not be fatal.
+  pool.on('error', (err) => {
+    logger.warn(`idle client error, connection will be replaced: ${err.message}`);
+  });
+
   // Not fatal: the API should still boot and report unhealthy if the database
   // is briefly unreachable, rather than crash-looping before it can say why.
   await registerEnumArrayParsers(pool, logger).catch((err) =>

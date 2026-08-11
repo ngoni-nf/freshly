@@ -98,7 +98,7 @@ BEGIN
                          rating, rating_count, completed_jobs)
   VALUES (u_nomsa, 'ZA', jhb_id, 'salon', 'Glow Bar Rosebank', 'glow-bar-rosebank',
           'Nails, brows and lashes in the heart of Rosebank.',
-          ARRAY['nails','brows_lashes']::service_category_enum[], 'in_shop',
+          ARRAY['nails','brows']::service_category_enum[], 'in_shop',
           ARRAY['inverter']::power_backup_enum[],
           ST_GeogFromText('POINT(28.0436 -26.1460)'), 'Shop 12, Rosebank Mall, Johannesburg',
           5, true, 'verified', now(), 'ZAR', 4.60, 74, 209)
@@ -117,7 +117,7 @@ BEGIN
     (p_lerato, 'Loc retwist', 'Retwist and style.', 'locs', 'mobile', 32000, 'ZAR', 120, false, 3),
     (p_salon, 'Gel overlay', 'Natural nail gel overlay.', 'nails', 'in_shop', 25000, 'ZAR', 60, true, 1),
     (p_salon, 'Acrylic full set', 'Sculpted, any length.', 'nails', 'in_shop', 45000, 'ZAR', 105, true, 2),
-    (p_salon, 'Brow shape and tint', 'Wax, shape and tint.', 'brows_lashes', 'in_shop', 18000, 'ZAR', 40, false, 3);
+    (p_salon, 'Brow shape and tint', 'Wax, shape and tint.', 'brows', 'in_shop', 18000, 'ZAR', 40, false, 3);
 
   INSERT INTO service_addons (provider_id, name, price_minor, currency, duration_minutes) VALUES
     (p_sipho, 'Beard oil treatment', 4000, 'ZAR', 10),
