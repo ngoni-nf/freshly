@@ -90,7 +90,7 @@ class ProviderCard extends StatelessWidget {
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.battery_charging_full,
+                                Icon(FreshlyIcons.battery,
                                     size: 13, color: FreshlyColors.gold),
                                 SizedBox(width: 3),
                                 Text('Power',
@@ -106,7 +106,7 @@ class ProviderCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.star_rounded,
+                        const Icon(FreshlyIcons.star,
                             size: 15, color: FreshlyColors.gold),
                         const SizedBox(width: 2),
                         Text(provider.rating.toStringAsFixed(1),

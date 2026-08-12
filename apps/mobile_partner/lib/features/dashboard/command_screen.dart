@@ -56,13 +56,23 @@ class CommandScreen extends ConsumerWidget {
                       ),
                     ),
                     IconButton(
+                      onPressed: () => context.push('/portfolio'),
+                      icon: const Icon(FreshlyIcons.gallery),
+                      tooltip: 'My portfolio',
+                    ),
+                    IconButton(
+                      onPressed: () => context.push('/clients'),
+                      icon: const Icon(FreshlyIcons.people),
+                      tooltip: 'My clients',
+                    ),
+                    IconButton(
                       onPressed: () => context.push('/menu'),
-                      icon: const Icon(Icons.style_outlined),
+                      icon: const Icon(FreshlyIcons.style),
                       tooltip: 'My services',
                     ),
                     IconButton(
                       onPressed: () => context.push('/availability'),
-                      icon: const Icon(Icons.calendar_month_outlined),
+                      icon: const Icon(FreshlyIcons.calendar),
                       tooltip: 'Availability',
                     ),
                   ],
@@ -174,7 +184,7 @@ class CommandScreen extends ConsumerWidget {
                           padding: const EdgeInsets.all(FreshlySpacing.lg),
                           child: Column(
                             children: [
-                              const Icon(Icons.event_available_outlined,
+                              const Icon(FreshlyIcons.eventAvailable,
                                   size: 36, color: FreshlyColors.inkMuted),
                               const SizedBox(height: FreshlySpacing.sm),
                               Text(
@@ -349,7 +359,7 @@ class _VerificationBanner extends StatelessWidget {
         child: const Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.verified_user_outlined, color: FreshlyColors.gold),
+            Icon(FreshlyIcons.verifiedOutline, color: FreshlyColors.gold),
             SizedBox(width: FreshlySpacing.sm),
             Expanded(
               child: Text(
@@ -358,7 +368,7 @@ class _VerificationBanner extends StatelessWidget {
                 style: TextStyle(fontSize: 13, height: 1.4),
               ),
             ),
-            Icon(Icons.chevron_right, color: FreshlyColors.gold),
+            Icon(FreshlyIcons.chevronRight, color: FreshlyColors.gold),
           ],
         ),
       ),

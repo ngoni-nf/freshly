@@ -80,7 +80,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
               if (!status.isActive || status.nextWindowStart == null) {
                 return const Card(
                   child: ListTile(
-                    leading: Icon(Icons.bolt, color: FreshlyColors.mint),
+                    leading: Icon(FreshlyIcons.bolt, color: FreshlyColors.mint),
                     title: Text('Grid stable'),
                     subtitle:
                         Text('No outage scheduled in your area right now.'),
@@ -99,7 +99,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.bolt,
+                          const Icon(FreshlyIcons.bolt,
                               color: FreshlyColors.loadShedding),
                           const SizedBox(width: 8),
                           Text(status.label,
@@ -119,7 +119,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                             ? null
                             : () => _block(
                                 start, end, 'load_shedding', 'Outage window'),
-                        icon: const Icon(Icons.block),
+                        icon: const Icon(FreshlyIcons.block),
                         label: const Text('Block out this window'),
                       ),
                     ],
@@ -136,7 +136,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
             child: Column(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.today_outlined),
+                  leading: const Icon(FreshlyIcons.calendarToday),
                   title: const Text('Rest of today'),
                   onTap: _busy
                       ? null
@@ -151,7 +151,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                 ),
                 const Divider(height: 1),
                 ListTile(
-                  leading: const Icon(Icons.date_range_outlined),
+                  leading: const Icon(FreshlyIcons.dateRange),
                   title: const Text('Choose a date and time'),
                   onTap: _busy ? null : _pickCustom,
                 ),

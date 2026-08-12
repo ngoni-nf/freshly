@@ -49,7 +49,7 @@ class _SosButtonState extends ConsumerState<SosButton> {
         unawaited(showDialog<void>(
           context: context,
           builder: (_) => AlertDialog(
-            icon: const Icon(Icons.check_circle,
+            icon: const Icon(FreshlyIcons.checkCircle,
                 color: FreshlyColors.mint, size: 40),
             title: const Text('Help is on the way'),
             content: const Text(
@@ -84,7 +84,7 @@ class _SosButtonState extends ConsumerState<SosButton> {
       backgroundColor: FreshlyColors.crimson,
       foregroundColor: Colors.white,
       onPressed: _arm,
-      icon: const Icon(Icons.emergency_share),
+      icon: const Icon(FreshlyIcons.sos),
       label: const Text('SOS',
           style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1)),
     );

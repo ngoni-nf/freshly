@@ -95,7 +95,7 @@ class _EscrowScreenState extends ConsumerState<EscrowScreen> {
                     borderRadius: BorderRadius.circular(FreshlySpacing.radius),
                   ),
                   child: const Row(children: [
-                    Icon(Icons.shield_outlined, color: FreshlyColors.mintDark),
+                    Icon(FreshlyIcons.shield, color: FreshlyColors.mintDark),
                     SizedBox(width: FreshlySpacing.sm),
                     Expanded(
                       child: Text(
@@ -107,7 +107,7 @@ class _EscrowScreenState extends ConsumerState<EscrowScreen> {
                   ]),
                 ),
               ] else ...[
-                const Icon(Icons.search_off,
+                const Icon(FreshlyIcons.searchOff,
                     size: 56, color: FreshlyColors.inkMuted),
                 const SizedBox(height: FreshlySpacing.lg),
                 const Text('No pro available right now',

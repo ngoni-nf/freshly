@@ -120,11 +120,24 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
     );
 
     if (approved != null) {
-      await ref.read(apiProvider).respondToAddon(
-            widget.bookingId,
-            payload['itemId'] as String,
-            approved,
+      try {
+        await ref.read(apiProvider).respondToAddon(
+              widget.bookingId,
+              payload['itemId'] as String,
+              approved,
+            );
+        if (mounted && approved) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Add-on approved and authorized')),
           );
+        }
+      } on ApiException catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.message)),
+          );
+        }
+      }
     }
   }
 
@@ -222,7 +235,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                     child: ListTile(
                       leading: const CircleAvatar(
                         backgroundColor: FreshlyColors.mintSoft,
-                        child: Icon(Icons.person_outline,
+                        child: Icon(FreshlyIcons.person,
                             color: FreshlyColors.mintDark),
                       ),
                       title: Text(_booking?.providerName ?? 'Your pro'),
@@ -230,10 +243,11 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                           const Text('Calls and messages are number-masked'),
                       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                         IconButton(
-                            icon: const Icon(Icons.chat_bubble_outline),
-                            onPressed: () {}),
+                            icon: const Icon(FreshlyIcons.chat),
+                            onPressed: () => context
+                                .push('/track/${widget.bookingId}/chat')),
                         IconButton(
-                            icon: const Icon(Icons.call_outlined),
+                            icon: const Icon(FreshlyIcons.call),
                             onPressed: () {}),
                       ]),
                     ),
@@ -243,13 +257,13 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                       status == BookingStatus.inProgress)
                     FilledButton.icon(
                       onPressed: _promptForPin,
-                      icon: const Icon(Icons.pin_outlined),
+                      icon: const Icon(FreshlyIcons.pin),
                       label: const Text('Show my completion code'),
                     ),
                   const SizedBox(height: FreshlySpacing.md),
                   TextButton.icon(
                     onPressed: () {},
-                    icon: const Icon(Icons.report_gmailerrorred_outlined),
+                    icon: const Icon(FreshlyIcons.warning),
                     label: const Text('Report a problem'),
                   ),
                 ],

@@ -124,7 +124,7 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
 
           if (state == 'verified') {
             return const _StatusPanel(
-              icon: Icons.verified_user,
+              icon: FreshlyIcons.verified,
               colour: FreshlyColors.mint,
               title: 'You are verified',
               body: 'You can go online and accept bookings.',
@@ -133,7 +133,7 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
 
           if (state == 'pending' || state == 'in_review') {
             return _StatusPanel(
-              icon: Icons.hourglass_top,
+              icon: FreshlyIcons.hourglass,
               colour: FreshlyColors.inkMuted,
               title: state == 'in_review'
                   ? 'A person is checking your documents'
@@ -153,7 +153,7 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
                   Card(
                     color: FreshlyColors.crimson.withValues(alpha: 0.08),
                     child: ListTile(
-                      leading: const Icon(Icons.error_outline,
+                      leading: const Icon(FreshlyIcons.error,
                           color: FreshlyColors.crimson),
                       title: const Text('Not verified'),
                       subtitle: Text(submission!['rejectionReason'] as String),
@@ -296,7 +296,7 @@ class _ImagePickerBox extends StatelessWidget {
             ? Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.camera_alt_outlined,
+                  const Icon(FreshlyIcons.camera,
                       color: FreshlyColors.inkMuted),
                   const SizedBox(height: 4),
                   Text(label,
@@ -313,7 +313,7 @@ class _ImagePickerBox extends StatelessWidget {
                     color: FreshlyColors.mint,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.check, color: Colors.white, size: 14),
+                  child: const Icon(FreshlyIcons.check, color: Colors.white, size: 14),
                 ),
               ),
       ),

@@ -189,7 +189,7 @@ class _ElsewhereBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline, color: FreshlyColors.mintDark),
+          const Icon(FreshlyIcons.info, color: FreshlyColors.mintDark),
           const SizedBox(width: FreshlySpacing.sm),
           Expanded(
             child: Text(
@@ -225,6 +225,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
         venue: widget.query['venue'] ?? 'mobile',
         requirePower: widget.query['power'] == 'true',
         instantOnly: widget.query['instant'] == 'true',
+        minRating: double.tryParse(widget.query['rating'] ?? '') ?? 0,
       );
     });
   }
@@ -239,7 +240,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
         title: Text(filters.category?.label ?? 'Nearby pros'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.tune),
+            icon: const Icon(FreshlyIcons.tune),
             onPressed: () => _openFilterSheet(context),
           ),
         ],
@@ -405,7 +406,7 @@ class _ErrorState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.search_off,
+              const Icon(FreshlyIcons.searchOff,
                   size: 44, color: FreshlyColors.inkMuted),
               const SizedBox(height: FreshlySpacing.md),
               Text(message,

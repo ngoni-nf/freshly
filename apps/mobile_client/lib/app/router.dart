@@ -98,7 +98,27 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/track/:id',
           builder: (_, s) =>
-              TrackingScreen(bookingId: s.pathParameters['id']!)),
+              TrackingScreen(bookingId: s.pathParameters['id']!),
+          routes: [
+            GoRoute(
+              path: 'chat',
+              builder: (context, s) {
+                final id = s.pathParameters['id']!;
+                final auth = ref.read(authStateProvider);
+                final userId = auth is AuthSignedIn
+                    ? auth.session.userId
+                    : (auth as dynamic).session.userId;
+
+                return ChatScreen(
+                  bookingId: id,
+                  currentUserId: userId,
+                  api: ref.read(apiProvider),
+                  realtime: ref.read(realtimeProvider),
+                  title: 'Message your pro',
+                );
+              },
+            ),
+          ]),
       GoRoute(
           path: '/track/:id/pin',
           builder: (_, s) => PinScreen(bookingId: s.pathParameters['id']!)),

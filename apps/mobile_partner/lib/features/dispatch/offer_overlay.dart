@@ -135,6 +135,25 @@ class _OfferOverlayState extends ConsumerState<OfferOverlay> {
               ),
               const SizedBox(height: FreshlySpacing.lg),
 
+              // ── What the job actually is ─────────────────────────────────
+              // Above the money on purpose. The amount cannot be judged
+              // without it: the same R78 is generous for a line-up and an
+              // insult for a two-hour braid, and a provider deciding whether
+              // to drive across town is really asking what the work is.
+              if (offer.serviceNames.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: FreshlySpacing.sm),
+                  child: Text(
+                    offer.serviceNames.join(' · '),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+
               // ── Payout, the number that decides it ───────────────────────
               Text(
                 offer.payout.format(),
@@ -154,15 +173,23 @@ class _OfferOverlayState extends ConsumerState<OfferOverlay> {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   _Stat(
-                      icon: Icons.near_me_outlined,
+                      icon: FreshlyIcons.nearMe,
                       value: formatDistance(offer.distanceKm),
                       label: 'away'),
                   _Stat(
-                      icon: Icons.schedule,
+                      icon: FreshlyIcons.schedule,
                       value: formatEta(offer.etaMinutes),
                       label: 'drive'),
+                  // How long they are committing the chair for, which is the
+                  // other half of "is this worth it".
+                  if (offer.durationMinutes > 0)
+                    _Stat(
+                      icon: FreshlyIcons.timelapse,
+                      value: formatDuration(offer.durationMinutes),
+                      label: 'work',
+                    ),
                   _Stat(
-                    icon: Icons.star_rounded,
+                    icon: FreshlyIcons.star,
                     value: offer.clientRating.toStringAsFixed(1),
                     label: 'client',
                   ),
@@ -191,7 +218,7 @@ class _OfferOverlayState extends ConsumerState<OfferOverlay> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.location_on_outlined,
+                        const Icon(FreshlyIcons.location,
                             size: 16, color: Colors.white54),
                         const SizedBox(width: 6),
                         Expanded(
@@ -209,7 +236,7 @@ class _OfferOverlayState extends ConsumerState<OfferOverlay> {
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          const Icon(Icons.event_outlined,
+                          const Icon(FreshlyIcons.calendar,
                               size: 16, color: Colors.white54),
                           const SizedBox(width: 6),
                           Text(formatSlot(offer.scheduledStart!),

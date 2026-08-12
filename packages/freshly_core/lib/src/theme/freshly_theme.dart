@@ -39,8 +39,14 @@ class FreshlySpacing {
   static const double radiusLarge = 24;
 
   /// Minimum tappable edge. Below this, thumb accuracy collapses on the
-  /// 5-inch devices that dominate both markets.
+  /// 5-inch devices that dominate both markets. Apple's own floor is 44.
   static const double minTapTarget = 48;
+
+  /// iOS metrics for a primary button: 50 tall with a 14pt corner. Apple's
+  /// radius is much tighter than Material's stadium and is a large part of
+  /// why their buttons read as calm rather than playful.
+  static const double buttonHeight = 50;
+  static const double buttonRadius = 14;
 }
 
 /// Apple's type system, as far as it can lawfully be taken.
@@ -186,26 +192,62 @@ class FreshlyTheme {
               color: isDark ? const Color(0xFF232B38) : FreshlyColors.line),
         ),
       ),
+      // iOS button metrics: 50 high, 17pt semibold, a 14pt corner, and no
+      // elevation at all — Apple's buttons sit flat on the surface and signal
+      // press by fading rather than lifting. The ripple is removed for the
+      // same reason: an expanding ink circle is the single most Material thing
+      // on screen and reads wrong next to everything else here.
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(FreshlySpacing.minTapTarget + 4),
+          minimumSize: const Size.fromHeight(FreshlySpacing.buttonHeight),
           backgroundColor: FreshlyColors.mint,
           foregroundColor: Colors.white,
+          disabledBackgroundColor:
+              isDark ? const Color(0xFF232B38) : const Color(0xFFD5DAE2),
+          disabledForegroundColor:
+              isDark ? const Color(0xFF5B6675) : Colors.white,
           textStyle: FreshlyType.style(17, weight: FontWeight.w600),
+          elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+            borderRadius: BorderRadius.circular(FreshlySpacing.buttonRadius),
           ),
+        ).copyWith(
+          overlayColor: WidgetStateProperty.all(Colors.transparent),
+          // Apple dims to roughly 80% on press instead of rippling.
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.disabled)) {
+              return isDark ? const Color(0xFF232B38) : const Color(0xFFD5DAE2);
+            }
+            if (states.contains(WidgetState.pressed)) {
+              return FreshlyColors.mint.withValues(alpha: 0.8);
+            }
+            return FreshlyColors.mint;
+          }),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size.fromHeight(FreshlySpacing.minTapTarget),
+          minimumSize: const Size.fromHeight(FreshlySpacing.buttonHeight),
           foregroundColor: isDark ? Colors.white : FreshlyColors.ink,
+          textStyle: FreshlyType.style(17, weight: FontWeight.w600),
           side: BorderSide(
               color: isDark ? const Color(0xFF2C3542) : FreshlyColors.line),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+            borderRadius: BorderRadius.circular(FreshlySpacing.buttonRadius),
           ),
+        ).copyWith(
+          overlayColor: WidgetStateProperty.all(Colors.transparent),
+        ),
+      ),
+      // A plain text button is Apple's most common control — the blue-tinted
+      // label in a navigation bar or an alert. Tinted, never boxed.
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: FreshlyColors.mint,
+          textStyle: FreshlyType.style(17, weight: FontWeight.w400),
+          minimumSize: const Size(44, 44),
+        ).copyWith(
+          overlayColor: WidgetStateProperty.all(Colors.transparent),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(

@@ -23,6 +23,7 @@ class ProviderScreen extends ConsumerStatefulWidget {
 
 class _ProviderScreenState extends ConsumerState<ProviderScreen> {
   final _selected = <ServiceItem>[];
+  int _portfolioIndex = 0;
 
   int get _totalMinor => _selected.fold(0, (s, e) => s + e.price.minor);
   String get _currency =>
@@ -69,14 +70,57 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
                 flexibleSpace: FlexibleSpaceBar(
                   background: portfolio.isEmpty
                       ? Container(color: FreshlyColors.mintSoft)
-                      : PageView.builder(
-                          itemCount: portfolio.length,
-                          itemBuilder: (_, i) => Image.network(
-                            portfolio[i]['url'] as String,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                Container(color: FreshlyColors.mintSoft),
-                          ),
+                      : Stack(
+                          children: [
+                            Positioned.fill(
+                              child: PageView.builder(
+                                itemCount: portfolio.length,
+                                onPageChanged: (i) =>
+                                    setState(() => _portfolioIndex = i),
+                                itemBuilder: (context, i) => InkWell(
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => GalleryViewer(
+                                          urls: portfolio
+                                              .map((p) => p['url'] as String)
+                                              .toList(),
+                                          initialIndex: i,
+                                        ),
+                                        fullscreenDialog: true,
+                                      ),
+                                    );
+                                  },
+                                  child: Image.network(
+                                    portfolio[i]['url'] as String,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) =>
+                                        Container(color: FreshlyColors.mintSoft),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (portfolio.length > 1)
+                              Positioned(
+                                bottom: FreshlySpacing.md,
+                                right: FreshlySpacing.md,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black45,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    '${_portfolioIndex + 1} / ${portfolio.length}',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                 ),
               ),
@@ -88,7 +132,7 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
                           fontSize: 24, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 6),
                   Row(children: [
-                    const Icon(Icons.star_rounded,
+                    const Icon(FreshlyIcons.star,
                         size: 18, color: FreshlyColors.gold),
                     Text(
                         ' ${rating.toStringAsFixed(1)} ($ratingCount reviews)'),
@@ -103,7 +147,7 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
                       spacing: 6,
                       children: power
                           .map((p) => Chip(
-                                avatar: const Icon(Icons.bolt,
+                                avatar: const Icon(FreshlyIcons.bolt,
                                     size: 15, color: FreshlyColors.gold),
                                 label: Text(p.label,
                                     style: const TextStyle(fontSize: 12)),
@@ -151,7 +195,7 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
                                       color: FreshlyColors.inkMuted)),
                               if (s.requiresPower) ...[
                                 const SizedBox(width: 6),
-                                const Icon(Icons.bolt,
+                                const Icon(FreshlyIcons.bolt,
                                     size: 14,
                                     color: FreshlyColors.loadShedding),
                               ],

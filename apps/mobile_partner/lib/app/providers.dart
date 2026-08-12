@@ -92,6 +92,7 @@ class PartnerAuthNotifier extends StateNotifier<PartnerAuthState> {
       state = user.isVerifiedProvider
           ? PartnerReady(session)
           : PartnerPendingVerification(session, user.kycStatus ?? 'pending');
+      _ref.read(countryCodeProvider.notifier).state = user.countryCode;
       _ref.read(realtimeProvider).connect(token);
 
       // Presence is server state, not local state. A provider who was online
@@ -125,6 +126,12 @@ class PartnerAuthNotifier extends StateNotifier<PartnerAuthState> {
 final partnerAuthProvider =
     StateNotifierProvider<PartnerAuthNotifier, PartnerAuthState>(
         PartnerAuthNotifier.new);
+
+final countryCodeProvider = StateProvider<String>((ref) => 'ZA');
+
+final marketsProvider = FutureProvider<List<Market>>(
+  (ref) => ref.watch(apiProvider).markets(),
+);
 
 // ─── Presence and location streaming ─────────────────────────────────────────
 
@@ -237,6 +244,23 @@ final myMenuProvider = FutureProvider.autoDispose<List<ProviderMenuItem>>(
 final catalogServicesProvider =
     FutureProvider.family<List<CatalogService>, ServiceCategory?>(
   (ref, category) => ref.watch(apiProvider).catalogServices(category: category),
+);
+
+// ─── Portfolio ───────────────────────────────────────────────────────────────
+
+final myPortfolioProvider = FutureProvider.autoDispose<List<PortfolioItem>>(
+  (ref) => ref.watch(apiProvider).getMyPortfolio(),
+);
+
+// ─── CRM ─────────────────────────────────────────────────────────────────────
+
+final myClientsProvider = FutureProvider.autoDispose<List<ClientSummary>>(
+  (ref) => ref.watch(apiProvider).getMyClients(),
+);
+
+final clientDetailProvider =
+    FutureProvider.autoDispose.family<ClientDetail, String>(
+  (ref, id) => ref.watch(apiProvider).getClientDetail(id),
 );
 
 /// Live dispatch offers. Held in memory only — an offer that outlives the app

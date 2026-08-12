@@ -165,7 +165,7 @@ class _Keypad extends StatelessWidget {
           Row(children: [
             const Expanded(child: SizedBox()),
             key('0'),
-            key('', onTap: onBackspace, icon: Icons.backspace_outlined),
+            key('', onTap: onBackspace, icon: FreshlyIcons.backspace),
           ]),
         ],
       ),

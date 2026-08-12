@@ -10,6 +10,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
+  # Apple's icon language. SF Symbols itself is licensed to Apple platforms
+  # only and cannot ship in an Android binary; this is the Flutter team's
+  # freely licensed set drawn from the same shapes, so it is legal everywhere
+  # and looks right next to the type.
+  cupertino_icons: ^1.0.8
   flutter_localizations:
     sdk: flutter
 

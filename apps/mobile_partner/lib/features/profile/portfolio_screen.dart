@@ -93,7 +93,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
             )
           else
             IconButton(
-              icon: const Icon(Icons.add_a_photo_outlined),
+              icon: const Icon(FreshlyIcons.addPhoto),
               onPressed: _pickAndUpload,
               tooltip: 'Add photo',
             ),
@@ -110,7 +110,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.collections_outlined, size: 48, color: FreshlyColors.inkMuted),
+                    const Icon(FreshlyIcons.gallery, size: 48, color: FreshlyColors.inkMuted),
                     const SizedBox(height: FreshlySpacing.md),
                     const Text(
                       'Your gallery is empty. Add photos of your work to show '
@@ -162,7 +162,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                       top: 4,
                       right: 4,
                       child: IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Colors.white, size: 20),
+                        icon: const Icon(FreshlyIcons.delete, color: Colors.white, size: 20),
                         style: IconButton.styleFrom(backgroundColor: Colors.black38),
                         onPressed: () => _delete(item.id),
                       ),

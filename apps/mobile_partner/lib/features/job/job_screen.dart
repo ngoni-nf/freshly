@@ -71,7 +71,7 @@ class _JobScreenState extends ConsumerState<JobScreen> {
         await showDialog<void>(
           context: context,
           builder: (_) => AlertDialog(
-            icon: const Icon(Icons.check_circle,
+            icon: const Icon(FreshlyIcons.checkCircle,
                 color: FreshlyColors.mint, size: 44),
             title: const Text('Paid'),
             content: const Text(
@@ -174,7 +174,7 @@ class _JobScreenState extends ConsumerState<JobScreen> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.location_on_outlined, size: 18),
+                        const Icon(FreshlyIcons.location, size: 18),
                         const SizedBox(width: 8),
                         Expanded(
                             child: Text(booking.destinationAddress,
@@ -185,7 +185,7 @@ class _JobScreenState extends ConsumerState<JobScreen> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          const Icon(Icons.event_outlined, size: 18),
+                          const Icon(FreshlyIcons.calendar, size: 18),
                           const SizedBox(width: 8),
                           Text(formatSlot(booking.scheduledStart!)),
                         ],
@@ -201,15 +201,16 @@ class _JobScreenState extends ConsumerState<JobScreen> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () => _openNavigation(booking),
-                    icon: const Icon(Icons.navigation_outlined),
+                    icon: const Icon(FreshlyIcons.navigation),
                     label: const Text('Navigate'),
                   ),
                 ),
                 const SizedBox(width: FreshlySpacing.sm),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.chat_bubble_outline),
+                    onPressed: () =>
+                        context.push('/job/${widget.bookingId}/chat'),
+                    icon: const Icon(FreshlyIcons.chat),
                     label: const Text('Message'),
                   ),
                 ),
@@ -225,7 +226,7 @@ class _JobScreenState extends ConsumerState<JobScreen> {
             if (booking.status == BookingStatus.inProgress)
               OutlinedButton.icon(
                 onPressed: () => context.push('/job/${widget.bookingId}/addon'),
-                icon: const Icon(Icons.add_circle_outline),
+                icon: const Icon(FreshlyIcons.addCircle),
                 label: const Text('Suggest an extra service'),
               ),
           ],
@@ -406,7 +407,7 @@ class _StatusStrip extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: done
-                  ? const Icon(Icons.check, size: 13, color: Colors.white)
+                  ? const Icon(FreshlyIcons.check, size: 13, color: Colors.white)
                   : null,
             ),
             const SizedBox(height: 4),

@@ -93,17 +93,22 @@ h1, h2, h3 {
 
 /* Filter chips */
 .filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+/* Segmented-control flavour: Apple's filter chips are quiet until chosen. */
 .chip {
   font: inherit;
   font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.008em;
   padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: 980px;
   border: 1px solid var(--line);
   background: #fff;
   color: var(--ink);
   cursor: pointer;
+  transition: opacity 120ms ease, background-color 120ms ease;
 }
 .chip:hover { background: var(--bg); }
+.chip:active { opacity: 0.72; }
 .chip.on { background: var(--mint-soft); border-color: #bfe8d7; font-weight: 600; }
 .chip .count, h3.day .count {
   display: inline-block;
@@ -144,15 +149,24 @@ h3.day {
 .phone { font-weight: 600; color: var(--ink); }
 nav button.danger-nav { color: var(--crimson); font-weight: 600; }
 
+/* iOS button metrics: a 12px corner rather than Material's pill, 15px
+   semibold, flat, and a press that fades instead of rippling. Apple's controls
+   sit on the surface rather than above it, so there is no shadow anywhere. */
 button.action {
   font: inherit;
-  font-size: 14px;
-  padding: 8px 14px;
-  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 590; /* SF's semibold sits between 500 and 700 */
+  letter-spacing: -0.01em;
+  padding: 9px 16px;
+  min-height: 36px;
+  border-radius: 12px;
   border: 1px solid var(--line);
   background: #fff;
   cursor: pointer;
+  transition: opacity 120ms ease, background-color 120ms ease;
 }
+button.action:active { opacity: 0.72; }
+button.action:disabled { opacity: 0.4; cursor: default; }
 button.action:hover { background: var(--bg); }
 button.action.primary { background: var(--mint); border-color: var(--mint); color: #fff; }
 button.action.danger { color: var(--crimson); border-color: #f2c3bf; }

@@ -43,7 +43,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             const SizedBox(height: FreshlySpacing.lg),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.schedule),
+              leading: const Icon(FreshlyIcons.schedule),
               title: const Text('Free — overnight batch'),
               subtitle:
                   Text('You receive ${formatMinor(availableMinor, currency)}'),
@@ -51,7 +51,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.bolt),
+              leading: const Icon(FreshlyIcons.bolt),
               title: Text('Instant — ${formatMinor(feeMinor, currency)} fee'),
               subtitle: Text(
                   'You receive ${formatMinor(availableMinor - feeMinor, currency)}'),
@@ -171,7 +171,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 const SizedBox(height: FreshlySpacing.sm),
                 Card(
                   child: ListTile(
-                    leading: const Icon(Icons.lock_clock_outlined),
+                    leading: const Icon(FreshlyIcons.lockClock),
                     title: Text(formatMinor(pending, currency),
                         style: const TextStyle(fontWeight: FontWeight.w700)),
                     subtitle: const Text(
@@ -183,7 +183,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 const SizedBox(height: FreshlySpacing.sm),
                 Card(
                   child: ListTile(
-                    leading: const Icon(Icons.trending_up),
+                    leading: const Icon(FreshlyIcons.trendingUp),
                     title: Text(formatMinor(lifetime, currency),
                         style: const TextStyle(fontWeight: FontWeight.w700)),
                     subtitle: const Text('Earned with Freshly, all time'),

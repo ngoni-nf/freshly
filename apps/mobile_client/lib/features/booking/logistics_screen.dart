@@ -96,11 +96,11 @@ class _LogisticsScreenState extends ConsumerState<LogisticsScreen> {
             const SizedBox(height: FreshlySpacing.md),
             Card(
               child: ListTile(
-                leading: const Icon(Icons.event_outlined),
+                leading: const Icon(FreshlyIcons.calendar),
                 title: Text(draft.scheduledStart == null
                     ? 'Choose a date and time'
                     : formatSlot(draft.scheduledStart!)),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(FreshlyIcons.chevronRight),
                 onTap: _pickSlot,
               ),
             ),
@@ -116,7 +116,7 @@ class _LogisticsScreenState extends ConsumerState<LogisticsScreen> {
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.location_on_outlined,
+                  : const Icon(FreshlyIcons.location,
                       color: FreshlyColors.mint),
               title: Text(draft.destinationAddress ?? 'Finding your location…'),
               subtitle: const Text(

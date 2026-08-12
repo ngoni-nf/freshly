@@ -74,7 +74,7 @@ class PinScreen extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(FreshlySpacing.radius),
               ),
               child: const Row(children: [
-                Icon(Icons.info_outline, color: FreshlyColors.gold),
+                Icon(FreshlyIcons.info, color: FreshlyColors.gold),
                 SizedBox(width: FreshlySpacing.sm),
                 Expanded(
                   child: Text(

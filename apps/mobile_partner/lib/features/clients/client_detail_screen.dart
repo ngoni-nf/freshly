@@ -84,7 +84,7 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            const Icon(Icons.star_rounded, size: 16, color: FreshlyColors.gold),
+                            const Icon(FreshlyIcons.star, size: 16, color: FreshlyColors.gold),
                             Text(' ${client.rating.toStringAsFixed(1)} (${client.ratingCount})'),
                             const Text('  ·  '),
                             Text('Since ${formatDate(client.joinedAt)}'),
@@ -101,7 +101,7 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => launchUrl(Uri.parse('tel:${client.phone}')),
-                      icon: const Icon(Icons.phone_outlined),
+                      icon: const Icon(FreshlyIcons.phone),
                       label: const Text('Call'),
                     ),
                   ),
@@ -109,7 +109,7 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => launchUrl(Uri.parse('sms:${client.phone}')),
-                      icon: const Icon(Icons.message_outlined),
+                      icon: const Icon(FreshlyIcons.message),
                       label: const Text('Message'),
                     ),
                   ),

@@ -43,14 +43,14 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
                       ?.copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: FreshlySpacing.lg),
               const _PermissionRow(
-                icon: Icons.location_on_outlined,
+                icon: FreshlyIcons.location,
                 title: 'Location',
                 body:
                     'So we can show pros near you and give your barber your address '
                     'only once a booking is confirmed.',
               ),
               const _PermissionRow(
-                icon: Icons.notifications_none,
+                icon: FreshlyIcons.notifications,
                 title: 'Notifications',
                 body:
                     'So you know the moment a pro accepts, and when they are at your door.',

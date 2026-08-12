@@ -33,7 +33,7 @@ class LoadSheddingBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.bolt, color: FreshlyColors.loadShedding),
+          const Icon(FreshlyIcons.bolt, color: FreshlyColors.loadShedding),
           const SizedBox(width: FreshlySpacing.sm),
           Expanded(
             child: Column(

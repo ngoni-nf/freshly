@@ -16,7 +16,7 @@ class MenuScreen extends ConsumerWidget {
         title: const Text('My Services'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: const Icon(FreshlyIcons.add),
             onPressed: () => _showAddServiceSheet(context, ref),
             tooltip: 'Add service',
           ),
@@ -42,7 +42,7 @@ class MenuScreen extends ConsumerWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.style_outlined, size: 48, color: FreshlyColors.inkMuted),
+                    const Icon(FreshlyIcons.style, size: 48, color: FreshlyColors.inkMuted),
                     const SizedBox(height: FreshlySpacing.md),
                     const Text(
                       'Your menu is empty. Add services you offer to start receiving jobs.',
@@ -170,7 +170,7 @@ class _AddServiceSheetState extends ConsumerState<_AddServiceSheet> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.category_outlined, color: FreshlyColors.mint),
+                          const Icon(FreshlyIcons.category, color: FreshlyColors.mint),
                           const SizedBox(height: 4),
                           Text(cat.label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
                         ],
@@ -261,7 +261,7 @@ class _CatalogServiceList extends ConsumerWidget {
           return ListTile(
             title: Text(s.name),
             subtitle: Text('${s.typicalDurationMinutes} min'),
-            trailing: const Icon(Icons.add),
+            trailing: const Icon(FreshlyIcons.add),
             onTap: () => onSelect(s),
           );
         },

@@ -54,21 +54,21 @@ class _SpecialityGrid extends ConsumerWidget {
   final ValueChanged<ServiceCategory> onSelect;
 
   static const _icons = {
-    ServiceCategory.barber: Icons.content_cut,
-    ServiceCategory.beard: Icons.face_outlined,
-    ServiceCategory.scalp: Icons.psychology_alt_outlined,
-    ServiceCategory.hair: Icons.brush_outlined,
-    ServiceCategory.braiding: Icons.waves,
-    ServiceCategory.locs: Icons.grain,
-    ServiceCategory.extensions: Icons.layers_outlined,
-    ServiceCategory.color: Icons.palette_outlined,
-    ServiceCategory.nails: Icons.back_hand_outlined,
-    ServiceCategory.makeup: Icons.face_retouching_natural,
-    ServiceCategory.lashes: Icons.visibility_outlined,
-    ServiceCategory.brows: Icons.remove_red_eye_outlined,
-    ServiceCategory.aesthetics: Icons.spa_outlined,
-    ServiceCategory.bodyGrooming: Icons.auto_fix_high_outlined,
-    ServiceCategory.massage: Icons.self_improvement,
+    ServiceCategory.barber: FreshlyIcons.barber,
+    ServiceCategory.beard: FreshlyIcons.beard,
+    ServiceCategory.scalp: FreshlyIcons.scalp,
+    ServiceCategory.hair: FreshlyIcons.hair,
+    ServiceCategory.braiding: FreshlyIcons.braiding,
+    ServiceCategory.locs: FreshlyIcons.locs,
+    ServiceCategory.extensions: FreshlyIcons.extensions,
+    ServiceCategory.color: FreshlyIcons.colour,
+    ServiceCategory.nails: FreshlyIcons.nails,
+    ServiceCategory.makeup: FreshlyIcons.makeup,
+    ServiceCategory.lashes: FreshlyIcons.lashes,
+    ServiceCategory.brows: FreshlyIcons.brows,
+    ServiceCategory.aesthetics: FreshlyIcons.aesthetics,
+    ServiceCategory.bodyGrooming: FreshlyIcons.bodyGrooming,
+    ServiceCategory.massage: FreshlyIcons.massage,
   };
 
   @override
@@ -160,7 +160,7 @@ class _ServiceList extends ConsumerWidget {
                   ),
                 Row(
                   children: [
-                    const Icon(Icons.access_time,
+                    const Icon(FreshlyIcons.clock,
                         size: 14, color: FreshlyColors.inkMuted),
                     const SizedBox(width: 4),
                     Text('${service.typicalDurationMinutes} min',
@@ -168,7 +168,7 @@ class _ServiceList extends ConsumerWidget {
                             fontSize: 12, color: FreshlyColors.inkMuted)),
                     if (service.requiresPower) ...[
                       const SizedBox(width: FreshlySpacing.md),
-                      const Icon(Icons.bolt,
+                      const Icon(FreshlyIcons.bolt,
                           size: 14, color: FreshlyColors.mint),
                       const SizedBox(width: 4),
                       const Text('Power needed',
@@ -179,7 +179,7 @@ class _ServiceList extends ConsumerWidget {
                 ),
               ],
             ),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(FreshlyIcons.chevronRight),
             onTap: () => onSelect(service),
           );
         },

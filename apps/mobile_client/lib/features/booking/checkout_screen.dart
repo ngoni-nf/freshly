@@ -84,14 +84,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final country = ref.watch(countryCodeProvider);
     final methods = country == 'ZW'
         ? const [
-            ('ecocash', 'EcoCash', Icons.phone_android),
-            ('card', 'Card (USD)', Icons.credit_card),
-            ('innbucks', 'InnBucks', Icons.account_balance_wallet_outlined),
+            ('ecocash', 'EcoCash', FreshlyIcons.mobile),
+            ('card', 'Card (USD)', FreshlyIcons.card),
+            ('innbucks', 'InnBucks', FreshlyIcons.wallet),
           ]
         : const [
-            ('capitec_pay', 'Capitec Pay', Icons.phone_android),
-            ('instant_eft', 'Instant EFT', Icons.account_balance_outlined),
-            ('card', 'Card', Icons.credit_card),
+            ('capitec_pay', 'Capitec Pay', FreshlyIcons.mobile),
+            ('instant_eft', 'Instant EFT', FreshlyIcons.bank),
+            ('card', 'Card', FreshlyIcons.card),
           ];
 
     return Scaffold(
@@ -153,29 +153,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     ),
                   ),
                   const SizedBox(height: FreshlySpacing.md),
-                  Container(
-                    padding: const EdgeInsets.all(FreshlySpacing.md),
-                    decoration: BoxDecoration(
-                      color: FreshlyColors.mintSoft,
-                      borderRadius:
-                          BorderRadius.circular(FreshlySpacing.radius),
-                    ),
-                    child: const Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.lock_outline,
-                            color: FreshlyColors.mintDark, size: 20),
-                        SizedBox(width: FreshlySpacing.sm),
-                        Expanded(
-                          child: Text(
-                            'We hold your payment securely and only release it to your pro '
-                            'once the service is done and you have shared your 4-digit code.',
-                            style: TextStyle(fontSize: 13, height: 1.4),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  const _SecurePaymentInfo(),
+                  const SizedBox(height: FreshlySpacing.md),
+                  const _CancellationPolicyInfo(),
                 ],
                 const SizedBox(height: FreshlySpacing.lg),
                 const Text('Pay with',
@@ -225,6 +205,84 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SecurePaymentInfo extends StatelessWidget {
+  const _SecurePaymentInfo();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(FreshlySpacing.md),
+      decoration: BoxDecoration(
+        color: FreshlyColors.mintSoft,
+        borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(FreshlyIcons.lock, color: FreshlyColors.mintDark, size: 20),
+          SizedBox(width: FreshlySpacing.sm),
+          Expanded(
+            child: Text(
+              'We hold your payment securely and only release it to your pro '
+              'once the service is done and you have shared your 4-digit code.',
+              style: TextStyle(fontSize: 13, height: 1.4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CancellationPolicyInfo extends ConsumerWidget {
+  const _CancellationPolicyInfo();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final markets = ref.watch(marketsProvider);
+    final country = ref.watch(countryCodeProvider);
+
+    return markets.when(
+      data: (list) {
+        final market = list.firstWhere((m) => m.code == country,
+            orElse: () => list.first);
+        final feePct = (market.cancellationFeeBps / 100).toStringAsFixed(0);
+        final windowHrs = (market.cancellationWindowMinutes / 60).toStringAsFixed(0);
+
+        return Container(
+          padding: const EdgeInsets.all(FreshlySpacing.md),
+          decoration: BoxDecoration(
+            color: FreshlyColors.line.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(FreshlyIcons.info, size: 18),
+                  SizedBox(width: 8),
+                  Text('Cancellation Policy',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Cancel for free up to $windowHrs hours before your appointment. '
+                'Late cancellations or no-shows carry a $feePct% fee to protect '
+                'your professional’s time and travel costs.',
+                style: const TextStyle(fontSize: 12, height: 1.4),
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 }

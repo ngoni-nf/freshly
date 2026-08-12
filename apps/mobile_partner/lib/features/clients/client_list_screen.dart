@@ -30,7 +30,7 @@ class ClientListScreen extends ConsumerWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.people_outline, size: 48, color: FreshlyColors.inkMuted),
+                    Icon(FreshlyIcons.people, size: 48, color: FreshlyColors.inkMuted),
                     SizedBox(height: FreshlySpacing.md),
                     Text(
                       'No clients yet. Your customer database grows automatically '
@@ -64,7 +64,7 @@ class ClientListScreen extends ConsumerWidget {
                   title: Text(client.fullName, style: const TextStyle(fontWeight: FontWeight.w700)),
                   subtitle: Text(
                       '${client.bookingCount} job${client.bookingCount == 1 ? '' : 's'} · Last ${formatDate(client.lastBookingAt)}'),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(FreshlyIcons.chevronRight),
                   onTap: () => context.push('/clients/${client.id}'),
                 ),
               );

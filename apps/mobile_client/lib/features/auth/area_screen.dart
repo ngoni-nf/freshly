@@ -155,11 +155,11 @@ class _AreaScreenState extends ConsumerState<AreaScreen> {
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
                   hintText: 'Suburb, e.g. Rosebank',
-                  prefixIcon: const Icon(Icons.search),
+                  prefixIcon: const Icon(FreshlyIcons.search),
                   suffixIcon: _controller.text.isEmpty
                       ? null
                       : IconButton(
-                          icon: const Icon(Icons.close),
+                          icon: const Icon(FreshlyIcons.close),
                           onPressed: () {
                             _controller.clear();
                             _search('');
@@ -235,7 +235,7 @@ class _AreaScreenState extends ConsumerState<AreaScreen> {
         return Card(
           margin: EdgeInsets.zero,
           child: ListTile(
-            leading: const Icon(Icons.location_on_outlined),
+            leading: const Icon(FreshlyIcons.location),
             title: Text(place.name, style: const TextStyle(fontWeight: FontWeight.w700)),
             // The metro is the reassurance that we cover this, without making
             // the customer choose it.
@@ -244,7 +244,7 @@ class _AreaScreenState extends ConsumerState<AreaScreen> {
                   ? place.serviceAreaName
                   : '${place.serviceAreaName} · ${place.postalCode}',
             ),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(FreshlyIcons.chevronRight),
             onTap: _busy ? null : () => _choose(place),
           ),
         );

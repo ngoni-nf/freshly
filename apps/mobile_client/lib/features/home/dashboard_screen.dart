@@ -170,7 +170,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.location_on_outlined,
+                                const Icon(FreshlyIcons.location,
                                     size: 14, color: FreshlyColors.inkMuted),
                                 const SizedBox(width: 2),
                                 Text(
@@ -180,7 +180,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                       color: FreshlyColors.inkMuted,
                                       fontSize: 13),
                                 ),
-                                const Icon(Icons.expand_more,
+                                const Icon(FreshlyIcons.expandMore,
                                     size: 16, color: FreshlyColors.inkMuted),
                               ],
                             ),
@@ -190,7 +190,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ),
                     IconButton(
                       onPressed: () => context.push('/bookings'),
-                      icon: const Icon(Icons.receipt_long_outlined),
+                      icon: const Icon(FreshlyIcons.receipt),
                       tooltip: 'My bookings',
                     ),
                   ],
@@ -205,11 +205,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   segments: const [
                     ButtonSegment(
                         value: true,
-                        icon: Icon(Icons.directions_car_outlined),
+                        icon: Icon(FreshlyIcons.car),
                         label: Text('To me')),
                     ButtonSegment(
                         value: false,
-                        icon: Icon(Icons.storefront_outlined),
+                        icon: Icon(FreshlyIcons.storefront),
                         label: Text('At a shop')),
                   ],
                   selected: {ref.watch(dashboardVenueProvider) == 'mobile'},
@@ -238,7 +238,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   onSubmitted: (_) => _runConcierge(),
                   decoration: InputDecoration(
                     hintText: 'Try "fade at my place tomorrow 4pm"',
-                    prefixIcon: const Icon(Icons.auto_awesome,
+                    prefixIcon: const Icon(FreshlyIcons.sparkles,
                         color: FreshlyColors.mint),
                     suffixIcon: _parsing
                         ? const Padding(
@@ -250,7 +250,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                     CircularProgressIndicator(strokeWidth: 2)),
                           )
                         : IconButton(
-                            icon: const Icon(Icons.mic_none),
+                            icon: const Icon(FreshlyIcons.mic),
                             tooltip: 'Speak',
                             onPressed: () {},
                           ),
@@ -350,21 +350,21 @@ class _CategoryTile extends StatelessWidget {
   final VoidCallback onTap;
 
   static const _icons = {
-    ServiceCategory.barber: Icons.content_cut,
-    ServiceCategory.beard: Icons.face_outlined,
-    ServiceCategory.scalp: Icons.psychology_alt_outlined,
-    ServiceCategory.hair: Icons.brush_outlined,
-    ServiceCategory.braiding: Icons.waves,
-    ServiceCategory.locs: Icons.grain,
-    ServiceCategory.extensions: Icons.layers_outlined,
-    ServiceCategory.color: Icons.palette_outlined,
-    ServiceCategory.nails: Icons.back_hand_outlined,
-    ServiceCategory.makeup: Icons.face_retouching_natural,
-    ServiceCategory.lashes: Icons.visibility_outlined,
-    ServiceCategory.brows: Icons.remove_red_eye_outlined,
-    ServiceCategory.aesthetics: Icons.spa_outlined,
-    ServiceCategory.bodyGrooming: Icons.auto_fix_high_outlined,
-    ServiceCategory.massage: Icons.self_improvement,
+    ServiceCategory.barber: FreshlyIcons.barber,
+    ServiceCategory.beard: FreshlyIcons.beard,
+    ServiceCategory.scalp: FreshlyIcons.scalp,
+    ServiceCategory.hair: FreshlyIcons.hair,
+    ServiceCategory.braiding: FreshlyIcons.braiding,
+    ServiceCategory.locs: FreshlyIcons.locs,
+    ServiceCategory.extensions: FreshlyIcons.extensions,
+    ServiceCategory.color: FreshlyIcons.colour,
+    ServiceCategory.nails: FreshlyIcons.nails,
+    ServiceCategory.makeup: FreshlyIcons.makeup,
+    ServiceCategory.lashes: FreshlyIcons.lashes,
+    ServiceCategory.brows: FreshlyIcons.brows,
+    ServiceCategory.aesthetics: FreshlyIcons.aesthetics,
+    ServiceCategory.bodyGrooming: FreshlyIcons.bodyGrooming,
+    ServiceCategory.massage: FreshlyIcons.massage,
   };
 
   @override
@@ -438,7 +438,7 @@ class _NearbyShops extends ConsumerWidget {
                 child: ListTile(
                   leading: const CircleAvatar(
                     backgroundColor: FreshlyColors.mintSoft,
-                    child: Icon(Icons.storefront_outlined,
+                    child: Icon(FreshlyIcons.storefront,
                         color: FreshlyColors.mintDark),
                   ),
                   title: Text(p.displayName,
@@ -453,7 +453,7 @@ class _NearbyShops extends ConsumerWidget {
                     style: const TextStyle(height: 1.3),
                   ),
                   isThreeLine: p.shopAddress != null,
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(FreshlyIcons.chevronRight),
                   onTap: () => context.push('/provider/${p.id}'),
                 ),
               ),
@@ -496,7 +496,7 @@ class _RecentBookings extends ConsumerWidget {
                   title: Text(b.providerName ?? 'Freshly booking'),
                   subtitle: Text('${b.reference} · ${b.total.format()}'),
                   trailing: b.status.isLive
-                      ? const Icon(Icons.navigation_outlined,
+                      ? const Icon(FreshlyIcons.navigation,
                           color: FreshlyColors.mint)
                       : TextButton(
                           onPressed: () {

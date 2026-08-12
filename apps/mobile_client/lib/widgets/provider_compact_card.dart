@@ -75,7 +75,7 @@ class ProviderCompactCard extends StatelessWidget {
                           color: Colors.black45,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.bolt,
+                        child: const Icon(FreshlyIcons.bolt,
                             size: 12, color: FreshlyColors.gold),
                       ),
                     ),
@@ -91,7 +91,7 @@ class ProviderCompactCard extends StatelessWidget {
               const SizedBox(height: 2),
               Row(
                 children: [
-                  const Icon(Icons.star_rounded, size: 14, color: FreshlyColors.gold),
+                  const Icon(FreshlyIcons.star, size: 14, color: FreshlyColors.gold),
                   const SizedBox(width: 2),
                   Text(
                     provider.rating.toStringAsFixed(1),

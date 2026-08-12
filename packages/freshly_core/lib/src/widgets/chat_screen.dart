@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/models.dart';
+import '../theme/freshly_icons.dart';
 import '../network/api_client.dart';
 import '../realtime/realtime_client.dart';
 import '../theme/freshly_theme.dart';
@@ -109,7 +110,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.chat_bubble_outline,
+                            const Icon(FreshlyIcons.chat,
                                 size: 48, color: FreshlyColors.inkMuted),
                             const SizedBox(height: 12),
                             Text('No messages yet',
@@ -156,7 +157,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                   const SizedBox(width: 4),
                   IconButton(
-                    icon: const Icon(Icons.send, color: FreshlyColors.mint),
+                    icon: const Icon(FreshlyIcons.send, color: FreshlyColors.mint),
                     onPressed: _send,
                   ),
                 ],

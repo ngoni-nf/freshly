@@ -71,7 +71,7 @@ class CountryScreen extends ConsumerWidget {
                                   const TextStyle(fontWeight: FontWeight.w700)),
                           subtitle: Text(
                               '${market.dialPrefix} · prices in ${market.currency}'),
-                          trailing: const Icon(Icons.chevron_right),
+                          trailing: const Icon(FreshlyIcons.chevronRight),
                           onTap: () {
                             ref.read(countryCodeProvider.notifier).state =
                                 market.code;
