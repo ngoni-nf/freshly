@@ -57,9 +57,26 @@ export class ProvidersController {
 
   @Roles('admin', 'support')
   @Get()
-  @ApiOperation({ summary: 'Operator search, including suspended and unverified' })
+  @ApiOperation({ summary: 'The roster: everyone, with live and upcoming work' })
   adminSearch(@Query('q') q?: string, @Query('limit') limit?: string) {
-    return this.providers.adminSearch(q, Math.min(Number(limit) || 25, 100));
+    return this.providers.adminSearch(q, Math.min(Number(limit) || 100, 200));
+  }
+
+  @Roles('admin', 'support')
+  @Get('schedule/upcoming')
+  @ApiOperation({ summary: 'Everything booked ahead, for the ops diary' })
+  adminSchedule(@Query('days') days?: string) {
+    return this.providers.adminSchedule(Math.min(Number(days) || 14, 90));
+  }
+
+  @Roles('admin', 'support')
+  @Get('schedule/completed')
+  @ApiOperation({ summary: 'Jobs done, who did them, and what the client said' })
+  adminCompleted(@Query('days') days?: string, @Query('limit') limit?: string) {
+    return this.providers.adminCompleted(
+      Math.min(Number(days) || 30, 365),
+      Math.min(Number(limit) || 100, 200),
+    );
   }
 
   @Roles('admin')

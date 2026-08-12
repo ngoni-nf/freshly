@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -42,6 +43,97 @@ class FreshlySpacing {
   static const double minTapTarget = 48;
 }
 
+/// Apple's type system, as far as it can lawfully be taken.
+///
+/// SF Pro is licensed for designing and building software for Apple's own
+/// platforms. It may not be bundled into an Android binary, so this resolves
+/// per platform rather than shipping one file everywhere:
+///
+///   - iOS and macOS: the family name below is Apple's own system font, so the
+///     apps render in genuine SF Pro.
+///   - Android and elsewhere: `null` hands Flutter the platform default. Drop
+///     Inter into `assets/fonts/` and name it here to match SF more closely —
+///     it was drawn as an SF-alike and is under the Open Font License.
+///
+/// The metrics matter more than the file. What reads as "Apple" is mostly the
+/// tracking: SF tightens sharply as size increases and loosens below body
+/// size, which is what `_appleTracking` reproduces. Applied over whichever
+/// family is actually available, it gets most of the way there on any device.
+class FreshlyType {
+  const FreshlyType._();
+
+  static String? get family {
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+        // Apple's system font, resolved by the OS. Not a bundled file.
+        return '.SF Pro Text';
+      default:
+        return null;
+    }
+  }
+
+  static String? get displayFamily {
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+        // Apple switches to the Display cut above 20pt; the two differ in
+        // tracking and aperture, and using Text at headline sizes is the most
+        // common way an imitation gives itself away.
+        return '.SF Pro Display';
+      default:
+        return null;
+    }
+  }
+
+  /// SF's optical tracking, in logical pixels, approximated from Apple's
+  /// published table. Negative above body size, positive below it.
+  static double tracking(double fontSize) {
+    if (fontSize >= 34) return -1.0;
+    if (fontSize >= 28) return -0.7;
+    if (fontSize >= 22) return -0.5;
+    if (fontSize >= 20) return -0.4;
+    if (fontSize >= 17) return -0.4;
+    if (fontSize >= 15) return -0.2;
+    if (fontSize >= 13) return 0.0;
+    return 0.1;
+  }
+
+  static TextStyle style(
+    double size, {
+    FontWeight weight = FontWeight.w400,
+    double? height,
+    Color? color,
+  }) =>
+      TextStyle(
+        fontFamily: size >= 20 ? displayFamily : family,
+        fontSize: size,
+        fontWeight: weight,
+        letterSpacing: tracking(size),
+        height: height,
+        color: color,
+      );
+
+  /// Apple's own steps, so sizes are theirs rather than invented near them.
+  static TextTheme textTheme(Color ink, Color muted) => TextTheme(
+        displayLarge: style(34, weight: FontWeight.w700, height: 1.2, color: ink),
+        displayMedium: style(28, weight: FontWeight.w700, height: 1.2, color: ink),
+        displaySmall: style(26, weight: FontWeight.w700, height: 1.2, color: ink),
+        headlineLarge: style(28, weight: FontWeight.w700, height: 1.2, color: ink),
+        headlineMedium: style(24, weight: FontWeight.w700, height: 1.25, color: ink),
+        headlineSmall: style(22, weight: FontWeight.w600, height: 1.27, color: ink),
+        titleLarge: style(20, weight: FontWeight.w600, height: 1.25, color: ink),
+        titleMedium: style(17, weight: FontWeight.w600, height: 1.29, color: ink),
+        titleSmall: style(15, weight: FontWeight.w600, height: 1.33, color: ink),
+        bodyLarge: style(17, height: 1.29, color: ink),
+        bodyMedium: style(15, height: 1.33, color: ink),
+        bodySmall: style(13, height: 1.38, color: muted),
+        labelLarge: style(17, weight: FontWeight.w600, color: ink),
+        labelMedium: style(13, weight: FontWeight.w500, color: muted),
+        labelSmall: style(11, weight: FontWeight.w500, color: muted),
+      );
+}
+
 class FreshlyTheme {
   const FreshlyTheme._();
 
@@ -59,8 +151,12 @@ class FreshlyTheme {
     );
 
     final base = ThemeData(useMaterial3: true, colorScheme: scheme);
+    final ink = isDark ? Colors.white : FreshlyColors.ink;
+    final muted = isDark ? const Color(0xFF9AA6B6) : FreshlyColors.inkMuted;
 
     return base.copyWith(
+      textTheme: FreshlyType.textTheme(ink, muted),
+      primaryTextTheme: FreshlyType.textTheme(ink, muted),
       scaffoldBackgroundColor:
           isDark ? const Color(0xFF0C1017) : FreshlyColors.canvas,
       appBarTheme: AppBarTheme(
@@ -72,9 +168,9 @@ class FreshlyTheme {
         foregroundColor: isDark ? Colors.white : FreshlyColors.ink,
         systemOverlayStyle:
             isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
-        titleTextStyle: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
+        titleTextStyle: FreshlyType.style(
+          20,
+          weight: FontWeight.w700,
           color: isDark ? Colors.white : FreshlyColors.ink,
         ),
       ),
@@ -95,7 +191,7 @@ class FreshlyTheme {
           minimumSize: const Size.fromHeight(FreshlySpacing.minTapTarget + 4),
           backgroundColor: FreshlyColors.mint,
           foregroundColor: Colors.white,
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          textStyle: FreshlyType.style(17, weight: FontWeight.w600),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(FreshlySpacing.radius),
           ),

@@ -584,6 +584,64 @@ class FreshlyApi {
         (_) {},
       );
 
+  Future<List<PortfolioItem>> getMyPortfolio() => _unwrap(
+        _dio.get('/providers/me/portfolio'),
+        (d) => (d as List)
+            .map((e) => PortfolioItem.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+
+  Future<PortfolioItem> addPortfolioItem({
+    required String mediaKey,
+    List<String> tags = const [],
+  }) =>
+      _unwrap(
+        _dio.post('/providers/me/portfolio',
+            data: {'mediaKey': mediaKey, 'tags': tags}),
+        (d) => PortfolioItem.fromJson(d as Map<String, dynamic>),
+      );
+
+  Future<void> removePortfolioItem(String id) => _unwrap(
+        _dio.delete('/providers/me/portfolio/$id'),
+        (_) {},
+      );
+
+  // ─── CRM ─────────────────────────────────────────────────────────────────
+  Future<List<ClientSummary>> getMyClients() => _unwrap(
+        _dio.get('/providers/me/clients'),
+        (d) => (d as List)
+            .map((e) => ClientSummary.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+
+  Future<ClientDetail> getClientDetail(String id) => _unwrap(
+        _dio.get('/providers/me/clients/$id'),
+        (d) => ClientDetail.fromJson(d as Map<String, dynamic>),
+      );
+
+  Future<void> updateClientNotes(String id, String notes) => _unwrap(
+        _dio.post('/providers/me/clients/$id/notes', data: {'notes': notes}),
+        (_) {},
+      );
+
+  // ─── Chat ────────────────────────────────────────────────────────────────
+  Future<List<ChatMessage>> getChatHistory(String bookingId) => _unwrap(
+        _dio.get('/bookings/$bookingId/chat'),
+        (d) => (d as List)
+            .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+
+  Future<ChatMessage> sendChatMessage(String bookingId, String body) => _unwrap(
+        _dio.post('/bookings/$bookingId/chat', data: {'body': body}),
+        (d) => ChatMessage.fromJson(d as Map<String, dynamic>),
+      );
+
+  Future<void> markChatAsRead(String bookingId) => _unwrap(
+        _dio.post('/bookings/$bookingId/chat/read'),
+        (_) {},
+      );
+
   // ─── Safety ──────────────────────────────────────────────────────────────
   Future<Map<String, dynamic>> triggerSos({
     String? bookingId,

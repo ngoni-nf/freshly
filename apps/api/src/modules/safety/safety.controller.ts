@@ -5,8 +5,14 @@ import {
   IsBoolean, IsInt, IsNumber, IsOptional, IsString, IsUUID, Length, Max, Min,
 } from 'class-validator';
 import { SkipThrottle } from '@nestjs/throttler';
-import { CurrentUser } from '../../common/decorators';
+import { CurrentUser, Roles } from '../../common/decorators';
 import { SafetyService } from './safety.service';
+
+class SosDispositionDto {
+  /// What was done. An alert closed with no note is one nobody can account for
+  /// afterwards, and these are the records that get read back in an inquiry.
+  @IsString() @Length(3, 2000) notes!: string;
+}
 
 class TriggerSosDto {
   @IsOptional() @IsUUID() bookingId?: string;
@@ -27,6 +33,51 @@ class EmergencyContactDto {
 @Controller('safety')
 export class SafetyController {
   constructor(private readonly safety: SafetyService) {}
+
+  /**
+   * The live alert board.
+   *
+   * Deliberately exempt from throttling and polled hard by the console: this
+   * is the one screen where being a minute stale is the difference that
+   * matters. Returns coordinates, because "where are they" is the only
+   * question that counts, and the person's number, because the first action is
+   * to ring them.
+   */
+  @SkipThrottle()
+  @Roles('admin', 'support')
+  @Get('sos/active')
+  @ApiOperation({ summary: 'Open emergency alerts, with location and contacts' })
+  activeAlerts() {
+    return this.safety.activeAlerts();
+  }
+
+  @Roles('admin', 'support')
+  @Get('sos/history')
+  @ApiOperation({ summary: 'Alerts already dealt with' })
+  alertHistory() {
+    return this.safety.alertHistory();
+  }
+
+  @Roles('admin', 'support')
+  @Post('sos/:id/acknowledge')
+  @ApiOperation({ summary: 'Take ownership of an alert' })
+  acknowledge(
+    @CurrentUser('userId') staffUserId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.safety.acknowledge(id, staffUserId);
+  }
+
+  @Roles('admin', 'support')
+  @Post('sos/:id/resolve')
+  @ApiOperation({ summary: 'Close an alert with what was done' })
+  resolve(
+    @CurrentUser('userId') staffUserId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SosDispositionDto,
+  ) {
+    return this.safety.resolve(id, staffUserId, dto.notes);
+  }
 
   /**
    * Deliberately exempt from rate limiting.

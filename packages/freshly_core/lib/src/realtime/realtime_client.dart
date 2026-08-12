@@ -21,14 +21,14 @@ class RealtimeClient {
   final _offers = StreamController<DispatchOffer>.broadcast();
   final _offerRevoked = StreamController<String>.broadcast();
   final _addonRequests = StreamController<Map<String, dynamic>>.broadcast();
-  final _messages = StreamController<Map<String, dynamic>>.broadcast();
+  final _messages = StreamController<ChatMessage>.broadcast();
 
   Stream<RealtimeConnectionState> get status => _status.stream;
   Stream<TrackingUpdate> get tracking => _tracking.stream;
   Stream<DispatchOffer> get offers => _offers.stream;
   Stream<String> get offerRevoked => _offerRevoked.stream;
   Stream<Map<String, dynamic>> get addonRequests => _addonRequests.stream;
-  Stream<Map<String, dynamic>> get messages => _messages.stream;
+  Stream<ChatMessage> get messages => _messages.stream;
 
   bool get isConnected => _socket?.connected ?? false;
 
@@ -64,8 +64,10 @@ class RealtimeClient {
       ..on('addon.requested', (d) {
         if (d is Map) _addonRequests.add(Map<String, dynamic>.from(d));
       })
-      ..on('message.new', (d) {
-        if (d is Map) _messages.add(Map<String, dynamic>.from(d));
+      ..on('chat.message', (d) {
+        if (d is Map) {
+          _messages.add(ChatMessage.fromJson(Map<String, dynamic>.from(d)));
+        }
       });
 
     _status.add(RealtimeConnectionState.connecting);

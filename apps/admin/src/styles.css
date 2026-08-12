@@ -7,7 +7,18 @@
   --mint-soft: #e6f7f0;
   --crimson: #c0392b;
   --gold: #c98a00;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Apple's own stack, in Apple's order. On a Mac or an iPad this resolves to
+     genuine SF Pro through the OS, which is the only way SF may lawfully be
+     used on the web — it cannot be self-hosted or served as a webfont. Every
+     later entry is a fallback for machines that have no SF. */
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Helvetica Neue", "Segoe UI", Roboto, system-ui, sans-serif;
+  /* SF's optical tracking: tight, and tighter still as type grows. Most of
+     what reads as "Apple" is this rather than the letterforms. */
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "kern" 1, "liga" 1;
   color: var(--ink);
 }
 
@@ -53,7 +64,15 @@ h2 { margin: 0 0 4px; font-size: 22px; }
   margin-bottom: 12px;
 }
 .row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
-.name { font-weight: 600; font-size: 16px; }
+/* Headings take SF Display and its tighter tracking, the way Apple switches
+   cut above 20pt. Using the Text cut at headline sizes is the usual tell. */
+h1, h2, h3 {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    "Helvetica Neue", "Segoe UI", Roboto, system-ui, sans-serif;
+  letter-spacing: -0.022em;
+}
+
+.name { font-weight: 600; font-size: 16px; letter-spacing: -0.014em; }
 .meta { color: var(--ink-muted); font-size: 13px; margin-top: 4px; line-height: 1.5; }
 
 .tag {
@@ -68,6 +87,62 @@ h2 { margin: 0 0 4px; font-size: 22px; }
 .tag.warn { background: #fff6e0; border-color: #f0dca8; color: var(--gold); }
 .tag.bad { background: #fdeceb; border-color: #f2c3bf; color: var(--crimson); }
 .tag.good { background: var(--mint-soft); border-color: #bfe8d7; color: #007a51; }
+/* Distinct from "online": working and merely available are different states,
+   and an operator counting capacity has to be able to tell them apart. */
+.tag.busy { background: #eef2ff; border-color: #c7d2fe; color: #3730a3; }
+
+/* Filter chips */
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.chip {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+.chip:hover { background: var(--bg); }
+.chip.on { background: var(--mint-soft); border-color: #bfe8d7; font-weight: 600; }
+.chip .count, h3.day .count {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+
+/* Diary day headings */
+h3.day {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-muted);
+  margin: 24px 0 8px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+}
+.amount { font-weight: 700; font-size: 15px; white-space: nowrap; }
+
+/* Complaint threads */
+.body { margin: 10px 0; line-height: 1.5; white-space: pre-wrap; }
+.bubble {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 8px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.bubble.staff { background: var(--mint-soft); border-color: #bfe8d7; }
+.bubble .who { font-size: 11px; color: var(--ink-muted); margin-bottom: 4px; }
+
+/* An open emergency alert should be impossible to scroll past. */
+.card.alert { border: 2px solid var(--crimson); background: #fffafa; }
+.phone { font-weight: 600; color: var(--ink); }
+nav button.danger-nav { color: var(--crimson); font-weight: 600; }
 
 button.action {
   font: inherit;

@@ -102,6 +102,90 @@ export interface Provider {
   isOnline: boolean;
   rating: number;
   completedJobs: number;
+  categories: string[];
+  venueMode: string;
+  joinedAt: string | null;
+  /** Null unless they are working right now. Online and busy are not the same. */
+  activeJob: { reference: string; status: string } | null;
+  upcomingCount: number;
+}
+
+export interface ScheduledBooking {
+  id: string;
+  reference: string;
+  status: string;
+  bookingType: string;
+  scheduledStart: string | null;
+  createdAt: string;
+  total: { minor: number; currency: string };
+  /** Null when nobody has accepted it yet — the row ops most needs to see. */
+  providerName: string | null;
+  providerId: string | null;
+  clientName: string;
+  services: string[];
+  destinationAddress: string;
+}
+
+export interface CompletedJob {
+  id: string;
+  reference: string;
+  completedAt: string | null;
+  total: { minor: number; currency: string };
+  clientName: string;
+  providerId: string | null;
+  providerName: string | null;
+  /** The provider's running average, for context around a single bad job. */
+  providerRating: number | null;
+  providerRatingCount: number;
+  services: string[];
+  destinationAddress: string;
+  /** Null when the client left no review. Silence is worth seeing too. */
+  review: {
+    rating: number;
+    tags: string[];
+    comment: string | null;
+    reviewedAt: string;
+  } | null;
+}
+
+export interface TicketMessage {
+  id: string;
+  isStaff: boolean;
+  body: string;
+  createdAt: string;
+}
+
+export interface Ticket {
+  id: string;
+  subject: string;
+  body: string;
+  status: string;
+  createdAt: string;
+  closedAt: string | null;
+  lastStaffReplyAt: string | null;
+  messages: TicketMessage[];
+  raisedByName: string;
+  raisedByPhone: string;
+  bookingReference: string | null;
+}
+
+export interface SosAlert {
+  id: string;
+  status: string;
+  actor: string;
+  createdAt: string;
+  acknowledgedAt: string | null;
+  location: { lat: number; lng: number };
+  accuracyM: number | null;
+  batteryPct: number | null;
+  vehicleDescription: string | null;
+  personName: string;
+  personPhone: string;
+  counterpartyName: string | null;
+  bookingReference: string | null;
+  destinationAddress: string | null;
+  resolutionNotes?: string | null;
+  resolvedAt?: string | null;
 }
 
 export type DocumentLinks = Record<string, { url: string; expiresIn: number }>;
@@ -142,8 +226,42 @@ export const api = {
       body: JSON.stringify({ decision, reason }),
     }),
 
+  /** An empty query is deliberate and returns the whole roster. */
   searchProviders: (q: string) =>
-    request<Provider[]>(`/providers?q=${encodeURIComponent(q)}`),
+    request<Provider[]>(q ? `/providers?q=${encodeURIComponent(q)}` : '/providers'),
+
+  upcoming: (days = 14) =>
+    request<ScheduledBooking[]>(`/providers/schedule/upcoming?days=${days}`),
+
+  completed: (days = 30) =>
+    request<CompletedJob[]>(`/providers/schedule/completed?days=${days}`),
+
+  tickets: (side: 'clients' | 'providers', status = 'open') =>
+    request<Ticket[]>(`/support/queue/${side}?status=${status}`),
+
+  replyToTicket: (id: string, body: string) =>
+    request<{ ok: true }>(`/support/tickets/${id}/reply`, {
+      method: 'POST',
+      body: JSON.stringify({ body }),
+    }),
+
+  closeTicket: (id: string, resolution: string) =>
+    request<{ ok: true }>(`/support/tickets/${id}/close`, {
+      method: 'POST',
+      body: JSON.stringify({ resolution }),
+    }),
+
+  sosActive: () => request<SosAlert[]>('/safety/sos/active'),
+  sosHistory: () => request<SosAlert[]>('/safety/sos/history'),
+
+  sosAcknowledge: (id: string) =>
+    request<{ ok: true }>(`/safety/sos/${id}/acknowledge`, { method: 'POST' }),
+
+  sosResolve: (id: string, notes: string) =>
+    request<{ ok: true }>(`/safety/sos/${id}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    }),
 
   setSuspension: (id: string, suspended: boolean, reason: string) =>
     request<{ isSuspended: boolean }>(`/providers/${id}/suspension`, {

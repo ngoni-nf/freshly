@@ -32,6 +32,7 @@ import { CredentialsModule } from './modules/credentials/credentials.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { SupportModule } from './modules/support/support.module';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     PayoutsModule,
     KycModule,
     SafetyModule,
+    SupportModule,
     CredentialsModule,
     StorageModule,
     CatalogModule,

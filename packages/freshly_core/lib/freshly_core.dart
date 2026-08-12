@@ -11,5 +11,7 @@ export 'src/models/models.dart';
 export 'src/network/api_client.dart';
 export 'src/realtime/realtime_client.dart';
 export 'src/theme/freshly_theme.dart';
+export 'src/widgets/gallery_viewer.dart';
+export 'src/widgets/chat_screen.dart';
 export 'src/util/money.dart';
 export 'src/util/formatters.dart';

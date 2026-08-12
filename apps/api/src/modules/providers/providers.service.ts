@@ -210,16 +210,49 @@ export class ProvidersService {
 
   /** Operator search. Deliberately includes suspended and unverified people —
    * they are exactly who an operator is looking for. */
+  /**
+   * The whole roster, for the ops console.
+   *
+   * An empty query returns everyone rather than nothing: the first question an
+   * operator has is "who have we got and what are they doing", and making them
+   * guess a name before the screen shows anything answers the wrong one.
+   *
+   * "Online" and "on a job" are different states and the console needs both —
+   * somebody online with no work is spare capacity, somebody mid-job is not,
+   * and the two look identical without this.
+   */
   async adminSearch(query: string | undefined, limit = 25) {
     const rows = await this.db.query<Record<string, any>>(
       `SELECT p.id, p.display_name, p.slug, p.country_code, p.kyc_status,
-              p.is_suspended, p.is_online, p.rating, p.completed_jobs, u.phone_e164
+              p.is_suspended, p.is_online, p.rating, p.completed_jobs,
+              p.categories, p.venue_mode, u.phone_e164,
+              p.created_at,
+              live.reference   AS live_reference,
+              live.status      AS live_status,
+              upcoming.count   AS upcoming_count
          FROM providers p
          JOIN users u ON u.id = p.user_id
+         -- At most one job can be live for a provider at a time; the state
+         -- machine does not permit two.
+         LEFT JOIN LATERAL (
+           SELECT b.reference, b.status
+             FROM bookings b
+            WHERE b.provider_id = p.id
+              AND b.status IN ('accepted','en_route','arrived','in_progress')
+            ORDER BY b.created_at DESC
+            LIMIT 1
+         ) live ON true
+         LEFT JOIN LATERAL (
+           SELECT count(*)::int AS count
+             FROM bookings b
+            WHERE b.provider_id = p.id
+              AND b.scheduled_start > now()
+              AND b.status NOT IN ('cancelled','expired','completed')
+         ) upcoming ON true
         WHERE ($1::text IS NULL
                OR p.display_name ILIKE '%' || $1 || '%'
                OR u.phone_e164 ILIKE '%' || $1 || '%')
-        ORDER BY p.is_suspended DESC, p.display_name
+        ORDER BY p.is_suspended DESC, p.is_online DESC, p.display_name
         LIMIT $2`,
       [query ?? null, limit],
     );
@@ -235,6 +268,120 @@ export class ProvidersService {
       isOnline: r.is_online,
       rating: Number(r.rating),
       completedJobs: r.completed_jobs,
+      categories: r.categories ?? [],
+      venueMode: r.venue_mode,
+      joinedAt: r.created_at?.toISOString() ?? null,
+      /** Null when they are not currently working. */
+      activeJob: r.live_reference
+        ? { reference: r.live_reference, status: r.live_status }
+        : null,
+      upcomingCount: Number(r.upcoming_count ?? 0),
+    }));
+  }
+
+  /**
+   * Everything booked ahead, across the marketplace.
+   *
+   * The console needs a diary as much as a roster: a scheduled job nobody has
+   * accepted is the thing an operator wants to see before the day it happens,
+   * not on it.
+   */
+  async adminSchedule(days = 14) {
+    const rows = await this.db.query<Record<string, any>>(
+      `SELECT b.id, b.reference, b.status, b.booking_type, b.scheduled_start,
+              b.created_at, b.total_minor, b.currency, b.destination_address,
+              p.display_name AS provider_name, p.id AS provider_id,
+              u.full_name AS client_name,
+              COALESCE(
+                (SELECT array_agg(bi.name_snapshot ORDER BY bi.name_snapshot)
+                   FROM booking_items bi WHERE bi.booking_id = b.id AND NOT bi.is_addon),
+                ARRAY[]::text[]) AS services
+         FROM bookings b
+         LEFT JOIN providers p ON p.id = b.provider_id
+         JOIN users u ON u.id = b.client_id
+        WHERE b.status NOT IN ('draft','cancelled','expired','completed')
+          AND (b.scheduled_start IS NULL OR b.scheduled_start < now() + ($1 || ' days')::interval)
+        ORDER BY COALESCE(b.scheduled_start, b.created_at) ASC
+        LIMIT 200`,
+      [String(days)],
+    );
+
+    return rows.map((r) => ({
+      id: r.id,
+      reference: r.reference,
+      status: r.status,
+      bookingType: r.booking_type,
+      scheduledStart: r.scheduled_start?.toISOString() ?? null,
+      createdAt: r.created_at.toISOString(),
+      total: { minor: Number(r.total_minor), currency: r.currency },
+      // A booking nobody has accepted yet is exactly what ops is looking for.
+      providerName: r.provider_name ?? null,
+      providerId: r.provider_id ?? null,
+      clientName: firstNameOnly(r.client_name),
+      services: r.services ?? [],
+      destinationAddress: r.destination_address,
+    }));
+  }
+
+  /**
+   * Work already done, and what the client thought of it.
+   *
+   * The rating is the point. A provider's average tells you nothing about
+   * which job went wrong, and by the time an average moves the customer has
+   * already gone. One-star and two-star jobs sort to the top for that reason:
+   * the console exists to catch those while somebody can still be called.
+   *
+   * A booking with no review is shown rather than hidden — silence after a job
+   * is itself worth seeing.
+   */
+  async adminCompleted(days = 30, limit = 100) {
+    const rows = await this.db.query<Record<string, any>>(
+      `SELECT b.id, b.reference, b.completed_at, b.total_minor, b.currency,
+              b.destination_address,
+              p.id AS provider_id, p.display_name AS provider_name,
+              p.rating AS provider_rating, p.rating_count AS provider_rating_count,
+              u.full_name AS client_name,
+              r.rating, r.tags, r.comment, r.created_at AS reviewed_at,
+              COALESCE(
+                (SELECT array_agg(bi.name_snapshot ORDER BY bi.name_snapshot)
+                   FROM booking_items bi WHERE bi.booking_id = b.id),
+                ARRAY[]::text[]) AS services
+         FROM bookings b
+         JOIN users u ON u.id = b.client_id
+         LEFT JOIN providers p ON p.id = b.provider_id
+         -- The client's view of the provider, not the other direction.
+         LEFT JOIN reviews r
+                ON r.booking_id = b.id AND r.direction = 'client_to_provider'
+        WHERE b.status = 'completed'
+          AND b.completed_at > now() - ($1 || ' days')::interval
+        ORDER BY
+          -- Unhappy first, then most recent.
+          (r.rating IS NOT NULL AND r.rating <= 2) DESC,
+          b.completed_at DESC
+        LIMIT $2`,
+      [String(days), limit],
+    );
+
+    return rows.map((r) => ({
+      id: r.id,
+      reference: r.reference,
+      completedAt: r.completed_at?.toISOString() ?? null,
+      total: { minor: Number(r.total_minor), currency: r.currency },
+      clientName: firstNameOnly(r.client_name),
+      providerId: r.provider_id,
+      providerName: r.provider_name,
+      providerRating: r.provider_rating === null ? null : Number(r.provider_rating),
+      providerRatingCount: r.provider_rating_count ?? 0,
+      services: r.services ?? [],
+      destinationAddress: r.destination_address,
+      review: r.rating
+        ? {
+            rating: r.rating,
+            tags: r.tags ?? [],
+            comment: r.comment,
+            reviewedAt: r.reviewed_at.toISOString(),
+          }
+        : null,
     }));
   }
 

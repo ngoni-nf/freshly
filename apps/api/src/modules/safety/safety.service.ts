@@ -245,4 +245,124 @@ export class SafetyService {
     );
     return { id: row!.id, phone: e164 };
   }
+
+  // ─── Operator board ───────────────────────────────────────────────────────
+
+  /**
+   * Everything still open, worst case first.
+   *
+   * Coordinates rather than a suburb: this is the one place in the system that
+   * needs to say exactly where somebody is, and the masking that protects a
+   * client's address elsewhere would be actively harmful here. Phone numbers
+   * for the same reason — the first thing an operator does is ring them.
+   */
+  async activeAlerts() {
+    const rows = await this.db.query<Record<string, any>>(
+      `SELECT s.id, s.status, s.actor, s.created_at, s.dispatched_at, s.acknowledged_at,
+              s.accuracy_m, s.battery_pct, s.vehicle_description,
+              s.external_provider, s.external_reference,
+              ST_Y(s.trigger_location::geometry) AS lat,
+              ST_X(s.trigger_location::geometry) AS lng,
+              u.full_name, u.phone_e164,
+              b.reference AS booking_reference, b.destination_address,
+              p.display_name AS counterparty_name
+         FROM sos_events s
+         JOIN users u ON u.id = s.triggered_by_user_id
+         LEFT JOIN bookings b ON b.id = s.booking_id
+         LEFT JOIN providers p ON p.id = b.provider_id
+        WHERE s.status IN ('armed','dispatched','acknowledged')
+        ORDER BY s.created_at ASC`,
+    );
+
+    return rows.map((r) => this.toAlert(r));
+  }
+
+  async alertHistory() {
+    const rows = await this.db.query<Record<string, any>>(
+      `SELECT s.id, s.status, s.actor, s.created_at, s.dispatched_at, s.acknowledged_at,
+              s.resolved_at, s.resolution_notes, s.accuracy_m, s.battery_pct,
+              s.vehicle_description, s.external_provider, s.external_reference,
+              ST_Y(s.trigger_location::geometry) AS lat,
+              ST_X(s.trigger_location::geometry) AS lng,
+              u.full_name, u.phone_e164,
+              b.reference AS booking_reference, b.destination_address,
+              p.display_name AS counterparty_name
+         FROM sos_events s
+         JOIN users u ON u.id = s.triggered_by_user_id
+         LEFT JOIN bookings b ON b.id = s.booking_id
+         LEFT JOIN providers p ON p.id = b.provider_id
+        WHERE s.status NOT IN ('armed','dispatched','acknowledged')
+        ORDER BY s.created_at DESC
+        LIMIT 100`,
+    );
+
+    return rows.map((r) => ({
+      ...this.toAlert(r),
+      resolvedAt: r.resolved_at?.toISOString() ?? null,
+      resolutionNotes: r.resolution_notes ?? null,
+    }));
+  }
+
+  private toAlert(r: Record<string, any>) {
+    return {
+      id: r.id,
+      status: r.status,
+      actor: r.actor,
+      createdAt: r.created_at.toISOString(),
+      dispatchedAt: r.dispatched_at?.toISOString() ?? null,
+      acknowledgedAt: r.acknowledged_at?.toISOString() ?? null,
+      location: { lat: Number(r.lat), lng: Number(r.lng) },
+      accuracyM: r.accuracy_m === null ? null : Number(r.accuracy_m),
+      batteryPct: r.battery_pct,
+      vehicleDescription: r.vehicle_description,
+      externalProvider: r.external_provider,
+      externalReference: r.external_reference,
+      personName: r.full_name,
+      personPhone: r.phone_e164,
+      counterpartyName: r.counterparty_name ?? null,
+      bookingReference: r.booking_reference ?? null,
+      destinationAddress: r.destination_address ?? null,
+    };
+  }
+
+  /**
+   * An operator takes it. Recorded so two people do not both assume the other
+   * is handling it, which is the failure mode of every shared alert queue.
+   */
+  async acknowledge(alertId: string, staffUserId: string) {
+    const row = await this.db.queryOne<{ id: string }>(
+      `UPDATE sos_events
+          SET status = 'acknowledged', acknowledged_at = COALESCE(acknowledged_at, now())
+        WHERE id = $1 AND status IN ('armed','dispatched')
+        RETURNING id`,
+      [alertId],
+    );
+    if (!row) throw new NotFoundError('Alert', alertId);
+
+    await this.db.query(
+      `INSERT INTO audit_log (actor_id, action, entity_type, entity_id, after)
+       VALUES ($1, 'sos.acknowledged', 'sos_event', $2, '{"status":"acknowledged"}'::jsonb)`,
+      [staffUserId, alertId],
+    );
+    return { ok: true };
+  }
+
+  async resolve(alertId: string, staffUserId: string, notes: string) {
+    const row = await this.db.queryOne<{ id: string }>(
+      `UPDATE sos_events
+          SET status = 'resolved', resolved_at = now(), resolution_notes = $2
+        WHERE id = $1 AND status <> 'resolved'
+        RETURNING id`,
+      [alertId, notes],
+    );
+    if (!row) throw new NotFoundError('Alert', alertId);
+
+    await this.db.query(
+      `INSERT INTO audit_log (actor_id, action, entity_type, entity_id, after)
+       VALUES ($1, 'sos.resolved', 'sos_event', $2,
+               jsonb_build_object('status', 'resolved', 'notes', $3::text))`,
+      [staffUserId, alertId, notes],
+    );
+    return { ok: true };
+  }
 }

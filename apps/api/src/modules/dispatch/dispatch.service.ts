@@ -48,6 +48,7 @@ export class DispatchService {
       provider_payout_minor: string; currency: string; destination_address: string;
       power_backup_required: boolean; scheduled_start: Date | null;
       dest_lng: string; dest_lat: string; categories: string[];
+      service_names: string[]; duration_minutes: number;
     }>(
       `SELECT b.id, b.reference, b.country_code, b.status, b.provider_payout_minor, b.currency,
               b.destination_address, b.power_backup_required, b.scheduled_start,
@@ -62,7 +63,26 @@ export class DispatchService {
                    JOIN services s ON s.id = bi.service_id
                   WHERE bi.booking_id = b.id),
                 ARRAY[]::service_category_enum[]
-              ) AS categories
+              ) AS categories,
+              -- What the provider is actually being asked to do, and for how
+              -- long. Payout and distance alone cannot answer "is this worth
+              -- the drive": R78 for a twenty-minute line-up and R78 for a
+              -- two-hour job are completely different propositions, and the
+              -- name is the only thing that distinguishes them. name_snapshot
+              -- rather than the live service row, so the offer says what was
+              -- ordered even if the provider renames it later.
+              COALESCE(
+                (SELECT array_agg(bi.name_snapshot ORDER BY bi.name_snapshot)
+                   FROM booking_items bi
+                  WHERE bi.booking_id = b.id AND NOT bi.is_addon),
+                ARRAY[]::text[]
+              ) AS service_names,
+              COALESCE(
+                (SELECT SUM(bi.duration_minutes * bi.quantity)::int
+                   FROM booking_items bi
+                  WHERE bi.booking_id = b.id AND NOT bi.is_addon),
+                0
+              ) AS duration_minutes
          FROM bookings b WHERE b.id = $1`,
       [bookingId],
     );
@@ -150,7 +170,8 @@ export class DispatchService {
         offerId: offer.id,
         bookingId,
         reference: booking.reference,
-        serviceNames: [],
+        serviceNames: booking.service_names ?? [],
+        durationMinutes: booking.duration_minutes ?? 0,
         distanceKm,
         etaMinutes,
         payout: { minor: payoutMinor, currency: booking.currency },
@@ -164,8 +185,14 @@ export class DispatchService {
       // is invisible to anyone whose phone is in their pocket. Deliberately
       // says nothing about who or where the client is: this lands on a lock
       // screen, and providers see the suburb only once they have accepted.
+      // The job first, then the money. "Beard line-up · R78.25 · 4.1km" answers
+      // "is this worth getting up for" from the lock screen; the amount alone
+      // does not, because it means nothing without knowing the work behind it.
+      const jobLabel = booking.service_names?.length
+        ? booking.service_names.join(', ')
+        : 'New job';
       void this.push.sendToProvider(candidate.provider_id, {
-        title: 'New job nearby',
+        title: `${jobLabel} nearby`,
         body: `${formatMoney(payoutMinor, booking.currency)} — ${distanceKm.toFixed(1)}km away, about ${etaMinutes} min`,
         data: { type: 'dispatch.offer', offerId: offer.id, bookingId },
         ttlSeconds: offerSeconds,

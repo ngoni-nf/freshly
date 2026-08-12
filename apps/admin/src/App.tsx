@@ -4,13 +4,27 @@ import { SignIn } from './screens/SignIn';
 import { KycQueue } from './screens/KycQueue';
 import { CredentialQueue } from './screens/CredentialQueue';
 import { Providers } from './screens/Providers';
+import { Schedule } from './screens/Schedule';
+import { Completed } from './screens/Completed';
+import { Complaints } from './screens/Complaints';
+import { Sos } from './screens/Sos';
 
-type Tab = 'kyc' | 'credentials' | 'providers';
+type Tab =
+  | 'sos'
+  | 'schedule'
+  | 'completed'
+  | 'clientComplaints'
+  | 'providerComplaints'
+  | 'providers'
+  | 'kyc'
+  | 'credentials';
 
 export function App() {
   const [me, setMe] = useState<Me | null>(null);
   const [checking, setChecking] = useState(true);
-  const [tab, setTab] = useState<Tab>('kyc');
+  // The diary opens first: what is happening today is the question an operator
+  // has before any queue.
+  const [tab, setTab] = useState<Tab>('schedule');
 
   // Restore a session on reload. A stored token proves nothing about the
   // account's current state, so the server is asked rather than trusted.
@@ -65,23 +79,53 @@ export function App() {
           <br />
           {me.roles.join(', ')}
         </p>
+        <button
+          className="danger-nav"
+          aria-current={tab === 'sos'}
+          onClick={() => setTab('sos')}
+        >
+          Emergency alerts
+        </button>
+        <button aria-current={tab === 'schedule'} onClick={() => setTab('schedule')}>
+          Schedule
+        </button>
+        <button aria-current={tab === 'completed'} onClick={() => setTab('completed')}>
+          Completed jobs
+        </button>
+        <button
+          aria-current={tab === 'clientComplaints'}
+          onClick={() => setTab('clientComplaints')}
+        >
+          Client complaints
+        </button>
+        <button
+          aria-current={tab === 'providerComplaints'}
+          onClick={() => setTab('providerComplaints')}
+        >
+          Provider complaints
+        </button>
+        <button aria-current={tab === 'providers'} onClick={() => setTab('providers')}>
+          Providers
+        </button>
         <button aria-current={tab === 'kyc'} onClick={() => setTab('kyc')}>
           Identity review
         </button>
         <button aria-current={tab === 'credentials'} onClick={() => setTab('credentials')}>
           Practitioner licences
         </button>
-        <button aria-current={tab === 'providers'} onClick={() => setTab('providers')}>
-          Providers
-        </button>
         <div className="spacer" />
         <button onClick={signOut}>Sign out</button>
       </nav>
 
       <main>
+        {tab === 'sos' && <Sos />}
+        {tab === 'schedule' && <Schedule />}
+        {tab === 'completed' && <Completed />}
+        {tab === 'clientComplaints' && <Complaints side="clients" />}
+        {tab === 'providerComplaints' && <Complaints side="providers" />}
+        {tab === 'providers' && <Providers canSuspend={isAdmin} />}
         {tab === 'kyc' && <KycQueue />}
         {tab === 'credentials' && <CredentialQueue />}
-        {tab === 'providers' && <Providers canSuspend={isAdmin} />}
       </main>
     </div>
   );

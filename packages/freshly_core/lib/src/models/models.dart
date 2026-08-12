@@ -402,6 +402,8 @@ class Booking {
     required this.total,
     required this.providerId,
     required this.providerName,
+    required this.serviceIds,
+    this.arrivedAt,
     required this.scheduledStart,
     required this.createdAt,
   });
@@ -413,6 +415,8 @@ class Booking {
   final Money total;
   final String? providerId;
   final String? providerName;
+  final List<String> serviceIds;
+  final DateTime? arrivedAt;
   final DateTime? scheduledStart;
   final DateTime createdAt;
 
@@ -424,6 +428,10 @@ class Booking {
         total: Money.fromJson(j['total'] as Map<String, dynamic>),
         providerId: j['providerId'] as String?,
         providerName: j['providerName'] as String?,
+        serviceIds: (j['serviceIds'] as List? ?? []).cast<String>(),
+        arrivedAt: j['arrivedAt'] != null
+            ? DateTime.parse(j['arrivedAt'] as String)
+            : null,
         scheduledStart: j['scheduledStart'] != null
             ? DateTime.parse(j['scheduledStart'] as String)
             : null,
@@ -470,6 +478,7 @@ class DispatchOffer {
     required this.expiresAt,
     required this.clientRating,
     this.scheduledStart,
+    this.durationMinutes = 0,
   });
 
   final String offerId;
@@ -488,6 +497,11 @@ class DispatchOffer {
   /// are being asked to leave now or to hold a slot on Thursday.
   final DateTime? scheduledStart;
 
+  /// How long the work itself takes. Distance answers how far, this answers how
+  /// long you are committing for — the two together are what makes a payout
+  /// worth accepting or not.
+  final int durationMinutes;
+
   Duration get remaining => expiresAt.difference(DateTime.now());
 
   factory DispatchOffer.fromJson(Map<String, dynamic> j) => DispatchOffer(
@@ -495,6 +509,7 @@ class DispatchOffer {
         bookingId: j['bookingId'] as String,
         reference: j['reference'] as String,
         serviceNames: (j['serviceNames'] as List? ?? []).cast<String>(),
+        durationMinutes: j['durationMinutes'] as int? ?? 0,
         distanceKm: (j['distanceKm'] as num).toDouble(),
         etaMinutes: j['etaMinutes'] as int? ?? 0,
         payout: Money.fromJson(j['payout'] as Map<String, dynamic>),
@@ -671,6 +686,144 @@ class ProviderMenuItem {
       );
 }
 
+class PortfolioItem {
+  const PortfolioItem({
+    required this.id,
+    required this.url,
+    this.tags = const [],
+  });
+
+  final String id;
+  final String url;
+  final List<String> tags;
+
+  factory PortfolioItem.fromJson(Map<String, dynamic> j) => PortfolioItem(
+        id: j['id'] as String,
+        url: j['url'] as String,
+        tags: (j['tags'] as List? ?? []).cast<String>(),
+      );
+}
+
+class ClientSummary {
+  const ClientSummary({
+    required this.id,
+    required this.fullName,
+    this.avatarUrl,
+    required this.phone,
+    required this.lastBookingAt,
+    required this.bookingCount,
+  });
+
+  final String id;
+  final String fullName;
+  final String? avatarUrl;
+  final String phone;
+  final DateTime lastBookingAt;
+  final int bookingCount;
+
+  factory ClientSummary.fromJson(Map<String, dynamic> j) => ClientSummary(
+        id: j['id'] as String,
+        fullName: j['fullName'] as String,
+        avatarUrl: j['avatarUrl'] as String?,
+        phone: j['phone'] as String,
+        lastBookingAt: DateTime.parse(j['lastBookingAt'] as String),
+        bookingCount: j['bookingCount'] as int,
+      );
+}
+
+class ClientDetail {
+  const ClientDetail({
+    required this.id,
+    required this.fullName,
+    this.avatarUrl,
+    required this.phone,
+    required this.rating,
+    required this.ratingCount,
+    required this.joinedAt,
+    required this.notes,
+    required this.history,
+  });
+
+  final String id;
+  final String fullName;
+  final String? avatarUrl;
+  final String phone;
+  final double rating;
+  final int ratingCount;
+  final DateTime joinedAt;
+  final String notes;
+  final List<ClientHistoryItem> history;
+
+  factory ClientDetail.fromJson(Map<String, dynamic> j) => ClientDetail(
+        id: j['id'] as String,
+        fullName: j['fullName'] as String,
+        avatarUrl: j['avatarUrl'] as String?,
+        phone: j['phone'] as String,
+        rating: (j['rating'] as num).toDouble(),
+        ratingCount: j['ratingCount'] as int,
+        joinedAt: DateTime.parse(j['joinedAt'] as String),
+        notes: j['notes'] as String? ?? '',
+        history: (j['history'] as List)
+            .map((e) => ClientHistoryItem.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+class ClientHistoryItem {
+  const ClientHistoryItem({
+    required this.id,
+    required this.reference,
+    required this.status,
+    required this.createdAt,
+    required this.total,
+    required this.services,
+  });
+
+  final String id;
+  final String reference;
+  final BookingStatus status;
+  final DateTime createdAt;
+  final Money total;
+  final List<String> services;
+
+  factory ClientHistoryItem.fromJson(Map<String, dynamic> j) =>
+      ClientHistoryItem(
+        id: j['id'] as String,
+        reference: j['reference'] as String,
+        status: BookingStatus.fromWire(j['status'] as String),
+        createdAt: DateTime.parse(j['createdAt'] as String),
+        total: Money.fromJson(j['total'] as Map<String, dynamic>),
+        services: (j['services'] as List).cast<String>(),
+      );
+}
+
+class ChatMessage {
+  const ChatMessage({
+    required this.id,
+    required this.bookingId,
+    required this.authorId,
+    required this.body,
+    required this.createdAt,
+    this.isRead = false,
+  });
+
+  final String id;
+  final String bookingId;
+  final String authorId;
+  final String body;
+  final DateTime createdAt;
+  final bool isRead;
+
+  factory ChatMessage.fromJson(Map<String, dynamic> j) => ChatMessage(
+        id: j['id'] as String,
+        bookingId: j['bookingId'] as String,
+        authorId: j['authorId'] as String,
+        body: j['body'] as String,
+        createdAt: DateTime.parse(j['createdAt'] as String),
+        isRead: j['isRead'] as bool? ?? false,
+      );
+}
+
 /// A market Freshly is open in. Only live markets are returned, so a country
 /// missing from this list is one we cannot serve yet.
 class Market {
@@ -680,6 +833,9 @@ class Market {
     required this.currency,
     required this.dialPrefix,
     required this.phoneLength,
+    required this.cancellationWindowMinutes,
+    required this.cancellationFeeBps,
+    required this.noShowGraceMinutes,
   });
 
   final String code;
@@ -687,6 +843,9 @@ class Market {
   final String currency;
   final String dialPrefix;
   final int phoneLength;
+  final int cancellationWindowMinutes;
+  final int cancellationFeeBps;
+  final int noShowGraceMinutes;
 
   factory Market.fromJson(Map<String, dynamic> j) => Market(
         code: j['code'] as String,
@@ -694,6 +853,9 @@ class Market {
         currency: j['currency'] as String? ?? 'ZAR',
         dialPrefix: j['dialPrefix'] as String? ?? '+27',
         phoneLength: (j['phoneLength'] as num?)?.toInt() ?? 9,
+        cancellationWindowMinutes: j['cancellationWindowMinutes'] as int? ?? 0,
+        cancellationFeeBps: j['cancellationFeeBps'] as int? ?? 0,
+        noShowGraceMinutes: j['noShowGraceMinutes'] as int? ?? 10,
       );
 }
 
