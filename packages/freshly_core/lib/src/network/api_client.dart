@@ -274,6 +274,75 @@ class FreshlyApi {
         (d) => (d as List).map((e) => Place.fromJson(e as Map<String, dynamic>)).toList(),
       );
 
+  // ─── Addresses ───────────────────────────────────────────────────────────
+
+  /// Street-address autocomplete, brokered through our API so the Places key
+  /// never ships in the app.
+  ///
+  /// [sessionToken] must stay the same for every keystroke of one address and
+  /// change once it is chosen. Google bills a session, not a request, and a
+  /// fresh token per keystroke turns roughly $2.83 per thousand addresses into
+  /// something closer to $80.
+  Future<List<AddressSuggestion>> searchAddresses({
+    required String query,
+    required String sessionToken,
+    String countryCode = 'ZA',
+    double? nearLat,
+    double? nearLng,
+  }) =>
+      _unwrap(
+        _dio.get('/markets/address-search', queryParameters: {
+          'q': query,
+          'session': sessionToken,
+          'countryCode': countryCode,
+          if (nearLat != null) 'lat': nearLat,
+          if (nearLng != null) 'lng': nearLng,
+        }),
+        (d) => (d as List)
+            .map((e) => AddressSuggestion.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+
+  /// Turn a chosen suggestion into something bookable. Same session token.
+  Future<ResolvedAddress> resolveAddress(String placeId, String sessionToken) =>
+      _unwrap(
+        _dio.get('/markets/address-search/$placeId',
+            queryParameters: {'session': sessionToken}),
+        (d) => ResolvedAddress.fromJson(d as Map<String, dynamic>),
+      );
+
+  Future<List<SavedAddress>> savedAddresses() => _unwrap(
+        _dio.get('/addresses'),
+        (d) => (d as List)
+            .map((e) => SavedAddress.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+
+  Future<SavedAddress> saveAddress({
+    required String label,
+    required String formatted,
+    required double lat,
+    required double lng,
+    String? unitNotes,
+    String? accessNotes,
+    bool? isDefault,
+  }) =>
+      _unwrap(
+        _dio.post('/addresses', data: {
+          'label': label,
+          'formatted': formatted,
+          'lat': lat,
+          'lng': lng,
+          if (unitNotes != null) 'unitNotes': unitNotes,
+          if (accessNotes != null) 'accessNotes': accessNotes,
+          if (isDefault != null) 'isDefault': isDefault,
+        }),
+        (d) => SavedAddress.fromJson(d as Map<String, dynamic>),
+      );
+
+  Future<void> deleteAddress(String id) =>
+      _unwrap(_dio.delete('/addresses/$id'), (_) {});
+
   /// Where the user wants service. Asked at sign-up and changeable at any time
   /// afterwards — it is the same call either way.
   ///

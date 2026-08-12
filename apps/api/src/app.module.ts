@@ -33,6 +33,7 @@ import { StorageModule } from './modules/storage/storage.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { SupportModule } from './modules/support/support.module';
+import { AddressesModule } from './modules/addresses/addresses.module';
 
 @Module({
   imports: [
@@ -75,6 +76,7 @@ import { SupportModule } from './modules/support/support.module';
     KycModule,
     SafetyModule,
     SupportModule,
+    AddressesModule,
     CredentialsModule,
     StorageModule,
     CatalogModule,

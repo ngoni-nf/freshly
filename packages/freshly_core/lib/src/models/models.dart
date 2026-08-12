@@ -277,6 +277,89 @@ enum BusinessMode {
       BusinessMode.values.firstWhere((b) => b.wire == wire, orElse: () => BusinessMode.solo);
 }
 
+/// One line of an autocomplete list. Carries no coordinates — Google's
+/// autocomplete does not return them, and asking for them per keystroke would
+/// be billed as a full place lookup each time.
+class AddressSuggestion {
+  const AddressSuggestion({
+    required this.placeId,
+    required this.primary,
+    required this.secondary,
+  });
+
+  final String placeId;
+
+  /// "12 Sandton Drive"
+  final String primary;
+
+  /// "Sandton, Johannesburg"
+  final String secondary;
+
+  factory AddressSuggestion.fromJson(Map<String, dynamic> j) => AddressSuggestion(
+        placeId: j['placeId'] as String,
+        primary: j['primary'] as String,
+        secondary: j['secondary'] as String? ?? '',
+      );
+}
+
+class ResolvedAddress {
+  const ResolvedAddress({
+    required this.formatted,
+    required this.lat,
+    required this.lng,
+  });
+
+  final String formatted;
+  final double lat;
+  final double lng;
+
+  factory ResolvedAddress.fromJson(Map<String, dynamic> j) => ResolvedAddress(
+        formatted: j['formatted'] as String,
+        lat: (j['lat'] as num).toDouble(),
+        lng: (j['lng'] as num).toDouble(),
+      );
+}
+
+/// A place somebody books to often enough to name.
+class SavedAddress {
+  const SavedAddress({
+    required this.id,
+    required this.label,
+    required this.formatted,
+    required this.lat,
+    required this.lng,
+    required this.isDefault,
+    this.unitNotes,
+    this.accessNotes,
+  });
+
+  final String id;
+
+  /// "Home", "Work", "Mom's".
+  final String label;
+  final String formatted;
+  final double lat;
+  final double lng;
+  final bool isDefault;
+
+  /// "Flat 3B" — geocoders drop it and a provider in a lobby needs it.
+  final String? unitNotes;
+
+  /// "Buzzer 4B, dog in the yard." Only shared once a job is accepted.
+  final String? accessNotes;
+
+  factory SavedAddress.fromJson(Map<String, dynamic> j) => SavedAddress(
+        id: j['id'] as String,
+        label: j['label'] as String,
+        formatted: j['formatted'] as String,
+        lat: (j['lat'] as num).toDouble(),
+        lng: (j['lng'] as num).toDouble(),
+        isDefault: j['isDefault'] as bool? ?? false,
+        unitNotes: j['unitNotes'] as String?,
+        accessNotes: j['accessNotes'] as String?,
+      );
+}
+
 /// A suburb, as a person would name it. Always inside an area we serve.
 class Place {
   const Place({
@@ -404,6 +487,8 @@ class Booking {
     required this.providerName,
     required this.serviceIds,
     this.arrivedAt,
+    this.completedAt,
+    this.cancelledAt,
     required this.scheduledStart,
     required this.createdAt,
   });
@@ -417,6 +502,8 @@ class Booking {
   final String? providerName;
   final List<String> serviceIds;
   final DateTime? arrivedAt;
+  final DateTime? completedAt;
+  final DateTime? cancelledAt;
   final DateTime? scheduledStart;
   final DateTime createdAt;
 
@@ -431,6 +518,12 @@ class Booking {
         serviceIds: (j['serviceIds'] as List? ?? []).cast<String>(),
         arrivedAt: j['arrivedAt'] != null
             ? DateTime.parse(j['arrivedAt'] as String)
+            : null,
+        completedAt: j['completedAt'] != null
+            ? DateTime.parse(j['completedAt'] as String)
+            : null,
+        cancelledAt: j['cancelledAt'] != null
+            ? DateTime.parse(j['cancelledAt'] as String)
             : null,
         scheduledStart: j['scheduledStart'] != null
             ? DateTime.parse(j['scheduledStart'] as String)

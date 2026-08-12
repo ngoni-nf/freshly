@@ -35,6 +35,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final _messages = <ChatMessage>[];
   StreamSubscription? _sub;
   bool _loading = true;
+  bool _expired = false;
 
   @override
   void initState() {
@@ -54,9 +55,20 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _loadHistory() async {
     try {
       final history = await widget.api.getChatHistory(widget.bookingId);
+      final booking = await widget.api.booking(widget.bookingId);
+
+      bool expired = false;
+      if (booking.status.isTerminal) {
+        final closedAt = booking.completedAt ?? booking.cancelledAt ?? booking.createdAt;
+        if (DateTime.now().difference(closedAt).inHours >= 24) {
+          expired = true;
+        }
+      }
+
       if (mounted) {
         setState(() {
           _messages.addAll(history);
+          _expired = expired;
           _loading = false;
         });
         _scrollToBottom();
@@ -102,6 +114,28 @@ class _ChatScreenState extends State<ChatScreen> {
       appBar: AppBar(title: Text(widget.title)),
       body: Column(
         children: [
+          if (_expired)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: FreshlyColors.line.withValues(alpha: 0.5),
+              child: Row(
+                children: [
+                  const Icon(FreshlyIcons.lock,
+                      size: 16, color: FreshlyColors.inkMuted),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'This conversation is closed. You can no longer send messages.',
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: FreshlyColors.inkMuted,
+                          height: 1.3),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -129,41 +163,42 @@ class _ChatScreenState extends State<ChatScreen> {
                         },
                       ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              border: const Border(top: BorderSide(color: FreshlyColors.line)),
-            ),
-            child: SafeArea(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration: InputDecoration(
-                        hintText: 'Type a message...',
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide.none,
+          if (!_expired)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                border: const Border(top: BorderSide(color: FreshlyColors.line)),
+              ),
+              child: SafeArea(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: InputDecoration(
+                          hintText: 'Type a message...',
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none,
+                          ),
+                          filled: true,
+                          fillColor: FreshlyColors.line.withValues(alpha: 0.3),
                         ),
-                        filled: true,
-                        fillColor: FreshlyColors.line.withValues(alpha: 0.3),
+                        onSubmitted: (_) => _send(),
                       ),
-                      onSubmitted: (_) => _send(),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  IconButton(
-                    icon: const Icon(FreshlyIcons.send, color: FreshlyColors.mint),
-                    onPressed: _send,
-                  ),
-                ],
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: const Icon(FreshlyIcons.send, color: FreshlyColors.mint),
+                      onPressed: _send,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );

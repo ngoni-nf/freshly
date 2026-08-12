@@ -1,12 +1,16 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/decorators';
+import { AddressSearchService } from './address-search.service';
 import { MarketsService } from './markets.service';
 
 @ApiTags('markets')
 @Controller('markets')
 export class MarketsController {
-  constructor(private readonly markets: MarketsService) {}
+  constructor(
+    private readonly markets: MarketsService,
+    private readonly addresses: AddressSearchService,
+  ) {}
 
   @Public()
   @Get('areas')
@@ -21,6 +25,35 @@ export class MarketsController {
   @ApiOperation({ summary: 'Suburb autocomplete, restricted to areas we serve' })
   places(@Query('q') q?: string, @Query('limit') limit?: string) {
     return this.markets.searchPlaces(q, limit ? Number(limit) : undefined);
+  }
+
+  /**
+   * Street-address autocomplete. Authenticated, unlike the suburb list: every
+   * keystroke here costs money, and an open endpoint is somebody else's free
+   * geocoder billed to us.
+   */
+  @Get('address-search')
+  @ApiQuery({ name: 'q', description: 'What the user has typed' })
+  @ApiQuery({ name: 'session', description: 'One token per address being entered' })
+  @ApiOperation({ summary: 'Search street addresses in a market we serve' })
+  addressSearch(
+    @Query('q') q: string,
+    @Query('session') session: string,
+    @Query('countryCode') countryCode?: 'ZA' | 'ZW',
+    @Query('lat') lat?: string,
+    @Query('lng') lng?: string,
+  ) {
+    const near = lat && lng ? { lat: Number(lat), lng: Number(lng) } : undefined;
+    return this.addresses.suggest(q ?? '', countryCode ?? 'ZA', session, near);
+  }
+
+  @Get('address-search/:placeId')
+  @ApiOperation({ summary: 'Turn a chosen suggestion into coordinates' })
+  resolveAddress(
+    @Param('placeId') placeId: string,
+    @Query('session') session: string,
+  ) {
+    return this.addresses.resolve(placeId, session);
   }
 
   @Public()
