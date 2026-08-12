@@ -189,10 +189,117 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                     subtitle: const Text('Earned with Freshly, all time'),
                   ),
                 ),
+                const SizedBox(height: FreshlySpacing.lg),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: FreshlySpacing.sm),
+                  child: Text('Recent Earnings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                ),
+                const SizedBox(height: FreshlySpacing.sm),
+                const _EarningsHistoryList(),
               ],
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _EarningsHistoryList extends ConsumerWidget {
+  const _EarningsHistoryList();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final history = ref.watch(earningsHistoryProvider);
+
+    return history.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, __) => const SizedBox.shrink(),
+      data: (list) {
+        if (list.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(FreshlySpacing.md),
+            child: Text('Completed jobs will appear here.', style: TextStyle(color: FreshlyColors.inkMuted)),
+          );
+        }
+        return Column(
+          children: list.map((t) => _TransactionCard(transaction: t)).toList(),
+        );
+      },
+    );
+  }
+}
+
+class _TransactionCard extends StatelessWidget {
+  const _TransactionCard({required this.transaction});
+  final EarningsTransaction transaction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: FreshlySpacing.sm),
+      child: ExpansionTile(
+        title: Text(transaction.reference, style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Text(formatDate(transaction.completedAt)),
+        trailing: Text(transaction.netEarnings.format(),
+            style: const TextStyle(fontWeight: FontWeight.w700, color: FreshlyColors.mintDark)),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              children: [
+                _BreakdownRow(label: 'Service total', value: formatMinor(transaction.serviceMinor, transaction.currency)),
+                _BreakdownRow(label: 'Travel fee', value: formatMinor(transaction.travelMinor, transaction.currency)),
+                _BreakdownRow(
+                  label: 'Commission',
+                  value: '- ${formatMinor(transaction.commissionMinor, transaction.currency)}',
+                  isNegative: true,
+                ),
+                const Divider(height: 16),
+                _BreakdownRow(
+                  label: 'Net earnings',
+                  value: transaction.netEarnings.format(),
+                  isBold: true,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BreakdownRow extends StatelessWidget {
+  const _BreakdownRow({
+    required this.label,
+    required this.value,
+    this.isNegative = false,
+    this.isBold = false,
+  });
+
+  final String label;
+  final String value;
+  final bool isNegative;
+  final bool isBold;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 13, color: FreshlyColors.inkMuted)),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
+              color: isNegative ? FreshlyColors.crimson : null,
+            ),
+          ),
+        ],
       ),
     );
   }

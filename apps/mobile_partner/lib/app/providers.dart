@@ -231,6 +231,11 @@ final walletProvider = FutureProvider.autoDispose<Map<String, dynamic>>(
   (ref) => ref.watch(apiProvider).wallet(),
 );
 
+final earningsHistoryProvider =
+    FutureProvider.autoDispose<List<EarningsTransaction>>(
+  (ref) => ref.watch(apiProvider).getEarningsHistory(),
+);
+
 final kycStatusProvider = FutureProvider.autoDispose<Map<String, dynamic>>(
   (ref) => ref.watch(apiProvider).kycStatus(),
 );

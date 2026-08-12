@@ -60,6 +60,16 @@ export class PayoutsController {
   }
 
   @Roles('provider')
+  @Get('transactions')
+  @ApiOperation({ summary: 'Detailed earnings breakdown for completed bookings' })
+  transactions(
+    @CurrentUser('providerId') providerId: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.payouts.earningsHistory(providerId, Math.min(Number(limit) || 30, 100));
+  }
+
+  @Roles('provider')
   @Idempotent()
   @Post()
   @ApiOperation({ summary: 'Cash out' })

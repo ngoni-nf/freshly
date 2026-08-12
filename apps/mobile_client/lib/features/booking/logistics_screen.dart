@@ -4,6 +4,7 @@ import 'package:freshly_core/freshly_core.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/providers.dart';
 import '../discovery/feed_screen.dart' show currentPositionProvider;
 import 'booking_draft.dart';
 
@@ -47,6 +48,37 @@ class _LogisticsScreenState extends ConsumerState<LogisticsScreen> {
     } finally {
       if (mounted) setState(() => _resolving = false);
     }
+  }
+
+  /// Type an address, or reuse a saved one.
+  ///
+  /// "Change" used to re-run the GPS fix, which is only useful if the first
+  /// one was wrong about where the phone is — and useless in the common case,
+  /// which is booking somewhere the phone is not. Somebody arranging a cut for
+  /// their mother has no way to say so by standing somewhere else.
+  Future<void> _pickAddress() async {
+    final current = widget.draft.destination;
+    final picked = await AddressPickerSheet.show(
+      context,
+      api: ref.read(apiProvider),
+      countryCode: ref.read(countryCodeProvider),
+      nearLat: current?.lat,
+      nearLng: current?.lng,
+    );
+    if (picked == null || !mounted) return;
+
+    setState(() {
+      widget.draft.destination = GeoPoint(picked.lat, picked.lng);
+      widget.draft.destinationAddress = picked.formatted;
+      // A saved address carries its own gate code; keep whatever the customer
+      // has already typed here rather than overwriting it.
+      if (picked.accessNotes != null &&
+          picked.accessNotes!.isNotEmpty &&
+          _notes.text.trim().isEmpty) {
+        _notes.text = picked.accessNotes!;
+        widget.draft.destinationNotes = picked.accessNotes;
+      }
+    });
   }
 
   Future<void> _pickSlot() async {
@@ -122,7 +154,7 @@ class _LogisticsScreenState extends ConsumerState<LogisticsScreen> {
               subtitle: const Text(
                   'Your exact address is shared only after a pro accepts.'),
               trailing: TextButton(
-                  onPressed: _useCurrentLocation, child: const Text('Change')),
+                  onPressed: _pickAddress, child: const Text('Change')),
             ),
           ),
           const SizedBox(height: FreshlySpacing.md),

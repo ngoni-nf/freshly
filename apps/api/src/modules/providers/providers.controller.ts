@@ -171,6 +171,13 @@ export class ProvidersController {
   }
 
   @Roles('provider')
+  @Get('me/reviews')
+  @ApiOperation({ summary: 'Reviews written by clients for this provider' })
+  myReviews(@CurrentUser('providerId') providerId: string) {
+    return this.providers.listMyReviews(providerId);
+  }
+
+  @Roles('provider')
   @Post('me/clients/:id/notes')
   @ApiOperation({ summary: 'Add or update private provider-only notes for a client' })
   updateClientNotes(

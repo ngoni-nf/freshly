@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/providers.dart';
+import '../../widgets/sos_button.dart';
 import 'job_providers.dart';
 
 /// Screens B.10 to B.12 — the job itself.
@@ -232,6 +233,7 @@ class _JobScreenState extends ConsumerState<JobScreen> {
           ],
         ),
       ),
+      floatingActionButton: SosButton(bookingId: widget.bookingId),
       bottomNavigationBar: job.maybeWhen(
         data: (booking) => SafeArea(
           child: Padding(

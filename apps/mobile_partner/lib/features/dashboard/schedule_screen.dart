@@ -31,7 +31,7 @@ class ScheduleScreen extends ConsumerWidget {
                   const Icon(FreshlyIcons.calendar, size: 48, color: FreshlyColors.inkMuted),
                   const SizedBox(height: FreshlySpacing.md),
                   const Text(
-                    'No jobs scheduled for today.',
+                    'No jobs scheduled for this week.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: FreshlyColors.inkMuted),
                   ),
@@ -39,8 +39,26 @@ class ScheduleScreen extends ConsumerWidget {
               );
             }
 
-            final instant = jobs.where((j) => j['scheduledStart'] == null).toList();
-            final scheduled = jobs.where((j) => j['scheduledStart'] != null).toList();
+            // Sort by start time, instant (null start) first.
+            final sorted = List<Map<String, dynamic>>.from(jobs)
+              ..sort((a, b) {
+                final aStart = a['scheduledStart'] as DateTime?;
+                final bStart = b['scheduledStart'] as DateTime?;
+                if (aStart == null) return -1;
+                if (bStart == null) return 1;
+                return aStart.compareTo(bStart);
+              });
+
+            final instant = sorted.where((j) => j['scheduledStart'] == null).toList();
+            final scheduled = sorted.where((j) => j['scheduledStart'] != null).toList();
+
+            // Group scheduled by day
+            final grouped = <String, List<Map<String, dynamic>>>{};
+            for (final job in scheduled) {
+              final date = (job['scheduledStart'] as DateTime).toLocal();
+              final key = DateTime(date.year, date.month, date.day).toIso8601String();
+              grouped.putIfAbsent(key, () => []).add(job);
+            }
 
             return ListView(
               padding: const EdgeInsets.all(FreshlySpacing.md),
@@ -51,11 +69,23 @@ class ScheduleScreen extends ConsumerWidget {
                   ...instant.map((j) => _ScheduleCard(job: j)),
                   const SizedBox(height: FreshlySpacing.lg),
                 ],
-                if (scheduled.isNotEmpty) ...[
-                  const Text('Upcoming', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: FreshlySpacing.sm),
-                  ...scheduled.map((j) => _ScheduleCard(job: j)),
-                ],
+                ...grouped.entries.map((entry) {
+                  final date = DateTime.parse(entry.key);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          formatDate(date),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: FreshlyColors.ink),
+                        ),
+                      ),
+                      ...entry.value.map((j) => _ScheduleCard(job: j)),
+                      const SizedBox(height: FreshlySpacing.md),
+                    ],
+                  );
+                }),
               ],
             );
           },

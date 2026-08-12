@@ -14,5 +14,6 @@ export 'src/theme/freshly_theme.dart';
 export 'src/theme/freshly_icons.dart';
 export 'src/widgets/gallery_viewer.dart';
 export 'src/widgets/chat_screen.dart';
+export 'src/widgets/address_picker.dart';
 export 'src/util/money.dart';
 export 'src/util/formatters.dart';

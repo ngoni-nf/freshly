@@ -564,6 +564,32 @@ export class PayoutsService {
     }));
   }
 
+  async earningsHistory(providerId: string, limit = 30) {
+    const rows = await this.db.query<Record<string, any>>(
+      `SELECT b.id, b.reference, b.completed_at, b.currency,
+              b.subtotal_minor + b.addons_minor as service_minor,
+              b.travel_fee_minor,
+              b.commission_minor,
+              b.provider_payout_minor as net_earnings
+         FROM bookings b
+        WHERE b.provider_id = $1 AND b.status = 'completed'
+        ORDER BY b.completed_at DESC
+        LIMIT $2`,
+      [providerId, limit],
+    );
+
+    return rows.map((r) => ({
+      bookingId: r.id,
+      reference: r.reference,
+      completedAt: r.completed_at.toISOString(),
+      currency: r.currency,
+      serviceMinor: Number(r.service_minor),
+      travelMinor: Number(r.travel_fee_minor),
+      commissionMinor: Number(r.commission_minor),
+      netEarningsMinor: Number(r.net_earnings),
+    }));
+  }
+
   /**
    * Settlement callback. This is where a payout genuinely becomes final, and
    * where a failure hours after the fact puts the money back.

@@ -11,17 +11,28 @@ import '../features/job/pin_pad_screen.dart';
 import '../features/onboarding/signin_screen.dart';
 import '../features/onboarding/verification_screen.dart';
 import '../features/wallet/wallet_screen.dart';
+import '../features/profile/business_screen.dart';
 import '../features/profile/menu_screen.dart';
 import '../features/profile/portfolio_screen.dart';
 import '../features/clients/client_list_screen.dart';
 import '../features/clients/client_detail_screen.dart';
+import '../features/dashboard/schedule_screen.dart';
+import '../features/profile/reviews_screen.dart';
+import '../widgets/main_scaffold.dart';
 import 'providers.dart';
 
 final partnerRouterProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(partnerAuthProvider);
 
+  final rootNavigatorKey = GlobalKey<NavigatorState>();
+  final commandNavigatorKey = GlobalKey<NavigatorState>();
+  final scheduleNavigatorKey = GlobalKey<NavigatorState>();
+  final earningsNavigatorKey = GlobalKey<NavigatorState>();
+  final businessNavigatorKey = GlobalKey<NavigatorState>();
+
   return GoRouter(
     initialLocation: '/',
+    navigatorKey: rootNavigatorKey,
     redirect: (context, state) {
       final signedOut = auth is PartnerSignedOut || auth is PartnerUnknown;
       final onSignIn = state.matchedLocation == '/signin';
@@ -35,25 +46,68 @@ final partnerRouterProvider = Provider<GoRouter>((ref) {
       ShellRoute(
         builder: (context, state, child) => OfferListener(child: child),
         routes: [
-          GoRoute(path: '/', builder: (_, __) => const CommandScreen()),
+          StatefulShellRoute.indexedStack(
+            builder: (context, state, navigationShell) =>
+                MainScaffold(navigationShell: navigationShell),
+            branches: [
+              StatefulShellBranch(
+                navigatorKey: commandNavigatorKey,
+                routes: [
+                  GoRoute(path: '/', builder: (_, __) => const CommandScreen()),
+                ],
+              ),
+              StatefulShellBranch(
+                navigatorKey: scheduleNavigatorKey,
+                routes: [
+                  GoRoute(
+                      path: '/schedule',
+                      builder: (_, __) => const ScheduleScreen()),
+                ],
+              ),
+              StatefulShellBranch(
+                navigatorKey: earningsNavigatorKey,
+                routes: [
+                  GoRoute(
+                      path: '/wallet',
+                      builder: (_, __) => const WalletScreen()),
+                ],
+              ),
+              StatefulShellBranch(
+                navigatorKey: businessNavigatorKey,
+                routes: [
+                  GoRoute(
+                      path: '/business',
+                      builder: (_, __) => const BusinessScreen()),
+                ],
+              ),
+            ],
+          ),
+
           GoRoute(
               path: '/signin', builder: (_, __) => const PartnerSignInScreen()),
-          GoRoute(path: '/wallet', builder: (_, __) => const WalletScreen()),
-          GoRoute(path: '/menu', builder: (_, __) => const MenuScreen()),
-          GoRoute(path: '/portfolio', builder: (_, __) => const PortfolioScreen()),
-          GoRoute(path: '/clients', builder: (_, __) => const ClientListScreen()),
-          GoRoute(
-            path: '/clients/:id',
-            builder: (_, s) => ClientDetailScreen(clientId: s.pathParameters['id']!),
-          ),
           GoRoute(
               path: '/verification',
               builder: (_, __) => const VerificationScreen()),
           GoRoute(
               path: '/availability',
               builder: (_, __) => const AvailabilityScreen()),
+          GoRoute(path: '/menu', builder: (_, __) => const MenuScreen()),
+          GoRoute(
+              path: '/portfolio', builder: (_, __) => const PortfolioScreen()),
+          // The business screen already linked here; without the route the tap
+          // fell through to the error page.
+          GoRoute(
+              path: '/reviews', builder: (_, __) => const ReviewsScreen()),
+          GoRoute(
+              path: '/clients', builder: (_, __) => const ClientListScreen()),
+          GoRoute(
+            path: '/clients/:id',
+            builder: (_, s) =>
+                ClientDetailScreen(clientId: s.pathParameters['id']!),
+          ),
           GoRoute(
             path: '/job/:id',
+            parentNavigatorKey: rootNavigatorKey,
             builder: (_, s) => JobScreen(bookingId: s.pathParameters['id']!),
             routes: [
               GoRoute(
@@ -65,13 +119,11 @@ final partnerRouterProvider = Provider<GoRouter>((ref) {
                 path: 'chat',
                 builder: (context, s) {
                   final id = s.pathParameters['id']!;
-                  // PartnerAuthState is a plain sealed class, so this is a
-                  // pattern match rather than a freezed maybeWhen. A provider
-                  // still in verification can already be on a job, so both
-                  // signed-in states carry a session worth reading.
-                  final userId = switch (ref.read(partnerAuthProvider)) {
+                  final authState = ref.read(partnerAuthProvider);
+                  final userId = switch (authState) {
                     PartnerReady(:final session) => session.userId,
-                    PartnerPendingVerification(:final session) => session.userId,
+                    PartnerPendingVerification(:final session) =>
+                      session.userId,
                     _ => '',
                   };
 

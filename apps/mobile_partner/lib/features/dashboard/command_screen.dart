@@ -55,26 +55,6 @@ class CommandScreen extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    IconButton(
-                      onPressed: () => context.push('/portfolio'),
-                      icon: const Icon(FreshlyIcons.gallery),
-                      tooltip: 'My portfolio',
-                    ),
-                    IconButton(
-                      onPressed: () => context.push('/clients'),
-                      icon: const Icon(FreshlyIcons.people),
-                      tooltip: 'My clients',
-                    ),
-                    IconButton(
-                      onPressed: () => context.push('/menu'),
-                      icon: const Icon(FreshlyIcons.style),
-                      tooltip: 'My services',
-                    ),
-                    IconButton(
-                      onPressed: () => context.push('/availability'),
-                      icon: const Icon(FreshlyIcons.calendar),
-                      tooltip: 'Availability',
-                    ),
                   ],
                 ),
               ),

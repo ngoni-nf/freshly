@@ -277,6 +277,52 @@ enum BusinessMode {
       BusinessMode.values.firstWhere((b) => b.wire == wire, orElse: () => BusinessMode.solo);
 }
 
+/// One movement in a provider's earnings history.
+///
+/// Deliberately a Money rather than a bare int: this is the screen where a
+/// provider checks what they were paid, and a number rendered in the wrong
+/// currency or off by a factor of a hundred is the fastest way to lose their
+/// trust in the whole product.
+class EarningsTransaction {
+  const EarningsTransaction({
+    required this.bookingId,
+    required this.reference,
+    required this.completedAt,
+    required this.serviceMinor,
+    required this.travelMinor,
+    required this.commissionMinor,
+    required this.currency,
+  });
+
+  final String bookingId;
+  final String reference;
+  final DateTime completedAt;
+
+  /// The parts, kept as minor units and only combined by [netEarnings], so
+  /// nothing here can drift the way a pre-summed float would.
+  final int serviceMinor;
+  final int travelMinor;
+  final int commissionMinor;
+  final String currency;
+
+  /// What actually reached the wallet. Service plus travel, less commission —
+  /// the same arithmetic the ledger performed at capture, shown back so a
+  /// provider can check it rather than trust it.
+  Money get netEarnings =>
+      Money(minor: serviceMinor + travelMinor - commissionMinor, currency: currency);
+
+  factory EarningsTransaction.fromJson(Map<String, dynamic> j) =>
+      EarningsTransaction(
+        bookingId: j['bookingId'] as String,
+        reference: j['reference'] as String,
+        completedAt: DateTime.parse(j['completedAt'] as String),
+        serviceMinor: (j['serviceMinor'] as num?)?.toInt() ?? 0,
+        travelMinor: (j['travelMinor'] as num?)?.toInt() ?? 0,
+        commissionMinor: (j['commissionMinor'] as num?)?.toInt() ?? 0,
+        currency: j['currency'] as String? ?? 'ZAR',
+      );
+}
+
 /// One line of an autocomplete list. Carries no coordinates — Google's
 /// autocomplete does not return them, and asking for them per keystroke would
 /// be billed as a full place lookup each time.

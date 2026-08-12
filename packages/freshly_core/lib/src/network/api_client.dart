@@ -590,6 +590,13 @@ class FreshlyApi {
         (d) => (d as List).cast<Map<String, dynamic>>(),
       );
 
+  Future<List<EarningsTransaction>> getEarningsHistory() => _unwrap(
+        _dio.get('/payouts/transactions'),
+        (d) => (d as List)
+            .map((e) => EarningsTransaction.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+
   Future<List<Map<String, dynamic>>> payoutAccounts() => _unwrap(
         _dio.get('/payouts/accounts'),
         (d) => (d as List).cast<Map<String, dynamic>>(),
@@ -691,6 +698,11 @@ class FreshlyApi {
   Future<void> updateClientNotes(String id, String notes) => _unwrap(
         _dio.post('/providers/me/clients/$id/notes', data: {'notes': notes}),
         (_) {},
+      );
+
+  Future<List<Map<String, dynamic>>> getMyReviews() => _unwrap(
+        _dio.get('/providers/me/reviews'),
+        (d) => (d as List).cast<Map<String, dynamic>>(),
       );
 
   // ─── Chat ────────────────────────────────────────────────────────────────

@@ -324,6 +324,48 @@ export class ProvidersService {
   }
 
   /**
+   * A provider's own reviews.
+   *
+   * Published only. An unpublished review is one held back pending moderation
+   * or a dispute, and showing a provider a complaint the platform has not yet
+   * stood behind invites them to go and argue with the client about it.
+   *
+   * The client's first name only, matching the public profile. A provider
+   * already knows who booked them; putting the full name here would make this
+   * screen a way to read it off for clients they have forgotten.
+   */
+  async listMyReviews(providerId: string) {
+    const rows = await this.db.query<Record<string, any>>(
+      `SELECT r.id, r.rating, r.tags, r.comment, r.created_at,
+              u.full_name, b.reference,
+              COALESCE(
+                (SELECT array_agg(bi.name_snapshot ORDER BY bi.name_snapshot)
+                   FROM booking_items bi WHERE bi.booking_id = b.id AND NOT bi.is_addon),
+                ARRAY[]::text[]) AS services
+         FROM reviews r
+         JOIN users u ON u.id = r.author_id
+         LEFT JOIN bookings b ON b.id = r.booking_id
+        WHERE r.subject_user_id = (SELECT user_id FROM providers WHERE id = $1)
+          AND r.direction = 'client_to_provider'
+          AND r.is_published
+        ORDER BY r.created_at DESC
+        LIMIT 100`,
+      [providerId],
+    );
+
+    return rows.map((r) => ({
+      id: r.id,
+      rating: r.rating,
+      tags: r.tags ?? [],
+      comment: r.comment,
+      author: firstNameOnly(r.full_name),
+      reference: r.reference ?? null,
+      services: r.services ?? [],
+      createdAt: r.created_at.toISOString(),
+    }));
+  }
+
+  /**
    * Work already done, and what the client thought of it.
    *
    * The rating is the point. A provider's average tells you nothing about

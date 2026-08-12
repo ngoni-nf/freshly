@@ -51,7 +51,7 @@ class BusinessScreen extends ConsumerWidget {
             icon: FreshlyIcons.star,
             title: 'Reviews',
             subtitle: 'See what clients are saying',
-            onTap: () {},
+            onTap: () => context.push('/reviews'),
           ),
           _BusinessTile(
             icon: FreshlyIcons.info,
