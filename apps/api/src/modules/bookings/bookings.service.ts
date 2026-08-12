@@ -459,7 +459,7 @@ export class BookingsService {
       status: string; client_id: string; provider_id: string | null; provider_user_id: string | null;
       country_code: 'ZA' | 'ZW';
       total_minor: string; service_fee_minor: string; scheduled_start: Date | null;
-      arrived_at: Date | null;
+      arrived_at: Date | null; currency: string;
     }>(
       // The provider's *user* id, not their provider id. The two are different
       // tables, and comparing a providers.id against a users.id below meant the
@@ -468,7 +468,7 @@ export class BookingsService {
       // could cancel; declaring a no-show is the first thing that needed it.
       `SELECT b.status, b.client_id, b.provider_id, p.user_id AS provider_user_id,
               b.country_code, b.total_minor, b.service_fee_minor, b.scheduled_start,
-              b.arrived_at
+              b.arrived_at, b.currency
          FROM bookings b
          LEFT JOIN providers p ON p.id = b.provider_id
         WHERE b.id = $1`,
@@ -548,6 +548,16 @@ export class BookingsService {
       });
     });
 
+    if (reason === 'no_show') {
+      const amount = { minor: outcome.feeMinor, currency: booking.currency };
+      this.push.sendToUser(booking.client_id, {
+        title: 'Booking cancelled (No-show)',
+        body: `A cancellation fee of ${amount.minor / 100} ${amount.currency} was charged because you weren't at the location.`,
+        data: { type: 'booking_cancelled', bookingId, reason: 'no_show' },
+        channelId: 'freshly_bookings',
+      });
+    }
+
     return { status: 'cancelled', feeMinor: outcome.feeMinor, refundMinor: outcome.refundMinor };
   }
 
@@ -582,8 +592,12 @@ export class BookingsService {
   }
 
   async sendChatMessage(authorId: string, bookingId: string, body: string) {
-    const booking = await this.db.queryOne<{ client_id: string; provider_user_id: string | null }>(
-      `SELECT b.client_id, p.user_id as provider_user_id
+    const booking = await this.db.queryOne<{
+      status: string; client_id: string; provider_user_id: string | null;
+      completed_at: Date | null; cancelled_at: Date | null; expires_at: Date | null;
+    }>(
+      `SELECT b.status, b.client_id, p.user_id as provider_user_id,
+              b.completed_at, b.cancelled_at, b.expires_at
          FROM bookings b
          LEFT JOIN providers p ON p.id = b.provider_id
         WHERE b.id = $1`,
@@ -593,6 +607,19 @@ export class BookingsService {
 
     if (booking.client_id !== authorId && booking.provider_user_id !== authorId) {
       throw new ForbiddenException({ code: 'not_your_booking', message: 'Not permitted' });
+    }
+
+    // Chat stays open for 24 hours after the booking reaches a terminal state.
+    // Strangers shouldn't have a permanent line of communication after a job.
+    if (['completed', 'cancelled', 'expired'].includes(booking.status)) {
+      const closedAt = booking.completed_at || booking.cancelled_at || booking.expires_at;
+      if (closedAt && (Date.now() - closedAt.getTime() > 24 * 3600 * 1000)) {
+        throw new DomainError(
+          'chat_closed',
+          'This conversation is no longer active. Contact support if you need help with this booking.',
+          403,
+        );
+      }
     }
 
     const row = await this.db.queryOne<Record<string, any>>(
@@ -681,7 +708,7 @@ export class BookingsService {
     const row = await this.db.queryOne<Record<string, any>>(
       `SELECT b.id, b.reference, b.status, b.booking_type, b.venue_mode, b.scheduled_start,
               b.destination_address, b.total_minor, b.currency, b.provider_id, b.created_at,
-              b.arrived_at,
+              b.arrived_at, b.completed_at, b.cancelled_at,
               p.display_name AS provider_name,
               ARRAY(SELECT service_id FROM booking_items WHERE booking_id = b.id AND NOT is_addon) AS service_ids
          FROM bookings b
@@ -774,6 +801,8 @@ function mapBooking(r: Record<string, any>) {
     providerName: r.provider_name ?? null,
     serviceIds: r.service_ids ?? [],
     arrivedAt: r.arrived_at?.toISOString() ?? null,
+    completedAt: r.completed_at?.toISOString() ?? null,
+    cancelledAt: r.cancelled_at?.toISOString() ?? null,
     createdAt: r.created_at.toISOString(),
   };
 }
