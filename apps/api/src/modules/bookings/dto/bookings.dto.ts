@@ -24,6 +24,16 @@ export class DestinationDto {
   @ApiProperty() @IsNumber() @Min(-180) @Max(180) lng!: number;
 }
 
+export class ChangeDestinationDto {
+  @ApiProperty() @ValidateNested() @Type(() => DestinationDto) destination!: DestinationDto;
+
+  @ApiProperty({ example: '12 Sandton Drive, Parkmore, Sandton' })
+  @IsString() @Length(4, 500) destinationAddress!: string;
+
+  @ApiPropertyOptional({ description: 'Gate code, unit, which door' })
+  @IsOptional() @IsString() @Length(0, 500) destinationNotes?: string;
+}
+
 export class QuoteBookingDto {
   @ApiProperty() @IsUUID() providerId!: string;
 

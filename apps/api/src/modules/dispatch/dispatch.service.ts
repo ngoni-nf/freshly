@@ -319,7 +319,7 @@ export class DispatchService {
  * address is part of what the client is trusting us with, and there is no
  * reason to hand it to eight people who did not take the job.
  */
-function maskAddress(address: string): string {
+export function maskAddress(address: string): string {
   const parts = address.split(',').map((p) => p.trim()).filter(Boolean);
   return parts.length > 1 ? parts.slice(1).join(', ') : address;
 }

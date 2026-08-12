@@ -4,7 +4,7 @@ import { Throttle } from '@nestjs/throttler';
 import { CurrentUser, Idempotent, Roles } from '../../common/decorators';
 import { BookingsService } from './bookings.service';
 import {
-  AddonResponseDto, AdvanceStatusDto, CancelBookingDto, ChatMessageDto, CheckoutDto,
+  AddonResponseDto, AdvanceStatusDto, CancelBookingDto, ChangeDestinationDto, ChatMessageDto, CheckoutDto,
   CreateBookingDto, QuoteBookingDto, ReviewDto, VerifyPinDto,
 } from './dto/bookings.dto';
 
@@ -51,6 +51,22 @@ export class BookingsController {
   @ApiOperation({ summary: "The client's own completion code" })
   pin(@CurrentUser('userId') userId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.bookings.completionPin(userId, id);
+  }
+
+  @Post(':id/destination')
+  @Idempotent()
+  @ApiOperation({ summary: 'Correct the address, re-pricing the travel' })
+  changeDestination(
+    @CurrentUser('userId') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ChangeDestinationDto,
+  ) {
+    return this.bookings.changeDestination(userId, id, {
+      lat: dto.destination.lat,
+      lng: dto.destination.lng,
+      address: dto.destinationAddress,
+      notes: dto.destinationNotes,
+    });
   }
 
   @Post(':id/cancel')

@@ -6,7 +6,8 @@ import {
   DomainError, IllegalTransitionError, NotFoundError, RateLimitedError,
 } from '../../common/errors/domain.errors';
 import { RedisService } from '../../common/redis/redis.service';
-import { applyBps, taxIncludedIn } from '../../common/money/money';
+import { applyBps, formatMoney, taxIncludedIn } from '../../common/money/money';
+import { maskAddress } from '../dispatch/dispatch.service';
 import { MarketsService } from '../markets/markets.service';
 import { PricingService, Quote } from '../pricing/pricing.service';
 import { EscrowService } from '../payments/escrow.service';
@@ -452,6 +453,155 @@ export class BookingsService {
     });
 
     return { status: 'approved', amountMinor };
+  }
+
+  /**
+   * Correct the address on a booking.
+   *
+   * People mistype addresses, pick the wrong autocomplete row, or book from
+   * the office for a job at home. Until now the only remedy was to cancel and
+   * start again — and cancelling inside the window costs the customer half the
+   * booking, for a mistake that harmed nobody.
+   *
+   * How far this is allowed to go is decided by whether the provider has
+   * already spent something on the old address:
+   *
+   *   pending_auth, authorized  — nothing spent. Free to move anywhere live.
+   *   accepted                  — they have committed the slot but not set
+   *                               off. Allowed, and they are told.
+   *   en_route and after        — they are in the car, or standing outside.
+   *                               Refused: at that point it is a new journey,
+   *                               and the fair way to handle it is to talk to
+   *                               them, which is what chat is for.
+   *
+   * The price is recomputed rather than kept, because travel is priced on
+   * distance and a moved destination is a different job. An increase needs the
+   * customer to authorise the difference before it is binding; a decrease is
+   * safe because capture now takes what is owed rather than what is held.
+   */
+  async changeDestination(
+    clientId: string,
+    bookingId: string,
+    input: { lat: number; lng: number; address: string; notes?: string },
+  ) {
+    const booking = await this.db.queryOne<{
+      status: string; client_id: string; provider_id: string | null;
+      total_minor: string; currency: string;
+    }>(
+      `SELECT status, client_id, provider_id, total_minor, currency
+         FROM bookings WHERE id = $1`,
+      [bookingId],
+    );
+    if (!booking) throw new NotFoundError('Booking', bookingId);
+    if (booking.client_id !== clientId) {
+      throw new ForbiddenException({ code: 'not_your_booking', message: 'Not permitted' });
+    }
+
+    const movable = ['draft', 'pending_auth', 'authorized', 'accepted'];
+    if (!movable.includes(booking.status)) {
+      throw new DomainError(
+        'address_locked',
+        booking.status === 'completed' || booking.status === 'cancelled'
+          ? 'This booking is closed.'
+          : 'Your pro is already on the way. Message them to sort out the address.',
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    // Refuses outside a live area, with the same error discovery uses.
+    await this.markets.resolveServiceArea(input.lat, input.lng);
+
+    const services = await this.db.query<{ service_id: string }>(
+      `SELECT service_id FROM booking_items
+        WHERE booking_id = $1 AND NOT is_addon AND service_id IS NOT NULL`,
+      [bookingId],
+    );
+    const providerId = await this.db.queryOne<{ provider_id: string }>(
+      `SELECT DISTINCT s.provider_id FROM booking_items bi
+         JOIN services s ON s.id = bi.service_id
+        WHERE bi.booking_id = $1 LIMIT 1`,
+      [bookingId],
+    );
+
+    // Re-quote against the new destination. Travel is distance-priced, so the
+    // old figure describes a journey nobody is making.
+    const quote = await this.quote({
+      providerId: providerId!.provider_id,
+      serviceIds: services.map((s) => s.service_id),
+      destination: { lat: input.lat, lng: input.lng },
+      venueMode: 'mobile',
+    } as QuoteBookingDto);
+
+    const oldTotal = Number(booking.total_minor);
+    const difference = quote.totalMinor - oldTotal;
+
+    // Hold the extra before it is owed. Capture must never exceed what the
+    // customer agreed to, and an increase they have not authorised is exactly
+    // that.
+    if (difference > 0 && booking.status !== 'draft' && booking.status !== 'pending_auth') {
+      const intent = await this.db.queryOne<{ method: string }>(
+        `SELECT method FROM payment_intents WHERE booking_id = $1 ORDER BY created_at ASC LIMIT 1`,
+        [bookingId],
+      );
+      if (!intent) {
+        throw new DomainError('payment_not_found', 'No payment method on this booking');
+      }
+      await this.escrow.authorize(bookingId, intent.method, `move-${bookingId}-${Date.now()}`, difference);
+    }
+
+    await this.db.transaction(async (tx) => {
+      await tx.query(
+        `UPDATE bookings SET
+           destination = ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography,
+           destination_address = $4,
+           destination_notes = COALESCE($5, destination_notes),
+           travel_distance_km = $6,
+           subtotal_minor = $7, travel_fee_minor = $8, service_fee_minor = $9,
+           total_minor = $10, commission_minor = $11, vat_on_fees_minor = $12,
+           provider_payout_minor = $13, updated_at = now()
+         WHERE id = $1`,
+        [
+          bookingId, input.lng, input.lat, input.address, input.notes ?? null,
+          quote.travelDistanceKm, quote.subtotalMinor, quote.travelFeeMinor,
+          quote.serviceFeeMinor, quote.totalMinor, quote.commissionMinor,
+          quote.vatOnFeesMinor, quote.providerPayoutMinor,
+        ],
+      );
+      await tx.emitEvent('booking', bookingId, 'booking.destination_changed', {
+        address: input.address,
+        oldTotalMinor: oldTotal,
+        newTotalMinor: quote.totalMinor,
+      });
+    });
+
+    if (booking.status === 'authorized') {
+      // Nobody has taken it, and the candidate set is keyed on where it is.
+      // Offers already out are for a job that no longer exists at that address.
+      await this.dispatch.cancelDispatch(bookingId);
+      void this.dispatch.startDispatch(bookingId);
+    } else if (booking.provider_id) {
+      // Already accepted: they need to know before they set off, and their
+      // payout has moved with the distance.
+      this.realtime.emitToProvider(booking.provider_id, 'booking.updated', {
+        bookingId,
+        reason: 'destination_changed',
+        destinationAddress: maskAddress(input.address),
+      });
+      void this.push.sendToProvider(booking.provider_id, {
+        title: 'Address changed',
+        body: `The client moved this job. New payout ${formatMoney(quote.providerPayoutMinor, booking.currency)}.`,
+        data: { type: 'booking.updated', bookingId },
+        channelId: 'freshly_dispatch',
+      });
+    }
+
+    return {
+      destinationAddress: input.address,
+      travelDistanceKm: quote.travelDistanceKm,
+      totalMinor: quote.totalMinor,
+      differenceMinor: difference,
+      currency: booking.currency,
+    };
   }
 
   async cancel(userId: string, bookingId: string, reason: string) {

@@ -190,11 +190,24 @@ export class EscrowService {
       const gateway = this.gatewayFor(booking.country_code);
       let totalCaptured = 0;
 
+      // Capture what is owed, not what is held.
+      //
+      // An authorization can legitimately exceed the final total — a hold is
+      // placed before the price is settled, and a destination correction can
+      // lower it afterwards. Taking authorized_minor in that case charges the
+      // customer more than the booking says while the ledger below debits
+      // escrow by total_minor, so the customer is overcharged and escrow
+      // drifts by the difference. Every gateway here supports capturing less
+      // than it authorized; the remainder is released by the issuer.
+      let remaining = Number(booking.total_minor);
+
       for (const intent of intents) {
-        const result = await gateway.capture(intent.gateway_reference, Number(intent.authorized_minor));
+        const takeMinor = Math.max(0, Math.min(Number(intent.authorized_minor), remaining));
+        const result = await gateway.capture(intent.gateway_reference, takeMinor);
         if (result.status === 'failed') {
           throw new PaymentError(result.failureMessage ?? 'Could not capture a payment authorization');
         }
+        remaining -= result.capturedMinor;
 
         await tx.query(
           `UPDATE payment_intents
