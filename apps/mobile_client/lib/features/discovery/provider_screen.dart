@@ -61,6 +61,8 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
               .toList();
           final portfolio =
               (data['portfolio'] as List? ?? []).cast<Map<String, dynamic>>();
+          final reviews =
+              (data['reviews'] as List? ?? []).cast<Map<String, dynamic>>();
 
           return CustomScrollView(
             slivers: [
@@ -205,6 +207,91 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
                       ),
                     );
                   }),
+
+                  // ── What people actually said ───────────────────────────
+                  // A score answers "is this person good"; the words answer
+                  // "good at what, and what went wrong for someone" — which is
+                  // the question somebody booking a stranger to come to their
+                  // home is really asking. The API has always returned these;
+                  // the screen showed the average and threw the rest away.
+                  if (reviews.isNotEmpty) ...[
+                    const SizedBox(height: FreshlySpacing.lg),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Recent reviews',
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w700)),
+                        Text('$ratingCount total',
+                            style: const TextStyle(
+                                color: FreshlyColors.inkMuted, fontSize: 13)),
+                      ],
+                    ),
+                    const SizedBox(height: FreshlySpacing.sm),
+                    ...reviews.take(5).map((r) {
+                      final stars = (r['rating'] as num?)?.toInt() ?? 5;
+                      final tags = (r['tags'] as List? ?? []).cast<String>();
+                      final comment = r['comment'] as String?;
+                      return Card(
+                        margin:
+                            const EdgeInsets.only(bottom: FreshlySpacing.sm),
+                        child: Padding(
+                          padding: const EdgeInsets.all(FreshlySpacing.md),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(children: [
+                                for (var i = 0; i < 5; i++)
+                                  Icon(FreshlyIcons.star,
+                                      size: 14,
+                                      color: i < stars
+                                          ? FreshlyColors.gold
+                                          : FreshlyColors.line),
+                                const SizedBox(width: 8),
+                                Text(
+                                  r['author'] as String? ?? 'A client',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13),
+                                ),
+                              ]),
+                              if (comment != null && comment.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(comment,
+                                    style: const TextStyle(height: 1.45)),
+                              ],
+                              if (tags.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: tags
+                                      .map((t) => Container(
+                                            padding:
+                                                const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: FreshlyColors.mintSoft,
+                                              borderRadius:
+                                                  BorderRadius.circular(999),
+                                            ),
+                                            child: Text(t,
+                                                style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: FreshlyColors
+                                                        .mintDark)),
+                                          ))
+                                      .toList(),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+
                   const SizedBox(height: 100),
                 ]),
               ),
