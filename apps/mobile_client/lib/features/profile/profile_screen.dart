@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../../app/providers.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -39,8 +41,14 @@ class ProfileScreen extends ConsumerWidget {
           ],
           _ProfileTile(
             icon: FreshlyIcons.location,
-            title: 'Saved Addresses',
-            onTap: () {},
+            title: 'Saved addresses',
+            onTap: () => context.push('/profile/addresses'),
+          ),
+          _ProfileTile(
+            icon: FreshlyIcons.storefront,
+            title: 'Where you want service',
+            subtitle: ref.watch(serviceAreaProvider)?.displayName,
+            onTap: () => context.push('/location'),
           ),
           _ProfileTile(
             icon: FreshlyIcons.card,
@@ -76,9 +84,15 @@ class ProfileScreen extends ConsumerWidget {
 }
 
 class _ProfileTile extends StatelessWidget {
-  const _ProfileTile({required this.icon, required this.title, required this.onTap});
+  const _ProfileTile({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.subtitle,
+  });
   final IconData icon;
   final String title;
+  final String? subtitle;
   final VoidCallback onTap;
 
   @override
@@ -86,6 +100,7 @@ class _ProfileTile extends StatelessWidget {
     return ListTile(
       leading: Icon(icon, color: FreshlyColors.ink),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: subtitle == null ? null : Text(subtitle!),
       trailing: const Icon(FreshlyIcons.chevronRight, size: 16),
       onTap: onTap,
     );

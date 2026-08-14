@@ -201,3 +201,39 @@ label { display: block; font-size: 13px; color: var(--ink-muted); margin-bottom:
   margin-bottom: 16px;
   color: #7a5800;
 }
+
+/* Marketplace Pulse */
+.pulse .grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+.stat .label { font-size: 13px; color: var(--ink-muted); margin-bottom: 8px; }
+.stat .value { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
+
+/* Global Search */
+.search-container { position: relative; margin: 0 8px 16px; }
+.search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  z-index: 100;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.search-item {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.search-item:hover { background: var(--bg); }
+.search-item .type { font-size: 10px; text-transform: uppercase; color: var(--ink-muted); }

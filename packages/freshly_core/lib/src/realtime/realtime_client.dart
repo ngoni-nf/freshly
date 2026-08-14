@@ -22,6 +22,7 @@ class RealtimeClient {
   final _offerRevoked = StreamController<String>.broadcast();
   final _addonRequests = StreamController<Map<String, dynamic>>.broadcast();
   final _messages = StreamController<ChatMessage>.broadcast();
+  final _chatRead = StreamController<String>.broadcast();
 
   Stream<RealtimeConnectionState> get status => _status.stream;
   Stream<TrackingUpdate> get tracking => _tracking.stream;
@@ -29,6 +30,9 @@ class RealtimeClient {
   Stream<String> get offerRevoked => _offerRevoked.stream;
   Stream<Map<String, dynamic>> get addonRequests => _addonRequests.stream;
   Stream<ChatMessage> get messages => _messages.stream;
+
+  /// Emits a booking id when the other participant reads the conversation.
+  Stream<String> get chatRead => _chatRead.stream;
 
   bool get isConnected => _socket?.connected ?? false;
 
@@ -68,6 +72,12 @@ class RealtimeClient {
         if (d is Map) {
           _messages.add(ChatMessage.fromJson(Map<String, dynamic>.from(d)));
         }
+      })
+      // The other side opened the conversation. Carries only the booking id:
+      // everything of theirs is now read, so there is nothing per-message to
+      // send and nothing to keep in sync.
+      ..on('chat.read', (d) {
+        if (d is Map) _chatRead.add(d['bookingId'] as String);
       });
 
     _status.add(RealtimeConnectionState.connecting);

@@ -35,6 +35,8 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { SupportModule } from './modules/support/support.module';
 import { AddressesModule } from './modules/addresses/addresses.module';
 
+import { AdminModule } from './modules/admin/admin.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -80,6 +82,7 @@ import { AddressesModule } from './modules/addresses/addresses.module';
     CredentialsModule,
     StorageModule,
     CatalogModule,
+    AdminModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

@@ -6,6 +6,7 @@ import { PaymentError } from '../../common/errors/domain.errors';
 import { PaymentGateway } from './gateways/gateway.interface';
 import { MockGateway } from './gateways/mock.gateway';
 import { PaynowGateway } from './gateways/paynow.gateway';
+import { StitchGateway } from './gateways/stitch.gateway';
 import { MarketsService } from '../markets/markets.service';
 import { LedgerEntryInput, LedgerService } from './ledger.service';
 
@@ -46,6 +47,12 @@ export class EscrowService {
     const paynowKey = this.config.get<string>('PAYNOW_INTEGRATION_KEY');
     if (paynowId && paynowKey) {
       this.gateways.set('paynow', new PaynowGateway(paynowId, paynowKey));
+    }
+
+    const stitchId = this.config.get<string>('STITCH_CLIENT_ID');
+    const stitchSecret = this.config.get<string>('STITCH_CLIENT_SECRET');
+    if (stitchId && stitchSecret) {
+      this.gateways.set('stitch', new StitchGateway({ clientId: stitchId, clientSecret: stitchSecret }));
     }
   }
 

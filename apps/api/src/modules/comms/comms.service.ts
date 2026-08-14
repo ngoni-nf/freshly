@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { formatMoney } from '../../common/money/money';
+import { TwilioAdapter } from './adapters/twilio.adapter';
 
 /**
  * Outbound messaging.
@@ -33,10 +34,19 @@ export class CommsService {
 
   constructor(private readonly config: ConfigService) {
     const provider = this.config.get<string>('COMMS_PROVIDER') ?? 'mock';
-    // Gupshup and Twilio adapters slot in here; the mock keeps local
-    // development free of credentials and free of spend.
-    this.adapter = new MockCommsAdapter();
-    this.logger.log(`comms provider: ${provider}`);
+
+    if (provider === 'twilio') {
+      this.adapter = new TwilioAdapter({
+        accountSid: this.config.get<string>('TWILIO_ACCOUNT_SID')!,
+        authToken: this.config.get<string>('TWILIO_AUTH_TOKEN')!,
+        fromNumber: this.config.get<string>('TWILIO_FROM_NUMBER')!,
+      });
+    } else {
+      this.adapter = new MockCommsAdapter();
+      this.logger.warn('comms is mocked; SMS and WhatsApp will not be sent');
+    }
+
+    this.logger.log(`comms provider: ${this.adapter.constructor.name}`);
   }
 
   async sendOtp(phoneE164: string, code: string, countryCode: 'ZA' | 'ZW'): Promise<void> {

@@ -26,6 +26,10 @@ class FreshlyIcons {
   static const IconData expandMore = CupertinoIcons.chevron_down;
   static const IconData close = CupertinoIcons.xmark;
   static const IconData check = CupertinoIcons.check_mark;
+
+  /// Read, as against merely delivered. The two-tick convention is understood
+  /// everywhere without a legend, which a bespoke indicator would need.
+  static const IconData checkDouble = CupertinoIcons.checkmark_alt_circle_fill;
   static const IconData checkCircle = CupertinoIcons.check_mark_circled_solid;
   static const IconData add = CupertinoIcons.add;
   static const IconData addCircle = CupertinoIcons.add_circled;

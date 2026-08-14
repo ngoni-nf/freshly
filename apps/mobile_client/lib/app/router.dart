@@ -22,6 +22,7 @@ import '../features/tracking/tracking_screen.dart';
 import '../features/tracking/pin_screen.dart';
 import '../features/history/bookings_screen.dart';
 import '../features/profile/profile_screen.dart' as account;
+import '../features/profile/addresses_screen.dart';
 import '../widgets/main_scaffold.dart';
 import 'providers.dart';
 
@@ -116,7 +117,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                   path: '/profile',
-                  builder: (_, __) => const account.ProfileScreen()),
+                  builder: (_, __) => const account.ProfileScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'addresses',
+                      builder: (_, __) => const AddressesScreen(),
+                    ),
+                  ]),
             ],
           ),
         ],

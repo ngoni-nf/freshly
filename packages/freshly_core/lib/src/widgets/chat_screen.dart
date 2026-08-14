@@ -34,6 +34,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final _scroll = ScrollController();
   final _messages = <ChatMessage>[];
   StreamSubscription? _sub;
+  StreamSubscription? _readSub;
   bool _loading = true;
   bool _expired = false;
 
@@ -48,6 +49,26 @@ class _ChatScreenState extends State<ChatScreen> {
         });
         _scrollToBottom();
       }
+    });
+    _readSub = widget.realtime.chatRead.listen((bookingId) {
+      if (bookingId != widget.bookingId || !mounted) return;
+      // Everything of mine is now read; there is no per-message state to
+      // reconcile, which is why the event carries only the booking.
+      setState(() {
+        for (var i = 0; i < _messages.length; i++) {
+          final m = _messages[i];
+          if (m.authorId == widget.currentUserId && !m.isRead) {
+            _messages[i] = ChatMessage(
+              id: m.id,
+              bookingId: m.bookingId,
+              authorId: m.authorId,
+              body: m.body,
+              createdAt: m.createdAt,
+              isRead: true,
+            );
+          }
+        }
+      });
     });
     widget.realtime.joinBooking(widget.bookingId);
   }
@@ -207,6 +228,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _sub?.cancel();
+    _readSub?.cancel();
     widget.realtime.leaveBooking(widget.bookingId);
     _controller.dispose();
     _scroll.dispose();
@@ -244,12 +266,33 @@ class _ChatBubble extends StatelessWidget {
               style: TextStyle(color: isMe ? Colors.white : Colors.black, fontSize: 15),
             ),
             const SizedBox(height: 4),
-            Text(
-              DateFormat('HH:mm').format(message.createdAt),
-              style: TextStyle(
-                color: isMe ? Colors.white70 : FreshlyColors.inkMuted,
-                fontSize: 10,
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  DateFormat('HH:mm').format(message.createdAt),
+                  style: TextStyle(
+                    color: isMe ? Colors.white70 : FreshlyColors.inkMuted,
+                    fontSize: 10,
+                  ),
+                ),
+                // Only on your own messages. A receipt on someone else's is
+                // meaningless — you obviously read it, you are looking at it.
+                if (isMe) ...[
+                  const SizedBox(width: 4),
+                  Icon(
+                    message.isRead
+                        ? FreshlyIcons.checkDouble
+                        : FreshlyIcons.check,
+                    size: 12,
+                    // Read is the state worth noticing, so it is the one that
+                    // gets colour; delivered stays quiet.
+                    color: message.isRead
+                        ? FreshlyColors.mintSoft
+                        : Colors.white54,
+                  ),
+                ],
+              ],
             ),
           ],
         ),

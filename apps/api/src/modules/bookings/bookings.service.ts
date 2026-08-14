@@ -820,11 +820,19 @@ export class BookingsService {
       throw new ForbiddenException({ code: 'not_your_booking', message: 'Not permitted' });
     }
 
-    await this.db.query(
+    const updated = await this.db.query<{ id: string }>(
       `UPDATE chat_messages SET is_read = true
-        WHERE booking_id = $1 AND author_id <> $2 AND NOT is_read`,
+        WHERE booking_id = $1 AND author_id <> $2 AND NOT is_read
+        RETURNING id`,
       [bookingId, userId],
     );
+
+    // Tell the sender, so their ticks turn. Only when something actually
+    // changed — opening a conversation you have already read should not put a
+    // needless event on the wire every time the screen is rebuilt.
+    if (updated.length > 0) {
+      this.realtime.emitToBooking(bookingId, 'chat.read', { bookingId });
+    }
     return { ok: true };
   }
 

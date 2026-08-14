@@ -188,6 +188,59 @@ export interface SosAlert {
   resolvedAt?: string | null;
 }
 
+export interface PulseStats {
+  gmvTodayMinor: number;
+  bookingsToday: number;
+  completionRate: number;
+  onlineProviders: number;
+  verifiedOnlineProviders: number;
+  idleProviders: number;
+  demandIndex: number;
+}
+
+export interface BadgeCounts {
+  kyc: number;
+  credentials: number;
+  sos: number;
+  disputes: number;
+}
+
+export interface SearchResult {
+  id: string;
+  display_name: string;
+  phone: string;
+  type: 'provider' | 'user' | 'booking';
+}
+
+export interface DisputedBooking {
+  id: string;
+  reference: string;
+  status: string;
+  createdAt: string;
+  total: { minor: number; currency: string };
+  clientName: string;
+  providerName: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  bookingId: string;
+  authorId: string;
+  body: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface MarketSettings {
+  code: string;
+  name: string;
+  commission_bps: number;
+  service_fee_minor: number;
+  travel_fee_per_km_minor: number;
+  vat_bps: number;
+  is_live: boolean;
+}
+
 export type DocumentLinks = Record<string, { url: string; expiresIn: number }>;
 
 // ─── Calls ────────────────────────────────────────────────────────────────
@@ -206,6 +259,30 @@ export const api = {
     }),
 
   me: () => request<Me>('/auth/me'),
+
+  pulse: () => request<PulseStats>('/admin/stats/pulse'),
+
+  badges: () => request<BadgeCounts>('/admin/stats/badges'),
+
+  globalSearch: (q: string) => request<SearchResult[]>(`/admin/search?q=${encodeURIComponent(q)}`),
+
+  disputed: () => request<DisputedBooking[]>('/admin/bookings/disputed'),
+
+  chatHistory: (bookingId: string) => request<ChatMessage[]>(`/bookings/${bookingId}/chat`),
+
+  resolveDispute: (id: string, decision: 'refund_client' | 'release_to_pro') =>
+    request<{ ok: true }>(`/admin/bookings/${id}/resolve-dispute`, {
+      method: 'POST',
+      body: JSON.stringify({ decision }),
+    }),
+
+  markets: () => request<MarketSettings[]>('/admin/markets'),
+
+  updateMarket: (code: string, updates: Partial<MarketSettings>) =>
+    request<{ ok: true }>(`/admin/markets/${code}`, {
+      method: 'POST',
+      body: JSON.stringify(updates),
+    }),
 
   kycPending: () => request<KycSubmission[]>('/kyc/pending'),
 
