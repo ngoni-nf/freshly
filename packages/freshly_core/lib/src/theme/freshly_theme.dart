@@ -12,12 +12,30 @@ import 'package:flutter/services.dart';
 class FreshlyColors {
   const FreshlyColors._();
 
-  static const Color mint = Color(0xFF00C48C);
-  static const Color mintDark = Color(0xFF00A375);
+  /// Electric Mint. The brand's primary, and the logomark's lighter gradient
+  /// stop. Reserved for accent and energy rather than large fills — at this
+  /// saturation a full-width block of it vibrates against white.
+  static const Color mint = Color(0xFF00F59B);
+
+  /// Deep Jade: the gradient's other end, and what actually carries text and
+  /// icons. Electric Mint on white is roughly 1.7:1 and fails WCAG outright;
+  /// Jade clears the 3:1 needed for large text and UI components, so anything
+  /// a user must read or press uses this one.
+  static const Color mintDark = Color(0xFF00B87A);
   static const Color mintSoft = Color(0xFFE6FAF3);
 
-  static const Color ink = Color(0xFF10161F);
-  static const Color inkMuted = Color(0xFF5B6675);
+  /// Obsidian Jet. The icon's ground, and the dark theme's surface.
+  static const Color obsidian = Color(0xFF0B0F19);
+
+  static const Color ink = Color(0xFF0F172A);
+
+  /// Cool Slate, from the brand spec: subtitles, inactive states, borders.
+  static const Color inkMuted = Color(0xFF94A3B8);
+
+  /// A darker slate for body copy. Cool Slate is 2.8:1 on white — correct for
+  /// the tagline it was specified for, and unreadable for a paragraph.
+  static const Color inkSubtle = Color(0xFF5B6675);
+
   static const Color line = Color(0xFFE3E8EF);
   static const Color canvas = Color(0xFFF7F9FC);
   static const Color surface = Color(0xFFFFFFFF);

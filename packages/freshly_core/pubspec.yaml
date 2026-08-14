@@ -38,3 +38,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  # Brand assets live on the shared package so both apps and any future surface
+  # resolve one copy rather than drifting versions of the logo.
+  assets:
+    - assets/branding/

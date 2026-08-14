@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 220" width="100%" height="100%">
+  <defs>
+    <linearGradient id="mintHoriz" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00F59B"/>
+      <stop offset="100%" stop-color="#00B87A"/>
+    </linearGradient>
+    <linearGradient id="starGlowHoriz" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#00F59B"/>
+    </linearGradient>
+  </defs>
+
+  <!-- LOGOMARK -->
+  <g transform="translate(40, 25) scale(0.42)">
+    <path d="M 152 120 L 216 120 C 220 120 224 124 224 128 L 224 384 C 224 388 220 392 216 392 L 152 392 C 148 392 144 388 144 384 L 144 128 C 144 124 148 120 152 120 Z" fill="url(#mintHoriz)"/>
+    <path d="M 224 120 L 332 120 C 338 120 342 124 340 130 L 326 182 C 324 188 318 192 312 192 L 224 192 Z" fill="url(#mintHoriz)"/>
+    <path d="M 224 240 L 292 240 C 298 240 302 244 300 250 L 288 296 C 286 302 280 306 274 306 L 224 306 Z" fill="url(#mintHoriz)"/>
+    <path d="M 370 120 Q 370 170 320 170 Q 370 170 370 220 Q 370 170 420 170 Q 370 170 370 120 Z" fill="url(#starGlowHoriz)"/>
+  </g>
+
+  <!-- WORDMARK
+       Still live <text>, which is correct for the web — the browser has Inter
+       or falls back sensibly, and the text stays selectable and searchable.
+       It is NOT correct for the apps: flutter_svg does not render <text>, so
+       this file renders as a bare logomark with no word beside it there. The
+       apps use freshly_logo_paths.svg, where the wordmark is outlined. Both
+       are kept because converting to paths costs searchability on the web and
+       keeping text costs the word entirely in Flutter. -->
+  <text x="240" y="140"
+        font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+        font-size="92"
+        font-weight="800"
+        letter-spacing="-2.5"
+        fill="#FFFFFF">
+    Fresh<tspan fill="url(#mintHoriz)">ly</tspan>
+  </text>
+
+  <text x="245" y="174"
+        font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+        font-size="16"
+        font-weight="600"
+        letter-spacing="5.5"
+        fill="#94A3B8">
+    ON-DEMAND GROOMING
+  </text>
+</svg>
