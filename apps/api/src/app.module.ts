@@ -34,6 +34,7 @@ import { CatalogModule } from './modules/catalog/catalog.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { SupportModule } from './modules/support/support.module';
 import { AddressesModule } from './modules/addresses/addresses.module';
+import { ReferralsModule } from './modules/referrals/referrals.module';
 
 import { AdminModule } from './modules/admin/admin.module';
 
@@ -79,6 +80,7 @@ import { AdminModule } from './modules/admin/admin.module';
     SafetyModule,
     SupportModule,
     AddressesModule,
+    ReferralsModule,
     CredentialsModule,
     StorageModule,
     CatalogModule,

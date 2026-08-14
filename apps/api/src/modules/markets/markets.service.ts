@@ -24,6 +24,10 @@ export interface MarketConfig {
   cancellationWindowMinutes: number;
   cancellationFeeBps: number;
   noShowGraceMinutes: number;
+  /** Referral rewards are market data: turning them up must not be a deploy. */
+  referralRefereeDiscountMinor: number;
+  referralReferrerCreditMinor: number;
+  referralCreditTtlDays: number;
   dispatchOfferSeconds: number;
   maxSearchRadiusKm: number;
   isLive: boolean;
@@ -249,6 +253,9 @@ function mapMarket(r: Record<string, any>): MarketConfig {
     cancellationWindowMinutes: r.cancellation_window_minutes,
     cancellationFeeBps: r.cancellation_fee_bps,
     noShowGraceMinutes: r.no_show_grace_minutes,
+    referralRefereeDiscountMinor: Number(r.referral_referee_discount_minor ?? 0),
+    referralReferrerCreditMinor: Number(r.referral_referrer_credit_minor ?? 0),
+    referralCreditTtlDays: Number(r.referral_credit_ttl_days ?? 90),
     dispatchOfferSeconds: r.dispatch_offer_seconds,
     maxSearchRadiusKm: Number(r.max_search_radius_km),
     isLive: r.is_live,

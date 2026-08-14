@@ -14,6 +14,7 @@ import { EscrowService } from '../payments/escrow.service';
 import { DispatchService } from '../dispatch/dispatch.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { PushService } from '../notifications/push.service';
+import { ReferralsService } from '../referrals/referrals.service';
 import { CreateBookingDto, QuoteBookingDto } from './dto/bookings.dto';
 
 /**
@@ -48,6 +49,7 @@ export class BookingsService {
     private readonly redis: RedisService,
     private readonly realtime: RealtimeGateway,
     private readonly push: PushService,
+    private readonly referrals: ReferralsService,
   ) {}
 
   // ─── Quoting ───────────────────────────────────────────────────────────────
@@ -350,8 +352,8 @@ export class BookingsService {
 
   /** The provider marks the job finished; this is what triggers escrow capture. */
   async complete(providerId: string, bookingId: string) {
-    const booking = await this.db.queryOne<{ status: string; provider_id: string }>(
-      'SELECT status, provider_id FROM bookings WHERE id = $1', [bookingId],
+    const booking = await this.db.queryOne<{ status: string; provider_id: string; client_id: string }>(
+      'SELECT status, provider_id, client_id FROM bookings WHERE id = $1', [bookingId],
     );
     if (!booking) throw new NotFoundError('Booking', bookingId);
     if (booking.provider_id !== providerId) {
@@ -365,6 +367,13 @@ export class BookingsService {
     await this.db.transaction(async (tx) => {
       await tx.query(`UPDATE bookings SET status = 'completed' WHERE id = $1`, [bookingId]);
       await tx.emitEvent('booking', bookingId, 'booking.completed', { providerId });
+
+      // A referral is earned here and nowhere else: a completed booking is the
+      // first point at which a real provider has arrived and real money has
+      // moved. Inside this transaction so the reward and the completion commit
+      // together — a reward against a booking that then rolled back is free
+      // money.
+      await this.referrals.onBookingCompleted(tx, booking.client_id, bookingId);
     });
 
     return { status: 'completed' };

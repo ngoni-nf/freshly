@@ -8,6 +8,7 @@ const ZA: MarketConfig = {
   vatBps: 1500, vatLabel: 'VAT', taxAuthority: 'SARS', paymentProvider: 'stitch',
   kycProvider: 'smileid', sosProvider: 'aura', gridStatusProvider: 'eskom_se_push',
   cancellationWindowMinutes: 120, cancellationFeeBps: 5000, noShowGraceMinutes: 10,
+  referralRefereeDiscountMinor: 5000, referralReferrerCreditMinor: 5000, referralCreditTtlDays: 90,
   dispatchOfferSeconds: 60, maxSearchRadiusKm: 25, isLive: true,
 };
 
