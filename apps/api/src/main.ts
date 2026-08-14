@@ -14,10 +14,25 @@ async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
 
   app.use(helmet({ contentSecurityPolicy: false }));
+  // Origins are configuration, not code. They were hardcoded, which meant
+  // changing the domain — or standing up a staging host — was a source edit
+  // and a redeploy of the wrong shape. Comma-separated in CORS_ORIGINS.
+  //
+  // Production with nothing configured allows nothing rather than everything:
+  // a permissive default is how a browser on any origin ends up holding a
+  // session token, and an empty allowlist fails visibly instead of silently.
+  const isProduction = process.env.NODE_ENV === 'production';
+  const configuredOrigins = (process.env.CORS_ORIGINS ?? '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+
+  if (isProduction && configuredOrigins.length === 0) {
+    logger.warn('CORS_ORIGINS is not set; the console and web will be refused by the browser');
+  }
+
   app.enableCors({
-    origin: process.env.NODE_ENV === 'production'
-      ? ['https://admin.freshly.africa', 'https://freshly.africa']
-      : true,
+    origin: isProduction ? configuredOrigins : true,
     credentials: true,
   });
 
