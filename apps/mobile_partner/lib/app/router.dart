@@ -105,9 +105,16 @@ final partnerRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, s) =>
                 ClientDetailScreen(clientId: s.pathParameters['id']!),
           ),
+          // No parentNavigatorKey anywhere below. These routes sit inside the
+          // OfferListener ShellRoute, which declares no navigator key of its
+          // own, so a route pointing at rootNavigatorKey can never match it
+          // and go_router asserts at construction — the app died on launch,
+          // not on navigation. They are outside the StatefulShellRoute
+          // branches already, so nothing shows a tab bar regardless, and
+          // staying inside the shell is what keeps a dispatch offer able to
+          // interrupt a job in progress.
           GoRoute(
             path: '/job/:id',
-            parentNavigatorKey: rootNavigatorKey,
             builder: (_, s) => JobScreen(bookingId: s.pathParameters['id']!),
             routes: [
               GoRoute(
