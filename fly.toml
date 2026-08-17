@@ -1,23 +1,45 @@
 # ---------------------------------------------------------------------------
 # Fly.io deployment for the Freshly API.
 #
-# Region: `dub` (Ireland) because the Supabase project is aws-1-eu-west-1, and
-# a request here makes several database round trips. Putting the API in
-# Johannesburg while the database sits in Ireland pays the ~150ms crossing per
-# QUERY, not per request, which is far worse than paying it once on the HTTP
-# call. If the database ever moves to a region nearer South Africa, move this
-# with it — the two must stay together.
+# Region: `jnb` (Johannesburg), the whole stack in Africa.
+#
+# The rule that matters is that the API, the database and Redis stay together:
+# a request makes several round trips to each, so a split stack pays the
+# crossing per QUERY rather than once per HTTP call. Ireland for all three was
+# coherent; Ireland for the API with Redis in South Africa would be the worst
+# of both.
+#
+# Africa wins for a Johannesburg-first product once everything moves. Users
+# reach the API in ~10ms instead of ~150ms, and the Jo'burg-to-Cape-Town hop to
+# Supabase af-south-1 is ~15ms — so a five-query request lands near 85ms rather
+# than 150ms, and every one of those users is local.
+#
+# Fly has no Cape Town region; jnb is its African one. Supabase's only African
+# region is Cape Town. That pairing is the closest available and they must be
+# moved together or not at all.
 #
 # `app` is a placeholder: `fly launch` will set your real app name.
 # ---------------------------------------------------------------------------
 app = "freshly-api"
-primary_region = "dub"
+primary_region = "jnb"
 
 [build]
   dockerfile = "Dockerfile"
 
 [env]
-  NODE_ENV = "production"
+  # staging, not production, and deliberately.
+  #
+  # Production refuses to boot on a mock payment, payout or KYC adapter, on a
+  # bypassed OTP, or without push — see the guards in configuration.ts. Every
+  # one of those is still mock, because each needs a signed vendor contract
+  # that does not exist yet. Setting production here would simply crash on
+  # start; setting it while stubbing the guards would be worse, because the
+  # first real booking would take money through an adapter that moves none.
+  #
+  # staging runs the same code with the mock rails, which is exactly what a
+  # test build on a real handset needs. Flip to production when the gateway,
+  # payout and KYC contracts are live — that is the last switch, not the first.
+  NODE_ENV = "staging"
   PORT = "3000"
   # The database is reached over the public internet, so TLS is not optional.
   DATABASE_SSL = "true"
