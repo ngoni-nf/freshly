@@ -37,18 +37,20 @@ class _ChatScreenState extends State<ChatScreen> {
   StreamSubscription? _readSub;
   bool _loading = true;
   bool _expired = false;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
     _loadHistory();
     _sub = widget.realtime.messages.listen((msg) {
-      if (msg.bookingId == widget.bookingId) {
-        setState(() {
-          _messages.add(msg);
-        });
-        _scrollToBottom();
-      }
+      if (msg.bookingId != widget.bookingId || !mounted) return;
+      // The socket delivers to everyone in the room, the sender included, and
+      // a reconnect can replay what history already loaded. Keyed on id so
+      // neither shows the same message twice.
+      if (_messages.any((m) => m.id == msg.id)) return;
+      setState(() => _messages.add(msg));
+      _scrollToBottom();
     });
     _readSub = widget.realtime.chatRead.listen((bookingId) {
       if (bookingId != widget.bookingId || !mounted) return;
@@ -74,29 +76,47 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _loadHistory() async {
+    // The messages first, and on their own.
+    //
+    // These used to share a try block with the booking fetch below, so
+    // anything that went wrong there — a parse, a 403, a timeout — threw away
+    // a conversation that had already loaded. The catch then swallowed it
+    // silently and the screen said "No messages yet", which is
+    // indistinguishable from an empty conversation and sends somebody looking
+    // for a message that is sitting on the server.
     try {
       final history = await widget.api.getChatHistory(widget.bookingId);
+      if (!mounted) return;
+      setState(() {
+        _messages
+          ..clear()
+          ..addAll(history);
+        _loading = false;
+      });
+      _scrollToBottom();
+      unawaited(widget.api.markChatAsRead(widget.bookingId).catchError((_) {}));
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e.message;
+      });
+      return;
+    }
+
+    // Whether the conversation has closed is a separate question, and one the
+    // screen can survive not knowing: failing to answer it leaves the composer
+    // open and the server refuses the send, which is the safe direction.
+    try {
       final booking = await widget.api.booking(widget.bookingId);
-
-      bool expired = false;
-      if (booking.status.isTerminal) {
-        final closedAt = booking.completedAt ?? booking.cancelledAt ?? booking.createdAt;
-        if (DateTime.now().difference(closedAt).inHours >= 24) {
-          expired = true;
-        }
-      }
-
-      if (mounted) {
-        setState(() {
-          _messages.addAll(history);
-          _expired = expired;
-          _loading = false;
-        });
-        _scrollToBottom();
-        await widget.api.markChatAsRead(widget.bookingId);
+      if (!mounted || !booking.status.isTerminal) return;
+      final closedAt =
+          booking.completedAt ?? booking.cancelledAt ?? booking.createdAt;
+      if (DateTime.now().difference(closedAt).inHours >= 24) {
+        setState(() => _expired = true);
       }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      // Deliberately ignored — see above.
     }
   }
 
@@ -160,6 +180,32 @@ class _ChatScreenState extends State<ChatScreen> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(FreshlySpacing.lg),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(_error!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                  color: FreshlyColors.inkMuted)),
+                          const SizedBox(height: FreshlySpacing.md),
+                          OutlinedButton(
+                            onPressed: () {
+                              setState(() {
+                                _error = null;
+                                _loading = true;
+                              });
+                              _loadHistory();
+                            },
+                            child: const Text('Try again'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
                 : _messages.isEmpty
                     ? Center(
                         child: Column(
