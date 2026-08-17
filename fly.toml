@@ -1,27 +1,25 @@
 # ---------------------------------------------------------------------------
 # Fly.io deployment for the Freshly API.
 #
-# Region: `jnb` (Johannesburg), the whole stack in Africa.
+# Region: `dub` (Ireland), matching the Supabase project in eu-west-1.
 #
-# The rule that matters is that the API, the database and Redis stay together:
-# a request makes several round trips to each, so a split stack pays the
-# crossing per QUERY rather than once per HTTP call. Ireland for all three was
-# coherent; Ireland for the API with Redis in South Africa would be the worst
-# of both.
+# The rule is that the API, the database and Redis stay co-located: a request
+# makes several round trips to each, so a split stack pays the crossing per
+# QUERY rather than once per HTTP call.
 #
-# Africa wins for a Johannesburg-first product once everything moves. Users
-# reach the API in ~10ms instead of ~150ms, and the Jo'burg-to-Cape-Town hop to
-# Supabase af-south-1 is ~15ms — so a five-query request lands near 85ms rather
-# than 150ms, and every one of those users is local.
+# South Africa was the obvious wish for a Johannesburg-first product, and Fly
+# has jnb while Upstash has a South Africa region — but Supabase has no African
+# region at all. Its dropdown offers the Americas, Europe, Asia-Pacific and
+# Sao Paulo, and nothing on the continent. The database cannot follow, and the
+# database is the constraint, so moving the other two alone would have made
+# every query a 150ms crossing instead of a 1ms one.
 #
-# Fly has no Cape Town region; jnb is its African one. Supabase's only African
-# region is Cape Town. That pairing is the closest available and they must be
-# moved together or not at all.
-#
+# Revisit if Supabase ever opens af-south-1. Until then this is the fastest
+# arrangement available, and the existing project needs no migration.
 # `app` is a placeholder: `fly launch` will set your real app name.
 # ---------------------------------------------------------------------------
 app = "freshly-api"
-primary_region = "jnb"
+primary_region = "dub"
 
 [build]
   dockerfile = "Dockerfile"
