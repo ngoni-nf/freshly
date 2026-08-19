@@ -1,11 +1,14 @@
 # ---------------------------------------------------------------------------
 # Fly.io deployment for the Freshly API.
 #
-# Region: `dub` (Ireland), matching the Supabase project in eu-west-1.
+# Region: `lhr` (London). Dublin would be ideal — Supabase is in eu-west-1 —
+# but Fly refuses to place machines in `dub` on this account: "Region 'dub'
+# cannot host your machine". London is the nearest region it will accept, and
+# London to Ireland is roughly 10ms, so the co-location argument still holds.
 #
-# The rule is that the API, the database and Redis stay co-located: a request
-# makes several round trips to each, so a split stack pays the crossing per
-# QUERY rather than once per HTTP call.
+# The rule it holds to is that the API, the database and Redis stay
+# co-located: a request makes several round trips to each, so a split stack
+# pays the crossing per QUERY rather than once per HTTP call.
 #
 # South Africa was the obvious wish for a Johannesburg-first product, and Fly
 # has jnb while Upstash has a South Africa region — but Supabase has no African
@@ -19,7 +22,7 @@
 # `app` is a placeholder: `fly launch` will set your real app name.
 # ---------------------------------------------------------------------------
 app = "freshly-api"
-primary_region = "dub"
+primary_region = "lhr"
 
 [build]
   dockerfile = "Dockerfile"

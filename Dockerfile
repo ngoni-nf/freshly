@@ -37,8 +37,13 @@ ENV NODE_ENV=production
 
 # Migrations ship with the image so a release can apply its own schema change
 # rather than depending on someone remembering to run it first.
+# Only the root node_modules. npm workspaces hoist everything it can to the
+# root, so apps/api/node_modules exists only when a dependency could not be
+# hoisted — a version conflict with another workspace. There is none here, so
+# the directory is absent and COPYing it fails the build outright rather than
+# being skipped. Copying the root alone is both correct and sufficient:
+# resolution walks up from apps/api/dist and finds it.
 COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/apps/api/package.json ./apps/api/package.json
 COPY --from=build /app/packages/contracts/dist ./packages/contracts/dist
