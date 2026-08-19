@@ -1,0 +1,20 @@
+{
+  // The ops console is a static Vite bundle, not a Worker script: there is no
+  // `main`, only assets. Cloudflare's build detection assumed otherwise and
+  // ran `wrangler deploy` at the repository root, where it found a workspace
+  // and failed — this file is what tells it what the project actually is.
+  //
+  // The name must stay `freshly`: it is the existing Worker, and changing it
+  // would deploy a second one on a different hostname.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "freshly",
+  "compatibility_date": "2026-08-17",
+  "assets": {
+    "directory": "./dist",
+    // The console keeps its screens in React state rather than the URL, so
+    // there is only ever one document to serve. Serving it for unmatched
+    // paths costs nothing and means a stray link or a refresh lands on the
+    // console rather than on a 404.
+    "not_found_handling": "single-page-application"
+  }
+}
