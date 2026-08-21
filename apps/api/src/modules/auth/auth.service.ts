@@ -7,6 +7,11 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+// jsonwebtoken 9 (pulled by @nestjs/jwt 11) narrowed expiresIn from a plain
+// string to a `ms.StringValue` template. Our TTL is a runtime-valid duration
+// string from config, so we borrow the library's own type for the cast rather
+// than reaching for `any`.
+import type { SignOptions } from 'jsonwebtoken';
 import { randomBytes, randomInt } from 'node:crypto';
 import { DatabaseService } from '../../common/database/database.service';
 import { RedisService } from '../../common/redis/redis.service';
@@ -643,7 +648,8 @@ export class AuthService {
       },
       {
         secret: this.config.getOrThrow<string>('JWT_SECRET'),
-        expiresIn: this.config.get<string>('JWT_ACCESS_TTL') ?? '15m',
+        expiresIn: (this.config.get<string>('JWT_ACCESS_TTL') ??
+          '15m') as SignOptions['expiresIn'],
       },
     );
 
