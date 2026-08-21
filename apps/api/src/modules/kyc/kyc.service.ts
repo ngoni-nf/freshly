@@ -6,6 +6,7 @@ import { DomainError, NotFoundError } from '../../common/errors/domain.errors';
 import { KycCallbackEvent, KycOutcome, KycProvider, KycResult } from './providers/kyc-provider.interface';
 import { MockKycProvider } from './providers/mock.kyc-provider';
 import { SmileIdKycProvider } from './providers/smileid.kyc-provider';
+import { SumsubKycProvider } from './providers/sumsub.kyc-provider';
 import { StorageService } from '../storage/storage.service';
 
 /** Vendor outcomes map onto the database enum; there is no third vocabulary. */
@@ -35,6 +36,16 @@ export class KycService {
         apiKey: this.config.get<string>('SMILE_ID_API_KEY'),
         callbackUrl: this.config.get<string>('SMILE_ID_CALLBACK_URL'),
         baseUrl: this.config.get<string>('SMILE_ID_BASE_URL') ?? 'https://api.smileidentity.com',
+      }),
+    );
+    this.providers.set(
+      'sumsub',
+      new SumsubKycProvider({
+        appToken: this.config.get<string>('SUMSUB_APP_TOKEN'),
+        secretKey: this.config.get<string>('SUMSUB_SECRET_KEY'),
+        webhookSecret: this.config.get<string>('SUMSUB_WEBHOOK_SECRET'),
+        levelName: this.config.get<string>('SUMSUB_LEVEL_NAME') ?? 'basic-kyc-level',
+        baseUrl: this.config.get<string>('SUMSUB_BASE_URL') ?? 'https://api.sumsub.com',
       }),
     );
   }

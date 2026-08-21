@@ -28,26 +28,40 @@ const schema = z.object({
 
   PII_ENCRYPTION_KEY: z.string().min(1),
 
-  PAYMENTS_ZA_PROVIDER: z.enum(['stitch', 'peach', 'mock']).default('mock'),
+  PAYMENTS_ZA_PROVIDER: z.enum(['stitch', 'peach', 'paystack', 'mock']).default('mock'),
   PAYMENTS_ZW_PROVIDER: z.enum(['paynow', 'mock']).default('mock'),
   STITCH_CLIENT_ID: z.string().optional(),
   STITCH_CLIENT_SECRET: z.string().optional(),
   STITCH_WEBHOOK_SECRET: z.string().optional(),
   PEACH_ENTITY_ID: z.string().optional(),
   PEACH_ACCESS_TOKEN: z.string().optional(),
+  PAYSTACK_SECRET_KEY: z.string().optional(),
+  PAYSTACK_PUBLIC_KEY: z.string().optional(),
+  PAYSTACK_BASE_URL: z.string().url().default('https://api.paystack.co'),
   PAYNOW_INTEGRATION_ID: z.string().optional(),
   PAYNOW_INTEGRATION_KEY: z.string().optional(),
   STITCH_BASE_URL: z.string().url().default('https://secure.stitch.money'),
 
   // Money out is a separate vendor decision from money in: the acquirer that
   // authorises a card is rarely the rail that pushes a bank EFT.
+  // Paystack is deliberately absent here: payouts go through a separate
+  // PayoutProvider abstraction, and Paystack Transfers need business
+  // verification we do not have yet. Adding it before the provider exists would
+  // silently fall back to mock — a payout that reports success and moves
+  // nothing. Payments can be Paystack while payouts stay mock.
   PAYOUTS_ZA_PROVIDER: z.enum(['stitch', 'mock']).default('mock'),
   PAYOUTS_ZW_PROVIDER: z.enum(['paynow', 'mock']).default('mock'),
 
-  KYC_PROVIDER: z.enum(['smileid', 'mock']).default('mock'),
+  KYC_PROVIDER: z.enum(['smileid', 'sumsub', 'mock']).default('mock'),
   SMILE_ID_PARTNER_ID: z.string().optional(),
   SMILE_ID_API_KEY: z.string().optional(),
   SMILE_ID_CALLBACK_URL: z.string().optional(),
+  SMILE_ID_BASE_URL: z.string().url().default('https://api.smileidentity.com'),
+  SUMSUB_APP_TOKEN: z.string().optional(),
+  SUMSUB_SECRET_KEY: z.string().optional(),
+  SUMSUB_WEBHOOK_SECRET: z.string().optional(),
+  SUMSUB_LEVEL_NAME: z.string().default('basic-kyc-level'),
+  SUMSUB_BASE_URL: z.string().url().default('https://api.sumsub.com'),
 
   SOS_PROVIDER: z.enum(['aura', 'mock']).default('mock'),
   AURA_API_KEY: z.string().optional(),
@@ -158,6 +172,19 @@ export function loadConfiguration(source: Record<string, unknown> = {}): AppConf
     const missing = (['GUPSHUP_API_KEY', 'GUPSHUP_SOURCE_NUMBER'] as const).filter((k) => !cfg[k]);
     if (missing.length) {
       throw new Error(`COMMS_PROVIDER=gupshup requires: ${missing.join(', ')}`);
+    }
+  }
+  // Same reasoning as comms: a KYC provider selected without its keys fails
+  // every verification with an auth error that reads like a product bug, and
+  // an unverified provider reaching a customer's door is the failure that
+  // matters. The webhook secret is required too — without it every callback is
+  // rejected and applicants sit in `pending` forever.
+  if (cfg.KYC_PROVIDER === 'sumsub') {
+    const missing = (
+      ['SUMSUB_APP_TOKEN', 'SUMSUB_SECRET_KEY', 'SUMSUB_WEBHOOK_SECRET'] as const
+    ).filter((k) => !cfg[k]);
+    if (missing.length) {
+      throw new Error(`KYC_PROVIDER=sumsub requires: ${missing.join(', ')}`);
     }
   }
 

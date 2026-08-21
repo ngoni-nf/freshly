@@ -7,6 +7,7 @@ import { PaymentGateway } from './gateways/gateway.interface';
 import { MockGateway } from './gateways/mock.gateway';
 import { PaynowGateway } from './gateways/paynow.gateway';
 import { StitchGateway } from './gateways/stitch.gateway';
+import { PaystackGateway } from './gateways/paystack.gateway';
 import { MarketsService } from '../markets/markets.service';
 import { LedgerEntryInput, LedgerService } from './ledger.service';
 
@@ -53,6 +54,17 @@ export class EscrowService {
     const stitchSecret = this.config.get<string>('STITCH_CLIENT_SECRET');
     if (stitchId && stitchSecret) {
       this.gateways.set('stitch', new StitchGateway({ clientId: stitchId, clientSecret: stitchSecret }));
+    }
+
+    const paystackSecret = this.config.get<string>('PAYSTACK_SECRET_KEY');
+    if (paystackSecret) {
+      this.gateways.set(
+        'paystack',
+        new PaystackGateway({
+          secretKey: paystackSecret,
+          baseUrl: this.config.get<string>('PAYSTACK_BASE_URL') ?? 'https://api.paystack.co',
+        }),
+      );
     }
   }
 

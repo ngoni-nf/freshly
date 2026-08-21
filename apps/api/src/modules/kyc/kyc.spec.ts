@@ -1,6 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { MockKycProvider } from './providers/mock.kyc-provider';
 import { SmileIdKycProvider } from './providers/smileid.kyc-provider';
+import { SumsubKycProvider } from './providers/sumsub.kyc-provider';
 import { KycSubmission } from './providers/kyc-provider.interface';
 
 const submission = (idNumber: string): KycSubmission => ({
@@ -99,5 +100,83 @@ describe('SmileIdKycProvider', () => {
     await expect(unconfigured.submit(submission('9202204720082'))).rejects.toThrow(
       /SMILE_ID_PARTNER_ID/,
     );
+  });
+});
+
+describe('SumsubKycProvider', () => {
+  const cfg = {
+    appToken: 'app-tok',
+    secretKey: 'sec',
+    webhookSecret: 'whsec',
+    levelName: 'basic-kyc-level',
+    baseUrl: 'https://api.sumsub.com',
+  };
+  const provider = new SumsubKycProvider(cfg);
+
+  const sign = (body: string, alg = 'HMAC_SHA256_HEX'): string => {
+    const hash = alg === 'HMAC_SHA512_HEX' ? 'sha512' : 'sha256';
+    return `${alg}:${createHmac(hash, cfg.webhookSecret).update(body).digest('hex')}`;
+  };
+
+  const reviewed = (answer: 'GREEN' | 'RED', rejectType?: 'FINAL' | 'RETRY') =>
+    JSON.stringify({
+      type: 'applicantReviewed',
+      applicantId: 'app-123',
+      reviewResult: { reviewAnswer: answer, reviewRejectType: rejectType },
+    });
+
+  it('accepts a correctly signed webhook and rejects a tampered body', () => {
+    const body = reviewed('GREEN');
+    expect(provider.verifyCallback(sign(body), body)).toBe(true);
+    expect(provider.verifyCallback(sign(body), `${body} `)).toBe(false);
+  });
+
+  it('supports the sha512 digest variant', () => {
+    const body = reviewed('GREEN');
+    expect(provider.verifyCallback(sign(body, 'HMAC_SHA512_HEX'), body)).toBe(true);
+  });
+
+  it('fails closed when no webhook secret is configured', () => {
+    const noSecret = new SumsubKycProvider({ ...cfg, webhookSecret: undefined });
+    expect(noSecret.verifyCallback('HMAC_SHA256_HEX:deadbeef', '{}')).toBe(false);
+  });
+
+  it('maps a clean pass to verified and a final rejection to rejected', () => {
+    expect(provider.parseCallback(reviewed('GREEN')).outcome).toBe('verified');
+    expect(provider.parseCallback(reviewed('RED', 'FINAL')).outcome).toBe('rejected');
+  });
+
+  it('sends a retryable rejection and every ambiguous state to a human', () => {
+    expect(provider.parseCallback(reviewed('RED', 'RETRY')).outcome).toBe('in_review');
+    expect(
+      provider.parseCallback(JSON.stringify({ type: 'applicantOnHold', applicantId: 'a' })).outcome,
+    ).toBe('in_review');
+    expect(
+      provider.parseCallback(JSON.stringify({ type: 'somethingNew', applicantId: 'a' })).outcome,
+    ).toBe('in_review');
+  });
+
+  it('treats a freshly created applicant as pending', () => {
+    expect(
+      provider.parseCallback(JSON.stringify({ type: 'applicantPending', applicantId: 'a' })).outcome,
+    ).toBe('pending');
+  });
+
+  it('carries the applicant id through as the external reference', () => {
+    expect(provider.parseCallback(reviewed('GREEN')).externalReference).toBe('app-123');
+  });
+
+  it('refuses to submit without credentials', async () => {
+    const unconfigured = new SumsubKycProvider({ ...cfg, appToken: undefined });
+    await expect(
+      unconfigured.submit({
+        submissionId: 's',
+        providerId: 'p',
+        countryCode: 'ZA',
+        documentType: 'national_id',
+        idNumber: 'x',
+        fullName: 'Sipho Ndlovu',
+      }),
+    ).rejects.toThrow(/SUMSUB_APP_TOKEN/);
   });
 });

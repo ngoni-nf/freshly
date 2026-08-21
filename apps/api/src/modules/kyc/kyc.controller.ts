@@ -76,10 +76,18 @@ export class KycController {
   @Post('callbacks/:provider')
   callback(
     @Param('provider') provider: string,
-    @Headers('x-signature') signature: string,
+    @Headers('x-signature') xSignature: string,
+    // Sumsub does not use x-signature: it sends a hex HMAC in x-payload-digest
+    // and names the algorithm in x-payload-digest-alg. Packed as "alg:digest"
+    // so the provider interface can stay a single opaque string.
+    @Headers('x-payload-digest') sumsubDigest: string,
+    @Headers('x-payload-digest-alg') sumsubAlg: string,
     @Req() request: Request & { rawBody?: Buffer },
   ) {
     const raw = request.rawBody?.toString('utf8') ?? JSON.stringify(request.body ?? {});
+    const signature = sumsubDigest
+      ? `${sumsubAlg ?? 'HMAC_SHA256_HEX'}:${sumsubDigest}`
+      : xSignature;
     return this.kyc.handleCallback(provider, signature, raw);
   }
 }
