@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpStatus,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes, randomInt } from 'node:crypto';
@@ -6,20 +12,24 @@ import { DatabaseService } from '../../common/database/database.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { PiiCryptoService } from '../../common/crypto/pii-crypto.service';
 import { MarketsService } from '../markets/markets.service';
-import { RateLimitedError } from '../../common/errors/domain.errors';
+import { DomainError, NotFoundError, RateLimitedError } from '../../common/errors/domain.errors';
 import { CommsService } from '../comms/comms.service';
 import { FirebaseAuthService } from './firebase-auth.service';
 import { AccountRole } from '../../common/decorators';
 
 interface UserRow {
   id: string;
-  phone_e164: string;
+  /** Null for a social/email account that has not linked a number yet. */
+  phone_e164: string | null;
   full_name: string;
   roles: AccountRole[];
   country_code: 'ZA' | 'ZW';
   status: string;
   consent_privacy_at: Date | null;
 }
+
+const USER_COLUMNS =
+  'id, phone_e164, full_name, roles, country_code, status, consent_privacy_at';
 
 /** Seconds until the token expires, taken from its own claims. */
 function expiresInSeconds(accessToken: string): number {
@@ -41,6 +51,9 @@ export interface AuthResult {
   expiresIn: number;
   isNewUser: boolean;
   profileComplete: boolean;
+  /** True for a social/email account with no verified number yet. The app
+   *  routes to phone verification before it lets them book. */
+  needsPhone: boolean;
   /** Null until the client has chosen where they want service. */
   serviceArea: {
     id: string;
@@ -55,7 +68,8 @@ export interface AuthResult {
   user: {
     id: string;
     fullName: string;
-    phone: string;
+    /** Null for a social/email account that has not linked a number yet. */
+    phone: string | null;
     roles: AccountRole[];
     countryCode: 'ZA' | 'ZW';
   };
@@ -98,50 +112,135 @@ export class AuthService {
     device?: { platform: string; pushToken?: string },
   ): Promise<AuthResult> {
     const identity = await this.firebase.verifyIdToken(idToken);
-    const e164 = identity.phoneE164;
+    const locale = countryCode === 'ZA' ? 'en-ZA' : 'en-ZW';
 
-    let user = await this.db.queryOne<UserRow>(
-      `SELECT id, phone_e164, full_name, roles, country_code, status, consent_privacy_at
-         FROM users WHERE phone_e164 = $1`,
-      [e164],
-    );
-    const isNewUser = !user;
+    // Two doors into the same account. A phone-auth token brings a verified
+    // number and is keyed on it, the way every account used to be. A Google or
+    // email token brings none and is keyed on the Firebase uid; that account
+    // exists but carries a null phone until link-phone fills it in.
+    let user: UserRow | null;
+    let isNewUser = false;
 
-    if (!user) {
+    if (identity.phoneE164) {
       user = await this.db.queryOne<UserRow>(
-        `INSERT INTO users (phone_e164, country_code, full_name, email, phone_verified_at, locale)
-         VALUES ($1, $2, $3, $4, now(), $5)
-         RETURNING id, phone_e164, full_name, roles, country_code, status, consent_privacy_at`,
-        [
-          e164,
-          countryCode,
-          identity.name ?? '',
-          identity.email ?? null,
-          countryCode === 'ZA' ? 'en-ZA' : 'en-ZW',
-        ],
+        `SELECT ${USER_COLUMNS} FROM users WHERE phone_e164 = $1`,
+        [identity.phoneE164],
       );
-    } else if (user.status !== 'active') {
+      if (!user) {
+        isNewUser = true;
+        user = await this.db.queryOne<UserRow>(
+          `INSERT INTO users (phone_e164, firebase_uid, country_code, full_name, email, phone_verified_at, locale)
+           VALUES ($1, $2, $3, $4, $5, now(), $6)
+           RETURNING ${USER_COLUMNS}`,
+          [identity.phoneE164, identity.uid, countryCode, identity.name ?? '', identity.email ?? null, locale],
+        );
+      } else {
+        this.assertActive(user);
+        await this.db.query(
+          `UPDATE users SET phone_verified_at = COALESCE(phone_verified_at, now()),
+                  firebase_uid = COALESCE(firebase_uid, $2), last_seen_at = now()
+             WHERE id = $1`,
+          [user.id, identity.uid],
+        );
+      }
+    } else {
+      user = await this.db.queryOne<UserRow>(
+        `SELECT ${USER_COLUMNS} FROM users WHERE firebase_uid = $1`,
+        [identity.uid],
+      );
+      if (!user) {
+        isNewUser = true;
+        // No phone: the account is born unable to book until it links one.
+        user = await this.db.queryOne<UserRow>(
+          `INSERT INTO users (firebase_uid, country_code, full_name, email, locale)
+           VALUES ($1, $2, $3, $4, $5)
+           RETURNING ${USER_COLUMNS}`,
+          [identity.uid, countryCode, identity.name ?? '', identity.email ?? null, locale],
+        );
+      } else {
+        this.assertActive(user);
+        await this.db.query('UPDATE users SET last_seen_at = now() WHERE id = $1', [user.id]);
+      }
+    }
+
+    await this.registerDevice(user!.id, device);
+
+    return this.issueTokens(user!, isNewUser);
+  }
+
+  private assertActive(user: UserRow): void {
+    if (user.status !== 'active') {
       throw new UnauthorizedException({
         code: 'account_suspended',
         message: 'This account is not active. Contact support.',
       });
-    } else {
-      await this.db.query(
-        'UPDATE users SET phone_verified_at = COALESCE(phone_verified_at, now()), last_seen_at = now() WHERE id = $1',
-        [user.id],
+    }
+  }
+
+  private async registerDevice(
+    userId: string,
+    device?: { platform: string; pushToken?: string },
+  ): Promise<void> {
+    if (!device?.platform) return;
+    await this.db.query(
+      `INSERT INTO devices (user_id, platform, push_token)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, push_token) DO UPDATE SET last_seen_at = now()`,
+      [userId, device.platform, device.pushToken ?? null],
+    );
+  }
+
+  /**
+   * Attach a verified phone to a social/email account, the step that lets it
+   * finally book. The number comes as a Firebase phone-auth token, so it is
+   * proven the same way a phone sign-in proves it — we never take a phone on a
+   * user's word.
+   */
+  async linkPhone(
+    userId: string,
+    phoneIdToken: string,
+    countryCode: 'ZA' | 'ZW',
+  ): Promise<AuthResult> {
+    const identity = await this.firebase.verifyIdToken(phoneIdToken);
+    if (!identity.phoneE164) {
+      throw new UnauthorizedException({
+        code: 'not_a_phone_token',
+        message: 'That verification did not carry a phone number',
+      });
+    }
+
+    const me = await this.db.queryOne<UserRow>(
+      `SELECT ${USER_COLUMNS} FROM users WHERE id = $1`,
+      [userId],
+    );
+    if (!me) throw new NotFoundError('User', userId);
+    this.assertActive(me);
+
+    // The number may already be somebody's whole account. Merging two histories
+    // — bookings, wallet, roles — is not a thing to do silently, so refuse and
+    // let support handle it rather than guess which account wins.
+    const owner = await this.db.queryOne<{ id: string }>(
+      'SELECT id FROM users WHERE phone_e164 = $1',
+      [identity.phoneE164],
+    );
+    if (owner && owner.id !== userId) {
+      throw new DomainError(
+        'phone_taken',
+        'That number already belongs to another Freshly account.',
+        HttpStatus.CONFLICT,
       );
     }
 
-    if (device?.platform) {
-      await this.db.query(
-        `INSERT INTO devices (user_id, platform, push_token)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (user_id, push_token) DO UPDATE SET last_seen_at = now()`,
-        [user!.id, device.platform, device.pushToken ?? null],
-      );
-    }
+    const updated = await this.db.queryOne<UserRow>(
+      `UPDATE users
+          SET phone_e164 = $2, phone_verified_at = now(),
+              firebase_uid = COALESCE(firebase_uid, $3), last_seen_at = now()
+        WHERE id = $1
+        RETURNING ${USER_COLUMNS}`,
+      [userId, identity.phoneE164, identity.uid],
+    );
 
-    return this.issueTokens(user!, isNewUser);
+    return this.issueTokens(updated!, false);
   }
 
   async requestOtp(phone: string, countryCode: 'ZA' | 'ZW'): Promise<{ sent: boolean; retryAfter: number }> {
@@ -470,6 +569,7 @@ export class AuthService {
       countryCode: user.country_code,
       avatarUrl: user.avatar_url,
       profileComplete: Boolean(user.full_name) && Boolean(user.consent_privacy_at),
+      needsPhone: !user.phone_e164,
       serviceArea: area
         ? {
             id: area.id,
@@ -592,6 +692,7 @@ export class AuthService {
       expiresIn: expiresInSeconds(accessToken),
       isNewUser,
       profileComplete: Boolean(user.full_name) && Boolean(user.consent_privacy_at),
+      needsPhone: !user.phone_e164,
       serviceArea: area
         ? {
             id: area.id,

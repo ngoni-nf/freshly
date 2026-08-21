@@ -2,7 +2,7 @@ import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import {
-  CompleteProfileDto, FirebaseSignInDto, RefreshDto, RegisterPushTokenDto,
+  CompleteProfileDto, FirebaseSignInDto, LinkPhoneDto, RefreshDto, RegisterPushTokenDto,
   RequestOtpDto, SetServiceAreaDto, VerifyOtpDto,
 } from './dto/auth.dto';
 import { CurrentUser, Public } from '../../common/decorators';
@@ -40,6 +40,13 @@ export class AuthController {
       platform: dto.platform ?? 'android',
       pushToken: dto.pushToken,
     });
+  }
+
+  @Post('link-phone')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Attach a verified phone to a social/email account' })
+  linkPhone(@CurrentUser('userId') userId: string, @Body() dto: LinkPhoneDto) {
+    return this.auth.linkPhone(userId, dto.idToken, dto.countryCode);
   }
 
   @Get('me')

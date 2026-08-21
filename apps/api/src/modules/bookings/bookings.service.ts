@@ -151,6 +151,22 @@ export class BookingsService {
   // ─── Creation ──────────────────────────────────────────────────────────────
 
   async create(clientId: string, dto: CreateBookingDto) {
+    // A social/email account has no verified number yet. The provider must be
+    // able to reach the client, and the escrow release needs the PIN handshake,
+    // so a booking cannot exist without one. The code routes the app to
+    // phone verification rather than reading as a generic failure.
+    const client = await this.db.queryOne<{ phone_e164: string | null }>(
+      'SELECT phone_e164 FROM users WHERE id = $1',
+      [clientId],
+    );
+    if (!client?.phone_e164) {
+      throw new DomainError(
+        'phone_required',
+        'Add and verify your mobile number before booking',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
     if (dto.bookingType === 'scheduled' && !dto.scheduledStart) {
       throw new BadRequestException({
         code: 'slot_required', message: 'Choose a date and time for a scheduled booking',

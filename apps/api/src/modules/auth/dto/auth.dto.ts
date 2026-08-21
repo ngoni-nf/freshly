@@ -112,3 +112,14 @@ export class FirebaseSignInDto {
   @IsString()
   pushToken?: string;
 }
+
+export class LinkPhoneDto {
+  @ApiProperty({ description: 'Firebase ID token from phone verification' })
+  @IsString()
+  @Length(20, 4096)
+  idToken!: string;
+
+  @ApiProperty({ enum: ['ZA', 'ZW'] })
+  @IsIn(['ZA', 'ZW'])
+  countryCode!: 'ZA' | 'ZW';
+}

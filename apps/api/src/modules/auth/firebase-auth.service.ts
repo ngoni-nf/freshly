@@ -3,7 +3,9 @@ import { ConfigService } from '@nestjs/config';
 
 export interface VerifiedIdentity {
   uid: string;
-  phoneE164: string;
+  /** Present for phone sign-in; absent for Google and email, which link a
+   *  phone later. */
+  phoneE164?: string;
   email?: string;
   name?: string;
 }
@@ -78,17 +80,13 @@ export class FirebaseAuthService {
       // remaining hour.
       const decoded = await auth.verifyIdToken(idToken, true);
 
-      const phone = decoded.phone_number as string | undefined;
-      if (!phone) {
-        throw new UnauthorizedException({
-          code: 'phone_required',
-          message: 'Sign in with your mobile number',
-        });
-      }
-
+      // No longer required. Google and email tokens carry no phone_number, and
+      // those users link a number before they can book. A phone-auth token
+      // still brings one, and that is the path that gets a verified number up
+      // front.
       return {
         uid: decoded.uid,
-        phoneE164: phone,
+        phoneE164: decoded.phone_number as string | undefined,
         email: decoded.email,
         name: decoded.name,
       };
