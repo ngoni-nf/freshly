@@ -27,6 +27,12 @@ class SocialAuth {
       return result.user?.getIdToken();
     } on FirebaseAuthException catch (e) {
       throw PhoneAuthException(e.code, e.message ?? 'Google sign-in failed');
+    } catch (e) {
+      // GoogleSignIn throws a plain PlatformException when the OAuth client is
+      // not yet configured (no SHA registered, no client id). Surface it as a
+      // message rather than letting it crash the button.
+      throw PhoneAuthException('google_unavailable',
+          'Google sign-in is not available yet. Use your phone or email.');
     }
   }
 
