@@ -149,6 +149,7 @@ class AuthSession {
     required this.roles,
     required this.countryCode,
     required this.profileComplete,
+    required this.needsPhone,
     required this.isNewUser,
     this.serviceArea,
   });
@@ -157,10 +158,16 @@ class AuthSession {
   final String refreshToken;
   final String userId;
   final String fullName;
-  final String phone;
+
+  /// Null for a social/email account that has not linked a number yet.
+  final String? phone;
   final List<String> roles;
   final String countryCode;
   final bool profileComplete;
+
+  /// True when the account signed in with Google or email and still has to
+  /// verify a mobile number before it can book.
+  final bool needsPhone;
   final bool isNewUser;
 
   /// Null until the client has chosen where they want service. Carried on the
@@ -176,10 +183,11 @@ class AuthSession {
       refreshToken: j['refreshToken'] as String,
       userId: user['id'] as String,
       fullName: user['fullName'] as String? ?? '',
-      phone: user['phone'] as String,
+      phone: user['phone'] as String?,
       roles: (user['roles'] as List).cast<String>(),
       countryCode: user['countryCode'] as String,
       profileComplete: j['profileComplete'] as bool? ?? false,
+      needsPhone: j['needsPhone'] as bool? ?? false,
       isNewUser: j['isNewUser'] as bool? ?? false,
       serviceArea: area == null ? null : ServiceArea.fromJson(area),
     );
@@ -1027,6 +1035,7 @@ class CurrentUser {
     required this.roles,
     required this.countryCode,
     required this.profileComplete,
+    this.needsPhone = false,
     this.avatarUrl,
     this.providerId,
     this.kycStatus,
@@ -1036,10 +1045,15 @@ class CurrentUser {
 
   final String id;
   final String fullName;
-  final String phone;
+
+  /// Null for a social/email account that has not linked a number yet.
+  final String? phone;
   final List<String> roles;
   final String countryCode;
   final bool profileComplete;
+
+  /// True when this account still has to verify a mobile number before booking.
+  final bool needsPhone;
   final String? avatarUrl;
   final String? providerId;
   final String? kycStatus;
@@ -1058,10 +1072,11 @@ class CurrentUser {
     return CurrentUser(
       id: j['id'] as String,
       fullName: j['fullName'] as String? ?? '',
-      phone: j['phone'] as String,
+      phone: j['phone'] as String?,
       roles: (j['roles'] as List? ?? const []).cast<String>(),
       countryCode: j['countryCode'] as String? ?? 'ZA',
       profileComplete: j['profileComplete'] as bool? ?? false,
+      needsPhone: j['needsPhone'] as bool? ?? false,
       avatarUrl: j['avatarUrl'] as String?,
       providerId: provider?['id'] as String?,
       kycStatus: provider?['kycStatus'] as String?,

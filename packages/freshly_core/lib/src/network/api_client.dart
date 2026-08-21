@@ -239,6 +239,18 @@ class FreshlyApi {
     return result;
   }
 
+  /// Attach a verified phone to a social/email account, using a Firebase
+  /// phone-auth token. Returns a fresh session with the number now linked.
+  Future<AuthSession> linkPhone(String idToken, String countryCode) async {
+    final result = await _unwrap(
+      _dio.post('/auth/link-phone',
+          data: {'idToken': idToken, 'countryCode': countryCode}),
+      (d) => AuthSession.fromJson(d as Map<String, dynamic>),
+    );
+    await session.save(result);
+    return result;
+  }
+
   Future<void> completeProfile({
     required String fullName,
     String? email,

@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/phone_auth.dart';
 import '../../app/providers.dart';
+import '../../app/social_auth.dart';
 import 'complete_sign_in.dart';
 
 class PhoneScreen extends ConsumerStatefulWidget {
@@ -88,6 +89,31 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
           _error = e.message;
         });
       }
+    }
+  }
+
+  /// Google is one tap and brings no phone, so the session comes back needing
+  /// one and the router sends them to link-phone next.
+  Future<void> _google() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    ref.read(countryCodeProvider.notifier).state = _country;
+    try {
+      final idToken = await ref.read(socialAuthProvider).google();
+      if (idToken == null) {
+        if (mounted) setState(() => _busy = false);
+        return; // backed out of the chooser
+      }
+      await completeFirebaseSignIn(ref, idToken, _country);
+    } on PhoneAuthException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -184,6 +210,32 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white))
                     : const Text('Send code'),
+              ),
+              const SizedBox(height: FreshlySpacing.md),
+              const Row(
+                children: [
+                  Expanded(child: Divider()),
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: FreshlySpacing.md),
+                    child: Text('or',
+                        style: TextStyle(color: FreshlyColors.inkMuted)),
+                  ),
+                  Expanded(child: Divider()),
+                ],
+              ),
+              const SizedBox(height: FreshlySpacing.md),
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _google,
+                icon: const Icon(Icons.account_circle_outlined, size: 18),
+                label: const Text('Continue with Google'),
+              ),
+              const SizedBox(height: FreshlySpacing.sm),
+              OutlinedButton.icon(
+                onPressed:
+                    _busy ? null : () => context.push('/auth/email'),
+                icon: const Icon(Icons.mail_outline, size: 18),
+                label: const Text('Continue with email'),
               ),
             ],
           ),

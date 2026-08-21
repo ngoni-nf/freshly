@@ -39,6 +39,9 @@ dependencies:
   firebase_auth: ^5.3.1
   # Biometric app-lock (Face ID / fingerprint). Re-entry only, never sign-in.
   local_auth: ^2.3.0
+  # Google sign-in. Pinned to the 6.x line, whose signIn() future the social
+  # auth helper is written against; 7.x replaced it with a different API.
+  google_sign_in: ^6.2.1
   # Stores the lock preference. Transitive through freshly_core already, but
   # this app imports it directly, so it declares it directly.
   flutter_secure_storage: ^9.2.2

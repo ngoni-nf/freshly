@@ -93,7 +93,7 @@ class _BusinessHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(user.fullName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-              Text(user.phone, style: const TextStyle(color: FreshlyColors.inkMuted)),
+              Text(user.phone ?? '', style: const TextStyle(color: FreshlyColors.inkMuted)),
             ],
           ),
         ),

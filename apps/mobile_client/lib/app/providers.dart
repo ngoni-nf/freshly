@@ -42,6 +42,17 @@ class AuthSignedOut extends AuthState {
   const AuthSignedOut();
 }
 
+/// Signed in with Google or email, but with no verified number yet.
+///
+/// A social account exists and holds a session, but the booking path refuses
+/// it until a phone is linked — the provider has to be able to reach the
+/// client and the escrow release needs the PIN. The router sends them to
+/// verify a number before anything else.
+class AuthNeedsPhone extends AuthState {
+  const AuthNeedsPhone(this.session);
+  final AuthSession session;
+}
+
 class AuthNeedsProfile extends AuthState {
   const AuthNeedsProfile(this.session);
   final AuthSession session;
@@ -98,15 +109,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
         roles: user.roles,
         countryCode: user.countryCode,
         profileComplete: user.profileComplete,
+        needsPhone: user.needsPhone,
         isNewUser: false,
         serviceArea: user.serviceArea,
       );
 
-      state = switch ((user.profileComplete, user.serviceArea)) {
-        (false, _) => AuthNeedsProfile(session),
-        (true, null) => AuthNeedsArea(session),
-        (true, _) => AuthSignedIn(session, user: user),
-      };
+      // A missing number comes first: without it nothing downstream — profile,
+      // area, a booking — can be completed anyway.
+      state = user.needsPhone
+          ? AuthNeedsPhone(session)
+          : switch ((user.profileComplete, user.serviceArea)) {
+              (false, _) => AuthNeedsProfile(session),
+              (true, null) => AuthNeedsArea(session),
+              (true, _) => AuthSignedIn(session, user: user),
+            };
       _ref.read(countryCodeProvider.notifier).state = user.countryCode;
       if (user.serviceArea != null) {
         _ref.read(serviceAreaProvider.notifier).state = user.serviceArea;
@@ -130,11 +146,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   void signedIn(AuthSession session) {
-    state = switch ((session.profileComplete, session.serviceArea)) {
-      (false, _) => AuthNeedsProfile(session),
-      (true, null) => AuthNeedsArea(session),
-      (true, _) => AuthSignedIn(session),
-    };
+    state = session.needsPhone
+        ? AuthNeedsPhone(session)
+        : switch ((session.profileComplete, session.serviceArea)) {
+            (false, _) => AuthNeedsProfile(session),
+            (true, null) => AuthNeedsArea(session),
+            (true, _) => AuthSignedIn(session),
+          };
     if (session.serviceArea != null) {
       _ref.read(serviceAreaProvider.notifier).state = session.serviceArea;
     }

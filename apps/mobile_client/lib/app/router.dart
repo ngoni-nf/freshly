@@ -8,6 +8,8 @@ import '../features/auth/country_screen.dart';
 import '../features/auth/area_screen.dart';
 import '../features/auth/phone_screen.dart';
 import '../features/auth/otp_screen.dart';
+import '../features/auth/link_phone_screen.dart';
+import '../features/auth/email_screen.dart';
 import '../features/auth/profile_screen.dart' as onboarding;
 import '../features/auth/permissions_screen.dart';
 import '../features/home/dashboard_screen.dart';
@@ -46,6 +48,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         AuthUnknown() => path == '/' ? null : '/',
         // Country first, so every later question is asked in the right market.
         AuthSignedOut() => isAuthFlow ? null : '/auth/country',
+        // A social sign-in with no number: verify one before anything else.
+        AuthNeedsPhone() =>
+          path == '/auth/link-phone' ? null : '/auth/link-phone',
         AuthNeedsProfile() => path == '/auth/profile' ? null : '/auth/profile',
         // Onboarding is not finished until we know where they want service.
         // Permissions may follow, but that screen is skippable and this is not.
@@ -68,6 +73,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               phone: extra['phone']!, countryCode: extra['countryCode']!);
         },
       ),
+      GoRoute(path: '/auth/email', builder: (_, __) => const EmailScreen()),
+      GoRoute(
+          path: '/auth/link-phone',
+          builder: (_, __) => const LinkPhoneScreen()),
       GoRoute(
           path: '/auth/profile',
           builder: (_, __) => const onboarding.ProfileScreen()),

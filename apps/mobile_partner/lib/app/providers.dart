@@ -91,6 +91,9 @@ class PartnerAuthNotifier extends StateNotifier<PartnerAuthState> {
         roles: user.roles,
         countryCode: user.countryCode,
         profileComplete: user.profileComplete,
+        // Providers sign in by phone, so this is always false; carried through
+        // only because the session shape is shared with the client app.
+        needsPhone: user.needsPhone,
         isNewUser: false,
       );
 
