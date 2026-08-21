@@ -1,6 +1,26 @@
 import { z } from 'zod';
 
 /**
+ * Environment booleans, parsed the way a person writes them.
+ *
+ * `z.coerce.boolean()` is a trap here: it is just JavaScript truthiness, so the
+ * string "false" — which is what you type to turn a flag off — coerces to true,
+ * and OTP_DEV_BYPASS=false silently stays on. That is not a style nit; it left
+ * the OTP bypass enabled in a deployment that had explicitly set it to false.
+ * This reads the actual words instead, and an unset or empty value takes the
+ * default.
+ */
+const envBool = (def: boolean) =>
+  z.preprocess((v) => {
+    if (v === undefined || v === null || v === '') return def;
+    if (typeof v === 'boolean') return v;
+    const s = String(v).trim().toLowerCase();
+    if (['true', '1', 'yes', 'on'].includes(s)) return true;
+    if (['false', '0', 'no', 'off'].includes(s)) return false;
+    return def;
+  }, z.boolean());
+
+/**
  * Fail fast on boot rather than at 2am when a payout job discovers the
  * gateway secret was never set. Every environment variable the process
  * depends on is declared, typed and defaulted here or nowhere.
@@ -12,7 +32,7 @@ const schema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 
   DATABASE_URL: z.string().min(1),
-  DATABASE_SSL: z.coerce.boolean().default(false),
+  DATABASE_SSL: envBool(false),
   DATABASE_POOL_MAX: z.coerce.number().int().positive().default(20),
   /** Optional pooler endpoint for the running API; migrations always use DATABASE_URL. */
   DATABASE_POOL_URL: z.string().optional(),
@@ -24,7 +44,7 @@ const schema = z.object({
   JWT_REFRESH_TTL: z.string().default('30d'),
   OTP_TTL_SECONDS: z.coerce.number().int().positive().default(300),
   OTP_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
-  OTP_DEV_BYPASS: z.coerce.boolean().default(false),
+  OTP_DEV_BYPASS: envBool(false),
 
   PII_ENCRYPTION_KEY: z.string().min(1),
 
@@ -77,15 +97,15 @@ const schema = z.object({
   // survives validation, and enforced below when the provider is twilio.
   TWILIO_FROM_NUMBER: z.string().optional(),
 
-  FIREBASE_ENABLED: z.coerce.boolean().default(false),
+  FIREBASE_ENABLED: envBool(false),
   FIREBASE_PROJECT_ID: z.string().optional(),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
   FIREBASE_SERVICE_ACCOUNT_JSON: z.string().optional(),
-  PUSH_ENABLED: z.coerce.boolean().default(false),
+  PUSH_ENABLED: envBool(false),
 
   GOOGLE_API_KEY: z.string().optional(),
   AI_MODEL: z.string().default('gemini-2.5-flash'),
-  AI_ENABLED: z.coerce.boolean().default(false),
+  AI_ENABLED: envBool(false),
 
   ESKOMSEPUSH_API_KEY: z.string().optional(),
   ZESA_STATUS_FEED_URL: z.string().optional(),
