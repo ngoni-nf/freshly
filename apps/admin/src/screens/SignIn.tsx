@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api, token, type Me } from '../api';
 import { messageFor } from '../App';
+import { googleIdToken } from '../firebase';
 
 /**
  * Operators sign in the same way everyone else does — phone and OTP. There is
@@ -44,6 +45,26 @@ export function SignIn({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
     }
   }
 
+  async function google() {
+    setBusy(true);
+    setError(null);
+    try {
+      const idToken = await googleIdToken();
+      const result = await api.signInWithFirebase(idToken, country);
+      token.set(result.accessToken);
+      onSignedIn(await api.me());
+    } catch (err) {
+      // A closed popup is not an error worth shouting about.
+      const code = (err as { code?: string }).code;
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        return;
+      }
+      setError(messageFor(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="signin">
       <div className="card">
@@ -52,6 +73,12 @@ export function SignIn({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
 
         {!sent ? (
           <>
+            <button className="action primary" disabled={busy} onClick={google}>
+              {busy ? 'Signing in…' : 'Sign in with Google'}
+            </button>
+            <p className="sub" style={{ textAlign: 'center', margin: '14px 0' }}>
+              or with a mobile number
+            </p>
             <div className="field">
               <label htmlFor="country">Country</label>
               <select id="country" value={country} onChange={(e) => setCountry(e.target.value)}>

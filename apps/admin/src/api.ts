@@ -258,6 +258,15 @@ export const api = {
       body: JSON.stringify({ phone, countryCode, code }),
     }),
 
+  // Operators sign in with Google (Firebase). The backend verifies the token
+  // and issues a session; the roles it enforces still come from the database,
+  // so a Google identity without the admin role reaches nothing.
+  signInWithFirebase: (idToken: string, countryCode: string) =>
+    request<{ accessToken: string; user: Me }>('/auth/firebase', {
+      method: 'POST',
+      body: JSON.stringify({ idToken, countryCode, platform: 'web' }),
+    }),
+
   me: () => request<Me>('/auth/me'),
 
   pulse: () => request<PulseStats>('/admin/stats/pulse'),
