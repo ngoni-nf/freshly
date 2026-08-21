@@ -153,6 +153,27 @@ export class AuthService {
         `SELECT ${USER_COLUMNS} FROM users WHERE firebase_uid = $1`,
         [identity.uid],
       );
+      // Admin-invite by email: an account pre-provisioned with roles but no
+      // phone and no firebase_uid is a pending invite. The first social sign-in
+      // whose *verified* email matches it claims it, inheriting the roles. This
+      // is scoped to invites only — an account with a phone or an already-linked
+      // uid can never be claimed this way — so a Google email can never take
+      // over a real user's account.
+      if (!user && identity.email) {
+        const invite = await this.db.queryOne<UserRow>(
+          `SELECT ${USER_COLUMNS} FROM users
+            WHERE email = $1 AND phone_e164 IS NULL AND firebase_uid IS NULL`,
+          [identity.email],
+        );
+        if (invite) {
+          this.assertActive(invite);
+          user = await this.db.queryOne<UserRow>(
+            `UPDATE users SET firebase_uid = $2, last_seen_at = now()
+              WHERE id = $1 RETURNING ${USER_COLUMNS}`,
+            [invite.id, identity.uid],
+          );
+        }
+      }
       if (!user) {
         isNewUser = true;
         // No phone: the account is born unable to book until it links one.
