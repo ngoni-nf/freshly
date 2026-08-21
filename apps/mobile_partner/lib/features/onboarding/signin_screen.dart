@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
 
 import '../../app/notifications.dart';
+import '../../app/phone_auth.dart';
 import '../../app/providers.dart';
 
 /// Partner sign-in. Same phone-first flow as the client app, with copy that
@@ -30,18 +32,57 @@ class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
     'ZW': (prefix: '+263', digits: 9, flag: '🇿🇼'),
   };
 
+  /// The number as Firebase and the backend expect it.
+  String get _e164 {
+    final digits = _phone.text
+        .replaceAll(RegExp(r'\D'), '')
+        .replaceFirst(RegExp(r'^0+'), '');
+    return '${_markets[_country]!.prefix}$digits';
+  }
+
   Future<void> _sendCode() async {
     setState(() {
       _busy = true;
       _error = null;
     });
+    final phoneAuth = ref.read(phoneAuthProvider);
+    phoneAuth.onAutoToken = (idToken) async {
+      if (!mounted) return;
+      try {
+        await _exchange(idToken);
+      } on ApiException catch (e) {
+        if (mounted) setState(() => _error = e.message);
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
+    };
+    phoneAuth.onAutoError = (e) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = e.message;
+        });
+      }
+    };
     try {
-      await ref.read(apiProvider).requestOtp(_phone.text, _country);
-      setState(() => _codeSent = true);
-    } on ApiException catch (e) {
-      setState(() => _error = e.message);
-    } finally {
-      if (mounted) setState(() => _busy = false);
+      await phoneAuth.sendCode(
+        _e164,
+        onCodeSent: () {
+          if (mounted) {
+            setState(() {
+              _busy = false;
+              _codeSent = true;
+            });
+          }
+        },
+      );
+    } on PhoneAuthException catch (e) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = e.message;
+        });
+      }
     }
   }
 
@@ -51,21 +92,14 @@ class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
       _error = null;
     });
     try {
-      final session = await ref.read(apiProvider).verifyOtp(
-            _phone.text,
-            _country,
-            _code.text,
-            platform: Theme.of(context).platform == TargetPlatform.iOS
-                ? 'ios'
-                : 'android',
-            pushToken: ref.read(pushTokenProvider),
-          );
-      if (!session.isProvider) {
-        setState(() => _error =
-            'This number is registered as a client. Contact support to become a Freshly pro.');
-        return;
-      }
-      ref.read(partnerAuthProvider.notifier).signedIn(session);
+      final idToken = await ref.read(phoneAuthProvider).confirm(_code.text);
+      await _exchange(idToken);
+    } on PhoneAuthException catch (e) {
+      setState(() {
+        _error = e.message;
+        _code.clear();
+      });
+      unawaited(HapticFeedback.heavyImpact());
     } on ApiException catch (e) {
       setState(() {
         _error = e.message;
@@ -75,6 +109,27 @@ class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// The half shared by the typed-code path and Android's instant verification:
+  /// swap the Firebase token for a session, and refuse a client trying to sign
+  /// in to the pro app.
+  Future<void> _exchange(String idToken) async {
+    final session = await ref.read(apiProvider).signInWithFirebase(
+          idToken,
+          _country,
+          platform:
+              defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
+          pushToken: ref.read(pushTokenProvider),
+        );
+    if (!session.isProvider) {
+      if (mounted) {
+        setState(() => _error =
+            'This number is registered as a client. Contact support to become a Freshly pro.');
+      }
+      return;
+    }
+    ref.read(partnerAuthProvider.notifier).signedIn(session);
   }
 
   @override

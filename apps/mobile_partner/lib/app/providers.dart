@@ -5,8 +5,13 @@ import 'package:freshly_core/freshly_core.dart';
 import 'package:geolocator/geolocator.dart';
 
 import 'env.dart';
+import 'phone_auth.dart';
 
 final sessionStoreProvider = Provider<SessionStore>((ref) => SessionStore());
+
+/// One verification handle for the sign-in screen, holding the verificationId
+/// between requesting a code and confirming it.
+final phoneAuthProvider = Provider<PhoneAuth>((ref) => PhoneAuth());
 
 final apiProvider = Provider<FreshlyApi>((ref) => FreshlyApi(
       baseUrl: Env.apiBaseUrl,

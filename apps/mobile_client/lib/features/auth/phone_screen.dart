@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/phone_auth.dart';
 import '../../app/providers.dart';
+import 'complete_sign_in.dart';
 
 class PhoneScreen extends ConsumerStatefulWidget {
   const PhoneScreen({super.key});
@@ -32,12 +34,14 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
     'ZW': (prefix: '+263', digits: 9, label: 'Zimbabwe', flag: '🇿🇼'),
   };
 
-  bool get _valid {
-    final digits = _controller.text
-        .replaceAll(RegExp(r'\D'), '')
-        .replaceFirst(RegExp(r'^0+'), '');
-    return digits.length == _markets[_country]!.digits;
-  }
+  String get _digits => _controller.text
+      .replaceAll(RegExp(r'\D'), '')
+      .replaceFirst(RegExp(r'^0+'), '');
+
+  bool get _valid => _digits.length == _markets[_country]!.digits;
+
+  /// The number in the form Firebase and the backend both expect.
+  String get _e164 => '${_markets[_country]!.prefix}$_digits';
 
   Future<void> _submit() async {
     if (!_valid || _busy) return;
@@ -45,17 +49,45 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
       _busy = true;
       _error = null;
     });
-    try {
-      await ref.read(apiProvider).requestOtp(_controller.text, _country);
-      ref.read(countryCodeProvider.notifier).state = _country;
-      if (mounted) {
-        unawaited(context.push('/auth/otp',
-            extra: {'phone': _controller.text, 'countryCode': _country}));
+    ref.read(countryCodeProvider.notifier).state = _country;
+
+    final phoneAuth = ref.read(phoneAuthProvider);
+    // Android can verify without a typed code. If that happens before we leave
+    // this screen, finish here.
+    phoneAuth.onAutoToken = (idToken) async {
+      if (!mounted) return;
+      try {
+        await completeFirebaseSignIn(ref, idToken, _country);
+      } on ApiException catch (e) {
+        if (mounted) setState(() => _error = e.message);
       }
-    } on ApiException catch (e) {
-      setState(() => _error = e.message);
-    } finally {
-      if (mounted) setState(() => _busy = false);
+    };
+    phoneAuth.onAutoError = (e) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = e.message;
+        });
+      }
+    };
+
+    try {
+      await phoneAuth.sendCode(
+        _e164,
+        onCodeSent: () {
+          if (!mounted) return;
+          setState(() => _busy = false);
+          unawaited(context.push('/auth/otp',
+              extra: {'phone': _e164, 'countryCode': _country}));
+        },
+      );
+    } on PhoneAuthException catch (e) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = e.message;
+        });
+      }
     }
   }
 

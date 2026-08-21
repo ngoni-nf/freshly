@@ -6,8 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../app/notifications.dart';
+import '../../app/phone_auth.dart';
 import '../../app/providers.dart';
+import 'complete_sign_in.dart';
 
 class OtpScreen extends ConsumerStatefulWidget {
   const OtpScreen({required this.phone, required this.countryCode, super.key});
@@ -30,6 +31,19 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   void initState() {
     super.initState();
     _startCountdown();
+    // Auto-retrieval can complete while this screen is open; catch it here too.
+    final phoneAuth = ref.read(phoneAuthProvider);
+    phoneAuth.onAutoToken = (idToken) async {
+      if (!mounted) return;
+      try {
+        await completeFirebaseSignIn(ref, idToken, widget.countryCode);
+      } on ApiException catch (e) {
+        if (mounted) setState(() => _error = e.message);
+      }
+    };
+    phoneAuth.onAutoError = (e) {
+      if (mounted) setState(() => _error = e.message);
+    };
   }
 
   void _startCountdown() {
@@ -51,21 +65,14 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       _error = null;
     });
     try {
-      final session = await ref.read(apiProvider).verifyOtp(
-            widget.phone,
-            widget.countryCode,
-            code,
-            platform: Theme.of(context).platform == TargetPlatform.iOS
-                ? 'ios'
-                : 'android',
-            pushToken: ref.read(pushTokenProvider),
-          );
-      ref.read(authStateProvider.notifier).signedIn(session);
-      // context.go returns void; only context.push returns a Future, so there
-      // is nothing here to await or to mark as unawaited.
-      if (mounted) {
-        context.go(session.profileComplete ? '/home' : '/auth/profile');
-      }
+      final idToken = await ref.read(phoneAuthProvider).confirm(code);
+      await completeFirebaseSignIn(ref, idToken, widget.countryCode);
+    } on PhoneAuthException catch (e) {
+      setState(() {
+        _error = e.message;
+        _controller.clear();
+      });
+      unawaited(HapticFeedback.heavyImpact());
     } on ApiException catch (e) {
       setState(() {
         _error = e.message;
@@ -78,7 +85,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   }
 
   Future<void> _resend() async {
-    await ref.read(apiProvider).requestOtp(widget.phone, widget.countryCode);
+    await ref
+        .read(phoneAuthProvider)
+        .sendCode(widget.phone, resend: true, onCodeSent: () {});
     _startCountdown();
   }
 

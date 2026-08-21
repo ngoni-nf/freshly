@@ -58,6 +58,10 @@ const schema = z.object({
   GUPSHUP_SOURCE_NUMBER: z.string().optional(),
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
+  // Was absent, which the schema silently strips — the adapter then sent every
+  // SMS with an undefined From and Twilio rejected all of them. Declared so it
+  // survives validation, and enforced below when the provider is twilio.
+  TWILIO_FROM_NUMBER: z.string().optional(),
 
   FIREBASE_ENABLED: z.coerce.boolean().default(false),
   FIREBASE_PROJECT_ID: z.string().optional(),
@@ -134,6 +138,26 @@ export function loadConfiguration(source: Record<string, unknown> = {}): AppConf
     }
     if (violations.length) {
       throw new Error(`Refusing to boot in production:\n  ${violations.join('\n  ')}`);
+    }
+  }
+
+  // Selecting a real comms provider without its credentials is worse than the
+  // mock: the mock says out loud that it sends nothing, whereas a half-wired
+  // Twilio drops every OTP with an authentication error and looks like a bug in
+  // sign-in. This holds in every environment, not just production, because the
+  // whole point of switching to twilio is that codes actually go out.
+  if (cfg.COMMS_PROVIDER === 'twilio') {
+    const missing = (
+      ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM_NUMBER'] as const
+    ).filter((k) => !cfg[k]);
+    if (missing.length) {
+      throw new Error(`COMMS_PROVIDER=twilio requires: ${missing.join(', ')}`);
+    }
+  }
+  if (cfg.COMMS_PROVIDER === 'gupshup') {
+    const missing = (['GUPSHUP_API_KEY', 'GUPSHUP_SOURCE_NUMBER'] as const).filter((k) => !cfg[k]);
+    if (missing.length) {
+      throw new Error(`COMMS_PROVIDER=gupshup requires: ${missing.join(', ')}`);
     }
   }
 

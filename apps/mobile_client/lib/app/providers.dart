@@ -5,8 +5,13 @@ import 'package:freshly_core/freshly_core.dart';
 
 import 'env.dart';
 import 'notifications.dart' show pushTokenProvider;
+import 'phone_auth.dart';
 
 final sessionStoreProvider = Provider<SessionStore>((ref) => SessionStore());
+
+/// One verification handle shared by the phone screen and the code screen, so
+/// the verificationId from `codeSent` survives the navigation between them.
+final phoneAuthProvider = Provider<PhoneAuth>((ref) => PhoneAuth());
 
 final apiProvider = Provider<FreshlyApi>((ref) {
   final api = FreshlyApi(

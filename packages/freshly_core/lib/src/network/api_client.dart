@@ -215,6 +215,30 @@ class FreshlyApi {
     return result;
   }
 
+  /// Exchange a Firebase phone-auth ID token for a Freshly session.
+  ///
+  /// Firebase proves the person holds the phone number; the roles, suspension
+  /// state and everything else still come from our own JWT, issued here. The
+  /// app does the Firebase dance and hands us only the resulting token.
+  Future<AuthSession> signInWithFirebase(
+    String idToken,
+    String countryCode, {
+    String? platform,
+    String? pushToken,
+  }) async {
+    final result = await _unwrap(
+      _dio.post('/auth/firebase', data: {
+        'idToken': idToken,
+        'countryCode': countryCode,
+        if (platform != null) 'platform': platform,
+        if (pushToken != null) 'pushToken': pushToken,
+      }),
+      (d) => AuthSession.fromJson(d as Map<String, dynamic>),
+    );
+    await session.save(result);
+    return result;
+  }
+
   Future<void> completeProfile({
     required String fullName,
     String? email,
