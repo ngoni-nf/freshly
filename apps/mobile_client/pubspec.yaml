@@ -37,6 +37,11 @@ dependencies:
   # Phone-number sign-in. Firebase sends the SMS and proves the number; the
   # backend exchanges the resulting token for a Freshly session.
   firebase_auth: ^5.3.1
+  # Biometric app-lock (Face ID / fingerprint). Re-entry only, never sign-in.
+  local_auth: ^2.3.0
+  # Stores the lock preference. Transitive through freshly_core already, but
+  # this app imports it directly, so it declares it directly.
+  flutter_secure_storage: ^9.2.2
 
 # Every entry above is imported by a screen. Nothing is declared "for later" —
 # an unused native plugin still runs its Gradle and CocoaPods work on every

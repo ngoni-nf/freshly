@@ -4,6 +4,7 @@ import 'package:freshly_core/freshly_core.dart';
 
 import 'package:go_router/go_router.dart';
 
+import '../../app/biometric_lock.dart';
 import '../../app/providers.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -61,6 +62,7 @@ class ProfileScreen extends ConsumerWidget {
             onTap: () {},
           ),
           const Divider(height: FreshlySpacing.xl),
+          const _BiometricLockTile(),
           _ProfileTile(
             icon: FreshlyIcons.info,
             title: 'Help & Support',
@@ -79,6 +81,51 @@ class ProfileScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The biometric-lock switch. It hides itself entirely on a device with no
+/// biometrics enrolled — a toggle you cannot honour is worse than no toggle.
+class _BiometricLockTile extends ConsumerStatefulWidget {
+  const _BiometricLockTile();
+
+  @override
+  ConsumerState<_BiometricLockTile> createState() => _BiometricLockTileState();
+}
+
+class _BiometricLockTileState extends ConsumerState<_BiometricLockTile> {
+  bool _available = false;
+
+  @override
+  void initState() {
+    super.initState();
+    ref.read(biometricLockProvider).canUse().then((can) {
+      if (mounted) setState(() => _available = can);
+    });
+  }
+
+  Future<void> _toggle(bool value) async {
+    final lock = ref.read(biometricLockProvider);
+    // Prove the user can pass the check before turning it on, so enabling it
+    // can never lock them out on the next launch.
+    if (value && !await lock.authenticate()) return;
+    await lock.setEnabled(value);
+    if (!mounted) return;
+    ref.read(lockEnabledProvider.notifier).state = value;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_available) return const SizedBox.shrink();
+    final enabled = ref.watch(lockEnabledProvider);
+    return SwitchListTile(
+      secondary: const Icon(FreshlyIcons.lock, color: FreshlyColors.ink),
+      title: const Text('Biometric lock',
+          style: TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: const Text('Require Face ID or a fingerprint to open Freshly'),
+      value: enabled,
+      onChanged: _toggle,
     );
   }
 }

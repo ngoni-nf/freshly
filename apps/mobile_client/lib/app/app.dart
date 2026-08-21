@@ -3,7 +3,10 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
 
+import '../features/auth/lock_screen.dart';
+import 'biometric_lock.dart';
 import 'notifications.dart';
+import 'providers.dart';
 import 'router.dart';
 
 class FreshlyClientApp extends ConsumerStatefulWidget {
@@ -13,11 +16,31 @@ class FreshlyClientApp extends ConsumerStatefulWidget {
   ConsumerState<FreshlyClientApp> createState() => _FreshlyClientAppState();
 }
 
-class _FreshlyClientAppState extends ConsumerState<FreshlyClientApp> {
+class _FreshlyClientAppState extends ConsumerState<FreshlyClientApp>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     ref.read(pushNotificationProvider).initialize();
+    hydrateBiometricLock(ref);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Cover the app the moment it leaves the foreground, so the last screen is
+    // already hidden in the task switcher and behind whatever unlock the next
+    // resume demands.
+    if (state == AppLifecycleState.paused &&
+        ref.read(lockEnabledProvider)) {
+      ref.read(appLockedProvider.notifier).state = true;
+    }
   }
 
   @override
@@ -48,9 +71,26 @@ class _FreshlyClientAppState extends ConsumerState<FreshlyClientApp> {
         // customer can no longer see what they are about to be charged.
         final scale = MediaQuery.textScalerOf(context)
             .clamp(minScaleFactor: 0.9, maxScaleFactor: 1.3);
-        return MediaQuery(
+        final scaled = MediaQuery(
           data: MediaQuery.of(context).copyWith(textScaler: scale),
           child: child!,
+        );
+        // The lock rides above the whole navigator as an overlay rather than a
+        // route, so unlocking returns the user exactly where they were and the
+        // router never has to know the app can be covered.
+        return Consumer(
+          builder: (context, ref, _) {
+            final signedIn = ref.watch(authStateProvider) is AuthSignedIn;
+            final locked = ref.watch(appLockedProvider);
+            final enabled = ref.watch(lockEnabledProvider);
+            return Stack(
+              children: [
+                scaled,
+                if (signedIn && enabled && locked)
+                  const Positioned.fill(child: LockScreen()),
+              ],
+            );
+          },
         );
       },
     );
