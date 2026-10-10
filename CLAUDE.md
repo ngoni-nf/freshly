@@ -83,7 +83,8 @@ Turning Zimbabwe on is an UPDATE plus a payment adapter. Do not add
 
 ## Current state
 
-Working and verified: 62 unit tests green, `tsc` clean, both Flutter apps
+Working and verified: 85 unit tests and 6 end-to-end tests green, `tsc`
+clean, both smoke suites pass against a running API, and both Flutter apps
 analyze clean and build and run on an Android 16 emulator. Pricing reconciles
 across a swept range of prices and distances; payout gross always splits into
 exactly fee plus net across the same kind of sweep.
@@ -117,10 +118,15 @@ database in the same region: a request makes several round trips, so splitting
 them pays the crossing per query rather than once per request.
 
 The hosted Supabase database (project `freshly`, eu-west-1) is live and holds
-real demo traffic: every migration through 020 is applied and recorded in
-`schema_migrations`. Its security advisor is clean apart from the findings
+real demo traffic: every migration through 021 is applied and recorded in
+`schema_migrations`, with checksums matching the files exactly. Its security advisor is clean apart from the findings
 explained under "Things that have already bitten us": `spatial_ref_sys`,
 extensions installed in `public`, and PostGIS's own `st_estimatedextent`.
+
+GitHub Actions has not run since 21 August 2026: the account is locked for
+billing, so every CI job fails at startup without running a step. Until that
+is cleared, run the API job's steps by hand (`migrate up`, `seed`,
+`check-credential-gate.cjs`, `test`, `test:e2e`) against a local PostGIS.
 
 ## Running it
 
