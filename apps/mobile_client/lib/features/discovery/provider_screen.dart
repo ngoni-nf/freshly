@@ -40,6 +40,7 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(providerProfileProvider(widget.providerId));
+    final still = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
 
     return Scaffold(
       body: profile.when(
@@ -67,11 +68,23 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
           return CustomScrollView(
             slivers: [
               SliverAppBar(
-                expandedHeight: 260,
+                expandedHeight: 300,
                 pinned: true,
+                // Pulling down past the top zooms the portfolio rather than
+                // showing a blank gap. On iOS that is the native feel; on
+                // Android the clamping physics simply never trigger it.
+                stretch: true,
                 flexibleSpace: FlexibleSpaceBar(
+                  // The photo drifts up at a fraction of the scroll speed
+                  // while the menu slides over it. With reduce motion on it
+                  // is pinned instead and the menu simply covers it.
+                  collapseMode:
+                      still ? CollapseMode.pin : CollapseMode.parallax,
+                  stretchModes: still
+                      ? const <StretchMode>[]
+                      : const [StretchMode.zoomBackground],
                   background: portfolio.isEmpty
-                      ? Container(color: FreshlyColors.mintSoft)
+                      ? const _EmptyPortfolio()
                       : Stack(
                           children: [
                             Positioned.fill(
@@ -345,6 +358,56 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
                 ]),
               ),
             ),
+    );
+  }
+}
+
+/// A pro with no photos yet still gets a header with some depth, instead of a
+/// flat block that reads as a page that failed to load.
+class _EmptyPortfolio extends StatelessWidget {
+  const _EmptyPortfolio();
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: FreshlyColors.obsidian,
+      child: Stack(
+        clipBehavior: Clip.hardEdge,
+        children: [
+          Positioned(
+            right: -60,
+            bottom: -80,
+            child: Container(
+              width: 240,
+              height: 240,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: FreshlyColors.mint, width: 34),
+              ),
+            ),
+          ),
+          Positioned(
+            left: -40,
+            top: 40,
+            child: Container(
+              width: 150,
+              height: 150,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: FreshlyColors.mint.withValues(alpha: 0.14),
+              ),
+            ),
+          ),
+          const Positioned(
+            left: FreshlySpacing.md,
+            bottom: FreshlySpacing.lg,
+            child: Text(
+              'No portfolio photos yet',
+              style: TextStyle(color: FreshlyColors.inkMuted, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

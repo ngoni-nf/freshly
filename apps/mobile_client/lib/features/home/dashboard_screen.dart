@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
 import 'package:go_router/go_router.dart';
@@ -139,63 +140,87 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget build(BuildContext context) {
     final grid = ref.watch(gridStatusProvider);
 
-    return Scaffold(
+    // The hero runs up behind the status bar, so the bar's icons have to turn
+    // light over it. SafeArea keeps the bottom inset and leaves the top to the
+    // hero, which pads itself by the same amount.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
       body: SafeArea(
+        top: false,
         child: RefreshIndicator(
           onRefresh: () async => ref.invalidate(gridStatusProvider),
           child: ListView(
             padding: const EdgeInsets.only(bottom: FreshlySpacing.xl),
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(FreshlySpacing.md,
-                    FreshlySpacing.md, FreshlySpacing.md, FreshlySpacing.sm),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Freshly',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineSmall
-                                  ?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: -0.5)),
-                          // The chosen location, and the way to change it.
-                          // Where somebody wants service is a preference, and
-                          // a preference you cannot revisit is a trap.
-                          InkWell(
-                            onTap: () => context.push('/location'),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(FreshlyIcons.location,
-                                    size: 14, color: FreshlyColors.inkMuted),
-                                const SizedBox(width: 2),
-                                Text(
-                                  ref.watch(serviceAreaProvider)?.displayName ??
-                                      'Freshness on demand.',
-                                  style: const TextStyle(
-                                      color: FreshlyColors.inkMuted,
-                                      fontSize: 13),
+              ParallaxHero(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                      FreshlySpacing.md,
+                      MediaQuery.paddingOf(context).top + FreshlySpacing.md,
+                      FreshlySpacing.xs,
+                      FreshlySpacing.xl),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Freshly',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineMedium
+                                    ?.copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700)),
+                            const SizedBox(height: 2),
+                            // The chosen location, and the way to change it.
+                            // Where somebody wants service is a preference, and
+                            // a preference you cannot revisit is a trap.
+                            InkWell(
+                              onTap: () => context.push('/location'),
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 6),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(FreshlyIcons.location,
+                                        size: 14, color: FreshlyColors.mint),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        ref
+                                                .watch(serviceAreaProvider)
+                                                ?.displayName ??
+                                            'Freshness on demand.',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                            color: FreshlyColors.inkMuted,
+                                            fontSize: 14),
+                                      ),
+                                    ),
+                                    const Icon(FreshlyIcons.expandMore,
+                                        size: 16,
+                                        color: FreshlyColors.inkMuted),
+                                  ],
                                 ),
-                                const Icon(FreshlyIcons.expandMore,
-                                    size: 16, color: FreshlyColors.inkMuted),
-                              ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      onPressed: () => context.push('/bookings'),
-                      icon: const Icon(FreshlyIcons.receipt),
-                      tooltip: 'My bookings',
-                    ),
-                  ],
+                      IconButton(
+                        onPressed: () => context.push('/bookings'),
+                        icon: const Icon(FreshlyIcons.receipt),
+                        color: Colors.white,
+                        tooltip: 'My bookings',
+                      ),
+                    ],
+                  ),
                 ),
               ),
+              const SizedBox(height: FreshlySpacing.md),
 
               // ── Mode switch ────────────────────────────────────────────────
               Padding(
@@ -334,6 +359,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 
