@@ -33,7 +33,7 @@ jobs:
       DATABASE_URL: postgres://freshly:freshly@localhost:5432/freshly
       REDIS_URL: redis://localhost:6379
       JWT_SECRET: ci-secret-that-is-at-least-thirty-two-characters
-      PII_ENCRYPTION_KEY: Y2ktdGVzdC1rZXktMzItYnl0ZXMtZXhhY3RseS0hIQ==
+      PII_ENCRYPTION_KEY: Y2ktdGVzdC1rZXktMzItYnl0ZXMtZXhhY3RseS0hISE=
       OTP_DEV_BYPASS: 'true'
       NODE_ENV: test
 
