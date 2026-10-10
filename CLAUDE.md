@@ -119,8 +119,8 @@ them pays the crossing per query rather than once per request.
 The hosted Supabase database (project `freshly`, eu-west-1) is live and holds
 real demo traffic: every migration through 020 is applied and recorded in
 `schema_migrations`. Its security advisor is clean apart from the findings
-explained under "Things that have already bitten us" and mutable
-`search_path` on the eleven `fn_*` functions, which is still open.
+explained under "Things that have already bitten us": `spatial_ref_sys`,
+extensions installed in `public`, and PostGIS's own `st_estimatedextent`.
 
 ## Running it
 
