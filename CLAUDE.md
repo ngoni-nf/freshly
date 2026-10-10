@@ -116,8 +116,11 @@ no container runtime here and no hosting account. Keep the API and the
 database in the same region: a request makes several round trips, so splitting
 them pays the crossing per query rather than once per request.
 
-Blocked on a human: `DATABASE_URL`, so nothing has been run against a real
-database yet — every claim above is from tests, typecheck and the emulator.
+The hosted Supabase database (project `freshly`, eu-west-1) is live and holds
+real demo traffic: every migration through 020 is applied and recorded in
+`schema_migrations`. Its security advisor is clean apart from the findings
+explained under "Things that have already bitten us" and mutable
+`search_path` on the eleven `fn_*` functions, which is still open.
 
 ## Running it
 
