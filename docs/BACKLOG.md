@@ -86,37 +86,28 @@ executed. Expect to iterate on the first run.
 
 ## Priority 2 — correctness and safety
 
-### 5. Upgrade vulnerable dependencies
-`npm audit --omit=dev` reports 24 (4 high): `multer` (DoS via incomplete
-cleanup, reachable through `@nestjs/platform-express`), `lodash` (code
-injection via `_.template`), `js-yaml` (prototype pollution).
+Done and removed from this list: dispatch filters by category, checkout and
+PIN entry have their own rate limits, and `expiresIn` is read from the signed
+token.
 
-Do **not** run `npm audit fix --force` blind — it will bump Nest majors. Go one
-package at a time with `npm run test -w @freshly/api` and the three end-to-end
-suites as the gate.
+### 5. Remaining vulnerable dependencies
+The non-breaking fixes are applied (18 production advisories down to 8, the
+critical `proxy-addr` IP-spoofing one included). What is left needs a major
+upgrade or does not reach a server:
+
+- `@nestjs/swagger` 12 for `js-yaml`. Docs endpoint only.
+- `firebase` in the admin portal for `@firebase/firestore` and `@grpc/grpc-js`.
+  The portal is a browser bundle that does not use Firestore; audit's
+  suggested "fix" is a downgrade to firebase 9 and should not be taken.
+- `gaxios` / `uuid` under `firebase-admin`, waiting on an upstream release.
+
+Do **not** run `npm audit fix --force` blind: it bumps Nest majors. Gate any
+upgrade on unit tests, `test:e2e` and both smoke suites.
 
 ### 6. socket.io Redis adapter before a second instance
 `fly.toml` pins one machine deliberately. Two instances without the adapter
 means a client connected to machine B never receives an offer published from
 machine A — silent, and only under load.
-
-### 7. Dispatch does not filter by service category
-`runWave` in `dispatch.service.ts` selects online providers by distance,
-rating and power backup. It never checks the booking is in a category the
-provider offers, so a nail technician can be offered a barber job.
-
-### 8. Rate limiting on the money paths
-`ThrottlerGuard` is global at 120 requests/minute. Checkout, payout and PIN
-verification deserve their own tighter limits; PIN verification in particular
-is a four-digit code and should lock out well before 120 attempts a minute.
-
-### 9. `expiresIn` is hardcoded in the auth response
-`issueTokens` returns `expiresIn: 900` literally while signing the token with
-`JWT_ACCESS_TTL`. Change the TTL and the API lies to the client about it.
-
----
-
-## Priority 3 — the parts that are stubs
 
 ### 10. Enable a real payment gateway
 `PaymentsModule` runs on `MockGateway`. `StitchPayoutProvider` and
