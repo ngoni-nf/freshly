@@ -10,7 +10,8 @@ import { googleIdToken } from '../firebase';
  */
 export function SignIn({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
   const [phone, setPhone] = useState('');
-  const [country, setCountry] = useState('ZA');
+  // Zimbabwe launches first, so its operators are the ones signing in.
+  const [country, setCountry] = useState('ZW');
   const [code, setCode] = useState('');
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -82,8 +83,8 @@ export function SignIn({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
             <div className="field">
               <label htmlFor="country">Country</label>
               <select id="country" value={country} onChange={(e) => setCountry(e.target.value)}>
-                <option value="ZA">South Africa (+27)</option>
                 <option value="ZW">Zimbabwe (+263)</option>
+                <option value="ZA">South Africa (+27)</option>
               </select>
             </div>
             <div className="field">
@@ -91,7 +92,7 @@ export function SignIn({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
               <input
                 id="phone"
                 inputMode="numeric"
-                placeholder="82 123 4567"
+                placeholder={country === 'ZA' ? '82 123 4567' : '77 123 4567'}
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && phone && send()}
