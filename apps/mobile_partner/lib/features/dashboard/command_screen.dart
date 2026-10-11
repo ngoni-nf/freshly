@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
 import 'package:go_router/go_router.dart';
@@ -22,8 +23,13 @@ class CommandScreen extends ConsumerWidget {
     final auth = ref.watch(partnerAuthProvider);
     final pending = auth is PartnerPendingVerification;
 
-    return Scaffold(
+    // The hero runs up behind the status bar, so the bar's icons turn light
+    // over it and the hero pads itself by the inset SafeArea no longer adds.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
       body: SafeArea(
+        top: false,
         child: RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(scheduleProvider);
@@ -32,32 +38,40 @@ class CommandScreen extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.only(bottom: FreshlySpacing.xl),
             children: [
-              Padding(
-                padding: const EdgeInsets.all(FreshlySpacing.md),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Freshly Partner',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.w700)),
-                          Text(
-                            isOnline
-                                ? 'You are visible to clients'
-                                : 'You are not taking jobs',
-                            style: const TextStyle(
-                                fontSize: 13, color: FreshlyColors.inkMuted),
-                          ),
-                        ],
+              ParallaxHero(
+                accent: isOnline ? FreshlyColors.mint : FreshlyColors.inkMuted,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                      FreshlySpacing.md,
+                      MediaQuery.paddingOf(context).top + FreshlySpacing.md,
+                      FreshlySpacing.md,
+                      FreshlySpacing.xl),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Freshly Partner',
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineMedium
+                              ?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 4),
+                      Text(
+                        isOnline
+                            ? 'You are visible to clients'
+                            : 'You are not taking jobs',
+                        style: TextStyle(
+                            fontSize: 14,
+                            color: isOnline
+                                ? FreshlyColors.mint
+                                : FreshlyColors.inkMuted),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
+              const SizedBox(height: FreshlySpacing.md),
 
               if (pending) const _VerificationBanner(),
 
@@ -225,6 +239,7 @@ class CommandScreen extends ConsumerWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

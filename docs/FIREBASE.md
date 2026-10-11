@@ -124,13 +124,15 @@ SELECT user_id, platform, left(push_token, 12) FROM devices;
   those ids must match what the app registers. Android silently drops an unknown
   channel to default importance, which costs exactly the alert you wanted.
 
-## What is still missing on the app side
+## Notification channels
 
-The manifests declare the two channels, but neither app creates them at
-`IMPORTANCE_HIGH`. Until one does, an offer arrives as a silent notification
-rather than a heads-up alert — delivered, but easy to miss, which defeats most
-of the point. That needs `flutter_local_notifications` (or a platform channel)
-creating `freshly_dispatch` and `freshly_bookings` at startup.
+Both apps create `freshly_dispatch` and `freshly_bookings` at
+`IMPORTANCE_HIGH` in `MainActivity.onCreate`, so offers arrive as heads-up
+alerts rather than silent notifications.
+
+Android never raises a channel's importance once it exists. A test device
+that received a push before this change keeps a silent channel until the app
+is reinstalled or its data is cleared, so run step 5 on a fresh install.
 
 ## iOS
 

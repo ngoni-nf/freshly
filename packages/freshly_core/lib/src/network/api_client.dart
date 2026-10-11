@@ -302,9 +302,11 @@ class FreshlyApi {
   ///
   /// An empty query returns the busiest suburbs, which makes the field useful
   /// before the first keystroke.
-  Future<List<Place>> places({String? query, int limit = 8}) => _unwrap(
+  Future<List<Place>> places({String? query, String? countryCode, int limit = 8}) =>
+      _unwrap(
         _dio.get('/markets/places', queryParameters: {
           if (query != null && query.isNotEmpty) 'q': query,
+          if (countryCode != null) 'countryCode': countryCode,
           'limit': limit,
         }),
         (d) => (d as List).map((e) => Place.fromJson(e as Map<String, dynamic>)).toList(),

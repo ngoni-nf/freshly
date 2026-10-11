@@ -135,7 +135,8 @@ final partnerAuthProvider =
     StateNotifierProvider<PartnerAuthNotifier, PartnerAuthState>(
         PartnerAuthNotifier.new);
 
-final countryCodeProvider = StateProvider<String>((ref) => 'ZA');
+// Zimbabwe launches first; sign-in replaces this with the provider's own market.
+final countryCodeProvider = StateProvider<String>((ref) => 'ZW');
 
 final marketsProvider = FutureProvider<List<Market>>(
   (ref) => ref.watch(apiProvider).markets(),

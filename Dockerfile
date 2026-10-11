@@ -19,7 +19,10 @@ COPY packages/contracts/package.json packages/contracts/
 
 RUN npm ci
 
-COPY tsconfig*.json ./
+# No root tsconfig: each workspace carries its own, and none extends a shared
+# base. A `COPY tsconfig*.json ./` used to sit here, and a COPY wildcard that
+# matches nothing fails the whole build, so the first `fly deploy` would have
+# stopped on this line.
 COPY packages/contracts packages/contracts
 COPY apps/api apps/api
 

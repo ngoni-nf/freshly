@@ -5,7 +5,9 @@ import 'package:freshly_core/freshly_core.dart';
 import '../../app/providers.dart';
 
 final partnerGridProvider = FutureProvider.autoDispose<GridStatus>(
-  (ref) => ref.watch(apiProvider).gridStatus('ZA'),
+  // The provider's own market: a Harare barber needs ZESA's schedule, not
+  // Eskom's.
+  (ref) => ref.watch(apiProvider).gridStatus(ref.watch(countryCodeProvider)),
 );
 
 /// Screen B.8 — availability, and the one-tap load-shedding blockout.

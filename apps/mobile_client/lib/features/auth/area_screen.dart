@@ -74,7 +74,8 @@ class _AreaScreenState extends ConsumerState<AreaScreen> {
       _error = null;
     });
     try {
-      final found = await ref.read(apiProvider).places(query: query.trim());
+      final found = await ref.read(apiProvider).places(
+          query: query.trim(), countryCode: ref.read(countryCodeProvider));
       if (!mounted || id != _requestId) return;
       setState(() {
         _results = found;
@@ -154,7 +155,9 @@ class _AreaScreenState extends ConsumerState<AreaScreen> {
                 autofocus: widget.isOnboarding,
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
-                  hintText: 'Suburb, e.g. Rosebank',
+                  hintText: ref.watch(countryCodeProvider) == 'ZA'
+                      ? 'Suburb, e.g. Rosebank'
+                      : 'Suburb, e.g. Avondale',
                   prefixIcon: const Icon(FreshlyIcons.search),
                   suffixIcon: _controller.text.isEmpty
                       ? null

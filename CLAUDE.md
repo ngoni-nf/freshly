@@ -1,7 +1,7 @@
 # Freshly — working notes for Claude Code
 
-On-demand beauty and grooming marketplace. South Africa live first, Zimbabwe
-pre-configured. Clients book barbers, stylists and nail techs to their door or
+On-demand beauty and grooming marketplace. Zimbabwe launches first (Harare),
+South Africa after; both markets are live in the database. Clients book barbers, stylists and nail techs to their door or
 at a shop; providers run their diary and get paid from the same app.
 
 ## Layout
@@ -83,7 +83,8 @@ Turning Zimbabwe on is an UPDATE plus a payment adapter. Do not add
 
 ## Current state
 
-Working and verified: 62 unit tests green, `tsc` clean, both Flutter apps
+Working and verified: 85 unit tests and 6 end-to-end tests green, `tsc`
+clean, both smoke suites pass against a running API, and both Flutter apps
 analyze clean and build and run on an Android 16 emulator. Pricing reconciles
 across a swept range of prices and distances; payout gross always splits into
 exactly fee plus net across the same kind of sweep.
@@ -110,14 +111,32 @@ hand, so a client cannot browse "Knotless Braids" across providers and
 `services.requires_credential` has nothing to derive from), salon staff
 management, Firebase FCM and Crashlytics wiring in the apps.
 
-Deployment is prepared but never executed — see `docs/DEPLOYMENT.md`. The
-Dockerfile, `fly.toml` and the deploy workflow have not run, because there is
-no container runtime here and no hosting account. Keep the API and the
+The API is deployed on Fly as `freshly-api` (London, two machines,
+`NODE_ENV=staging`), serving https://freshly-api.fly.dev since 21 August.
+Two machines are only correct because of `RedisIoAdapter`; before it, an emit
+reached only sockets on the machine that sent it. `scripts`-style proof: two
+local instances on one Redis, provider socket on B, chat posted through A.
+
+The Dockerfile has not been built by Docker locally (every registry is blocked in the
+agent sandbox), but its stages were replayed by hand: install, build, prune to
+production dependencies, copy exactly the runtime file set, then boot. That
+tree starts and serves `/health` under `NODE_ENV=staging`, applies migrations
+from inside itself, and under `production` is refused by the config guards as
+intended. The replay caught a `COPY tsconfig*.json` with no matching file,
+which would have failed the first real build. Keep the API and the
 database in the same region: a request makes several round trips, so splitting
 them pays the crossing per query rather than once per request.
 
-Blocked on a human: `DATABASE_URL`, so nothing has been run against a real
-database yet — every claim above is from tests, typecheck and the emulator.
+The hosted Supabase database (project `freshly`, eu-west-1) is live and holds
+real demo traffic: every migration through 021 is applied and recorded in
+`schema_migrations`, with checksums matching the files exactly. Its security advisor is clean apart from the findings
+explained under "Things that have already bitten us": `spatial_ref_sys`,
+extensions installed in `public`, and PostGIS's own `st_estimatedextent`.
+
+GitHub Actions has not run since 21 August 2026: the account is locked for
+billing, so every CI job fails at startup without running a step. Until that
+is cleared, run the API job's steps by hand (`migrate up`, `seed`,
+`check-credential-gate.cjs`, `test`, `test:e2e`) against a local PostGIS.
 
 ## Running it
 
@@ -141,8 +160,10 @@ wsl -d Ubuntu -u root -- /bin/sh -c "service redis-server start; exec sleep infi
 cd apps/mobile_client
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000 \
             --dart-define=REALTIME_URL=http://10.0.2.2:3000 \
-            --dart-define=DEV_LOCATION=-26.1076,28.0473
+            --dart-define=DEV_LOCATION=-17.7932,31.0361   # Avondale, Harare
 ```
+
+Use `-26.1076,28.0473` (Sandton) to exercise South Africa instead.
 
 `DEV_LOCATION` is required to get past discovery on an emulator. Every service
 area is geofenced, the emulator reports Mountain View, and `adb emu geo fix`
@@ -212,6 +233,20 @@ while `OTP_DEV_BYPASS=true`.
   the PostGIS extension, is owned by `supabase_admin` so we cannot alter it,
   and contains the public EPSG registry. Suppress that one finding rather than
   taking ownership of an extension's tables.
+
+## Zimbabwe launches first
+
+Harare Metro is live with 70 suburbs from OpenStreetMap (seed `004_places`);
+Bulawayo is configured but off. VAT is 15.5% from 1 January 2026 (Finance Act
+No. 7 of 2025), stored as `vat_bps = 1550`. A full booking in USD, +263 numbers
+throughout, passes the same fourteen smoke checks as Johannesburg: point
+`scripts/smoke.sh` at a Harare provider and `countryCode: ZW` to repeat it.
+There is no Harare demo supply in the seeds on purpose; testers on the live
+pilot should never be shown a barber who does not exist.
+
+Payments in Zimbabwe run on the mock gateway (`PAYMENTS_ZW_PROVIDER=mock`).
+That is fine for a pilot where nobody is charged. It is not fine for real
+money, for the reason below.
 
 ## Zimbabwe is not just a second row
 

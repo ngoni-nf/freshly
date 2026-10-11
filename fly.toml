@@ -71,6 +71,6 @@ primary_region = "lhr"
   size = "shared-cpu-1x"
   memory = "512mb"
 
-# Note on scaling past one machine: socket.io needs its Redis adapter before a
-# second instance is added, or a client connected to machine B never receives
-# an offer published from machine A. One machine is correct until that is done.
+# More than one machine is safe: socket.io fans out through Redis
+# (RedisIoAdapter), so an emit from one machine reaches sockets held by
+# another. Fly creates two machines on first deploy, which is what exposed it.

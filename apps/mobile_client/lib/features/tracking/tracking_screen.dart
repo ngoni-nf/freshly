@@ -154,7 +154,9 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
             initialCameraPosition: CameraPosition(
               target: location != null
                   ? LatLng(location.lat, location.lng)
-                  : const LatLng(-26.1076, 28.0473),
+                  // Only until the first position arrives. Harare, where
+                  // the first bookings are.
+                  : const LatLng(-17.8252, 31.0530),
               zoom: 14,
             ),
             onMapCreated: (c) => _map = c,

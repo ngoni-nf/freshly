@@ -22,14 +22,14 @@ class PartnerSignInScreen extends ConsumerStatefulWidget {
 class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
   final _phone = TextEditingController();
   final _code = TextEditingController();
-  String _country = 'ZA';
+  String _country = 'ZW';
   bool _codeSent = false;
   bool _busy = false;
   String? _error;
 
   static const _markets = {
-    'ZA': (prefix: '+27', digits: 9, flag: '🇿🇦'),
     'ZW': (prefix: '+263', digits: 9, flag: '🇿🇼'),
+    'ZA': (prefix: '+27', digits: 9, flag: '🇿🇦'),
   };
 
   /// The number as Firebase and the backend expect it.
