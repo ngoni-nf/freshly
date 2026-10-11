@@ -96,3 +96,11 @@ short demo video of the tracking screen. Budget a week for that review.
 **Both stores** will ask about the SOS feature. It dispatches to a private
 armed-response provider and is not a substitute for emergency services — the
 in-app copy says so, and the store listing should too.
+
+## iOS bundle identifiers
+
+`africa.freshly.client` and `africa.freshly.partner`, the same as the Android
+package names. `flutter create` generated `africa.freshly.freshlyClient`; it
+was corrected before either app was registered with Apple, because a bundle ID
+cannot be changed once an App Store record exists. Firebase iOS apps and
+`GoogleService-Info.plist` must use these exact IDs.
