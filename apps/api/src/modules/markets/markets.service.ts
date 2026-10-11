@@ -133,6 +133,7 @@ export class MarketsService implements OnModuleInit {
   async searchPlaces(
     query: string | undefined,
     limit = 8,
+    countryCode?: 'ZA' | 'ZW',
   ): Promise<
     Array<{
       id: string;
@@ -169,6 +170,11 @@ export class MarketsService implements OnModuleInit {
         WHERE p.is_active
           AND a.is_live
           AND ($1 = '' OR lower(p.name) LIKE $1 || '%')
+          -- With two live markets, "gr" in Harare offered Greenside,
+          -- Johannesburg, between Greendale and Greystone Park. The app knows
+          -- which country the person chose; older builds that do not send it
+          -- still get every live suburb rather than none.
+          AND ($3::country_code_enum IS NULL OR a.country_code = $3::country_code_enum)
         ORDER BY
           -- An exact match first, then the busiest. Someone who has typed
           -- "sandton" in full does not want Sandton Ext 4 above Sandton.
@@ -176,7 +182,7 @@ export class MarketsService implements OnModuleInit {
           p.popularity DESC,
           p.name ASC
         LIMIT $2`,
-      [term.replace(/[%_\\]/g, '\\$&'), Math.min(limit, 25)],
+      [term.replace(/[%_\\]/g, '\\$&'), Math.min(limit, 25), countryCode ?? null],
     );
 
     return rows.map((r) => ({

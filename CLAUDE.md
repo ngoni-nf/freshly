@@ -1,7 +1,7 @@
 # Freshly — working notes for Claude Code
 
-On-demand beauty and grooming marketplace. South Africa live first, Zimbabwe
-pre-configured. Clients book barbers, stylists and nail techs to their door or
+On-demand beauty and grooming marketplace. Zimbabwe launches first (Harare),
+South Africa after; both markets are live in the database. Clients book barbers, stylists and nail techs to their door or
 at a shop; providers run their diary and get paid from the same app.
 
 ## Layout
@@ -160,8 +160,10 @@ wsl -d Ubuntu -u root -- /bin/sh -c "service redis-server start; exec sleep infi
 cd apps/mobile_client
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000 \
             --dart-define=REALTIME_URL=http://10.0.2.2:3000 \
-            --dart-define=DEV_LOCATION=-26.1076,28.0473
+            --dart-define=DEV_LOCATION=-17.7932,31.0361   # Avondale, Harare
 ```
+
+Use `-26.1076,28.0473` (Sandton) to exercise South Africa instead.
 
 `DEV_LOCATION` is required to get past discovery on an emulator. Every service
 area is geofenced, the emulator reports Mountain View, and `adb emu geo fix`
@@ -231,6 +233,20 @@ while `OTP_DEV_BYPASS=true`.
   the PostGIS extension, is owned by `supabase_admin` so we cannot alter it,
   and contains the public EPSG registry. Suppress that one finding rather than
   taking ownership of an extension's tables.
+
+## Zimbabwe launches first
+
+Harare Metro is live with 70 suburbs from OpenStreetMap (seed `004_places`);
+Bulawayo is configured but off. VAT is 15.5% from 1 January 2026 (Finance Act
+No. 7 of 2025), stored as `vat_bps = 1550`. A full booking in USD, +263 numbers
+throughout, passes the same fourteen smoke checks as Johannesburg: point
+`scripts/smoke.sh` at a Harare provider and `countryCode: ZW` to repeat it.
+There is no Harare demo supply in the seeds on purpose; testers on the live
+pilot should never be shown a barber who does not exist.
+
+Payments in Zimbabwe run on the mock gateway (`PAYMENTS_ZW_PROVIDER=mock`).
+That is fine for a pilot where nobody is charged. It is not fine for real
+money, for the reason below.
 
 ## Zimbabwe is not just a second row
 

@@ -17,13 +17,14 @@ INSERT INTO countries (
  'eskom_se_push', 120, 5000, 10, 60, 25.00, true),
 
 -- Zimbabwe: USD-first (the functional retail currency), 12.5% commission,
--- $0.50 service fee, $0.40/km. 15% VAT administered by ZIMRA.
+-- $0.50 service fee, $0.40/km. 15.5% VAT administered by ZIMRA, from
+-- 1 January 2026 (Finance Act No. 7 of 2025; ZIMRA Public Notice 7 of 2026).
 -- No national armed-response API equivalent to AURA, so SOS falls back to
 -- emergency-contact broadcast plus local control-room numbers.
 ('ZW', 'Zimbabwe', 'USD', ARRAY['USD','ZWG']::currency_code_enum[], '+263', 9,
  'Africa/Harare', 1250, 50, 40, 3.00,
- 1500, 'VAT', 'ZIMRA', 'paynow', 'smileid', 'mock',
- 'zesa', 120, 5000, 10, 75, 20.00, false);
+ 1550, 'VAT', 'ZIMRA', 'paynow', 'smileid', 'mock',
+ 'zesa', 120, 5000, 10, 75, 20.00, true);
 
 -- --------------------------------------------------------------------------
 -- Launch service areas. Boundaries here are deliberately coarse bounding
@@ -40,9 +41,13 @@ INSERT INTO service_areas (country_code, name, slug, boundary, centroid, is_live
 ('ZA', 'eThekwini', 'dbn-metro',
   ST_GeogFromText('POLYGON((30.85 -29.95, 31.10 -29.95, 31.10 -29.75, 30.85 -29.75, 30.85 -29.95))'),
   ST_GeogFromText('POINT(31.0218 -29.8587)'), false),
+-- Harare launches first. Widened from the original 30.95-31.20 box, which cut
+-- off Budiriro, Glen View, Kuwadzana and Dzivarasekwa: the high-density west,
+-- where a large share of the city lives. Still a box; it now covers every
+-- suburb in the Harare places list below.
 ('ZW', 'Harare Metro', 'hre-metro',
-  ST_GeogFromText('POLYGON((30.95 -17.95, 31.20 -17.95, 31.20 -17.72, 30.95 -17.72, 30.95 -17.95))'),
-  ST_GeogFromText('POINT(31.0530 -17.8252)'), false),
+  ST_GeogFromText('POLYGON((30.90 -17.98, 31.26 -17.98, 31.26 -17.68, 30.90 -17.68, 30.90 -17.98))'),
+  ST_GeogFromText('POINT(31.0530 -17.8252)'), true),
 ('ZW', 'Bulawayo', 'byo-metro',
   ST_GeogFromText('POLYGON((28.50 -20.25, 28.68 -20.25, 28.68 -20.05, 28.50 -20.05, 28.50 -20.25))'),
   ST_GeogFromText('POINT(28.5836 -20.1325)'), false);

@@ -25,7 +25,8 @@ class Env {
 
   /// Debug-only location override, as "lat,lng".
   ///
-  ///     flutter run --dart-define=DEV_LOCATION=-26.1076,28.0473
+  ///     flutter run --dart-define=DEV_LOCATION=-17.7932,31.0361   # Avondale, Harare
+  ///     flutter run --dart-define=DEV_LOCATION=-26.1076,28.0473   # Sandton
   ///
   /// The Android emulator reports Mountain View, and `adb emu geo fix` is
   /// unreliable on recent system images — it answers OK and changes nothing.

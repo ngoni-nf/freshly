@@ -29,8 +29,8 @@ class _LinkPhoneScreenState extends ConsumerState<LinkPhoneScreen> {
   String? _error;
 
   static const _markets = {
-    'ZA': (prefix: '+27', digits: 9, flag: '🇿🇦'),
     'ZW': (prefix: '+263', digits: 9, flag: '🇿🇼'),
+    'ZA': (prefix: '+27', digits: 9, flag: '🇿🇦'),
   };
 
   String get _country => ref.read(countryCodeProvider);

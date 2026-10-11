@@ -201,7 +201,8 @@ final authStateProvider =
 
 // ─── Market & grid ───────────────────────────────────────────────────────────
 
-final countryCodeProvider = StateProvider<String>((ref) => 'ZA');
+// Zimbabwe launches first, so a person who has not chosen yet starts there.
+final countryCodeProvider = StateProvider<String>((ref) => 'ZW');
 
 /// Where the client said they want service. Discovery falls back to this
 /// centroid whenever a live GPS fix is unavailable or lands outside every

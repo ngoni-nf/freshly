@@ -31,8 +31,8 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
       ref.read(countryCodeProvider.notifier).state = value;
 
   static const _markets = {
-    'ZA': (prefix: '+27', digits: 9, label: 'South Africa', flag: '🇿🇦'),
     'ZW': (prefix: '+263', digits: 9, label: 'Zimbabwe', flag: '🇿🇼'),
+    'ZA': (prefix: '+27', digits: 9, label: 'South Africa', flag: '🇿🇦'),
   };
 
   String get _digits => _controller.text

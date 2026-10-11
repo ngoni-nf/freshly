@@ -37,7 +37,7 @@ class PickedAddress {
 class AddressPickerSheet extends StatefulWidget {
   const AddressPickerSheet({
     required this.api,
-    this.countryCode = 'ZA',
+    this.countryCode = 'ZW',
     this.nearLat,
     this.nearLng,
     super.key,
@@ -54,7 +54,7 @@ class AddressPickerSheet extends StatefulWidget {
   static Future<PickedAddress?> show(
     BuildContext context, {
     required FreshlyApi api,
-    String countryCode = 'ZA',
+    String countryCode = 'ZW',
     double? nearLat,
     double? nearLng,
   }) =>
@@ -206,7 +206,9 @@ class _AddressPickerSheetState extends State<AddressPickerSheet> {
                 onChanged: (v) { _onChanged(v); setState(() {}); },
                 textCapitalization: TextCapitalization.words,
                 decoration: InputDecoration(
-                  hintText: 'Street and suburb, e.g. 12 Sandton Drive',
+                  hintText: widget.countryCode == 'ZA'
+                      ? 'Street and suburb, e.g. 12 Sandton Drive'
+                      : 'Street and suburb, e.g. King George Rd, Avondale',
                   prefixIcon: const Icon(FreshlyIcons.search),
                   suffixIcon: _searching
                       ? const Padding(

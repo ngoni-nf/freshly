@@ -22,9 +22,17 @@ export class MarketsController {
   @Public()
   @Get('places')
   @ApiQuery({ name: 'q', required: false, description: 'What the user has typed so far' })
+  @ApiQuery({ name: 'countryCode', required: false, enum: ['ZA', 'ZW'] })
   @ApiOperation({ summary: 'Suburb autocomplete, restricted to areas we serve' })
-  places(@Query('q') q?: string, @Query('limit') limit?: string) {
-    return this.markets.searchPlaces(q, limit ? Number(limit) : undefined);
+  places(
+    @Query('q') q?: string,
+    @Query('limit') limit?: string,
+    @Query('countryCode') countryCode?: string,
+  ) {
+    // Anything other than a market code is ignored rather than rejected: this
+    // is autocomplete, and an error here would just leave the field empty.
+    const market = countryCode === 'ZA' || countryCode === 'ZW' ? countryCode : undefined;
+    return this.markets.searchPlaces(q, limit ? Number(limit) : undefined, market);
   }
 
   /**
