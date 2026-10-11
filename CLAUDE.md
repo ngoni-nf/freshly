@@ -112,8 +112,13 @@ hand, so a client cannot browse "Knotless Braids" across providers and
 management, Firebase FCM and Crashlytics wiring in the apps.
 
 Deployment is prepared but never executed — see `docs/DEPLOYMENT.md`. The
-Dockerfile, `fly.toml` and the deploy workflow have not run, because there is
-no container runtime here and no hosting account. Keep the API and the
+Dockerfile has not been built by Docker (every registry is blocked in the
+agent sandbox), but its stages were replayed by hand: install, build, prune to
+production dependencies, copy exactly the runtime file set, then boot. That
+tree starts and serves `/health` under `NODE_ENV=staging`, applies migrations
+from inside itself, and under `production` is refused by the config guards as
+intended. The replay caught a `COPY tsconfig*.json` with no matching file,
+which would have failed the first real build. Keep the API and the
 database in the same region: a request makes several round trips, so splitting
 them pays the crossing per query rather than once per request.
 
