@@ -86,7 +86,8 @@ executed. Expect to iterate on the first run.
 
 ## Priority 2 — correctness and safety
 
-Done and removed from this list: dispatch filters by category, checkout and
+Done and removed from this list: the socket.io Redis adapter, dispatch
+filters by category, checkout and
 PIN entry have their own rate limits, and `expiresIn` is read from the signed
 token.
 
@@ -103,11 +104,6 @@ upgrade or does not reach a server:
 
 Do **not** run `npm audit fix --force` blind: it bumps Nest majors. Gate any
 upgrade on unit tests, `test:e2e` and both smoke suites.
-
-### 6. socket.io Redis adapter before a second instance
-`fly.toml` pins one machine deliberately. Two instances without the adapter
-means a client connected to machine B never receives an offer published from
-machine A — silent, and only under load.
 
 ### 10. Enable a real payment gateway
 `PaymentsModule` runs on `MockGateway`. `StitchPayoutProvider` and

@@ -111,8 +111,13 @@ hand, so a client cannot browse "Knotless Braids" across providers and
 `services.requires_credential` has nothing to derive from), salon staff
 management, Firebase FCM and Crashlytics wiring in the apps.
 
-Deployment is prepared but never executed — see `docs/DEPLOYMENT.md`. The
-Dockerfile has not been built by Docker (every registry is blocked in the
+The API is deployed on Fly as `freshly-api` (London, two machines,
+`NODE_ENV=staging`), serving https://freshly-api.fly.dev since 21 August.
+Two machines are only correct because of `RedisIoAdapter`; before it, an emit
+reached only sockets on the machine that sent it. `scripts`-style proof: two
+local instances on one Redis, provider socket on B, chat posted through A.
+
+The Dockerfile has not been built by Docker locally (every registry is blocked in the
 agent sandbox), but its stages were replayed by hand: install, build, prune to
 production dependencies, copy exactly the runtime file set, then boot. That
 tree starts and serves `/health` under `NODE_ENV=staging`, applies migrations

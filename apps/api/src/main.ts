@@ -5,6 +5,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 
 import { AppModule } from './app.module';
+import { RedisIoAdapter } from './modules/realtime/redis-io.adapter';
 
 async function bootstrap(): Promise<void> {
   // rawBody is what gateway webhook signatures are computed over. Re-encoding
@@ -46,6 +47,12 @@ async function bootstrap(): Promise<void> {
   );
 
   app.enableShutdownHooks();
+
+  // Before listen: the adapter must be in place when the gateway's server is
+  // created, or that server keeps the in-process default and fans out nowhere.
+  const realtimeAdapter = new RedisIoAdapter(app);
+  await realtimeAdapter.connectToRedis(process.env.REDIS_URL ?? 'redis://localhost:6379');
+  app.useWebSocketAdapter(realtimeAdapter);
 
   if (process.env.NODE_ENV !== 'production') {
     const config = new DocumentBuilder()
