@@ -225,7 +225,7 @@ export class AuthService {
   async linkPhone(
     userId: string,
     phoneIdToken: string,
-    countryCode: 'ZA' | 'ZW',
+    _countryCode: 'ZA' | 'ZW',
   ): Promise<AuthResult> {
     const identity = await this.firebase.verifyIdToken(phoneIdToken);
     if (!identity.phoneE164) {
@@ -404,6 +404,136 @@ export class AuthService {
       [userId, input.fullName, input.email ?? null, input.acceptMarketing ?? false],
     );
     return { ok: true };
+  }
+
+  /**
+   * A signed-in person becomes a provider.
+   *
+   * Until now nothing created a `providers` row: a barber who installed the
+   * partner app got a customer account and every provider screen answered
+   * insufficient_role. This creates the row with kyc_status 'pending', adds
+   * the role, and issues a fresh session, because the role and providerId
+   * travel in the token and the old one would keep saying "client".
+   *
+   * The base location decides the service area, resolved in the database so
+   * the sign-up and any later import agree on what "inside Harare" means. A
+   * point outside every live area of the user's country is refused: a pro who
+   * cannot be dispatched to is not a pro the app should show as one.
+   *
+   * Default working hours are written at the same time, because a scheduled
+   * booking needs a rule for the weekday and "Pick a time" otherwise fails
+   * for every new provider until they find the settings screen.
+   */
+  async becomeProvider(
+    userId: string,
+    input: {
+      displayName: string;
+      businessMode: 'solo' | 'salon';
+      categories: string[];
+      venueMode: 'mobile' | 'in_shop' | 'both';
+      lat: number;
+      lng: number;
+      shopAddress?: string;
+      travelRadiusKm?: number;
+      powerBackup?: string[];
+      bio?: string;
+    },
+  ): Promise<AuthResult> {
+    const user = await this.db.queryOne<UserRow>(
+      `SELECT ${USER_COLUMNS} FROM users WHERE id = $1`,
+      [userId],
+    );
+    if (!user) throw new NotFoundError('User', userId);
+    if (user.status !== 'active') {
+      throw new DomainError('account_not_active', 'This account cannot register as a provider', HttpStatus.FORBIDDEN);
+    }
+
+    const existing = await this.db.queryOne<{ id: string }>(
+      'SELECT id FROM providers WHERE user_id = $1',
+      [userId],
+    );
+    if (existing) {
+      throw new DomainError('already_provider', 'This account is already registered as a provider', HttpStatus.CONFLICT);
+    }
+
+    if (input.venueMode !== 'mobile' && !input.shopAddress) {
+      throw new DomainError('shop_address_required', 'Tell clients where your shop is');
+    }
+
+    const area = await this.db.queryOne<{ id: string | null }>(
+      'SELECT fn_service_area_for_point($1::country_code_enum, $2, $3) AS id',
+      [user.country_code, input.lat, input.lng],
+    );
+    if (!area?.id) {
+      throw new DomainError(
+        'outside_service_area',
+        'Freshly is not live where you are based yet',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+      );
+    }
+
+    const market = this.markets.get(user.country_code);
+    const slug = await this.uniqueSlug(input.displayName);
+
+    await this.db.transaction(async (tx) => {
+      const provider = await tx.queryOne<{ id: string }>(
+        `INSERT INTO providers (
+           user_id, country_code, service_area_id, business_mode, display_name, slug, bio,
+           categories, venue_mode, power_backup, base_location, last_location, last_location_at,
+           shop_address, travel_radius_km, kyc_status, payout_currency)
+         VALUES ($1, $2::country_code_enum, $3, $4::business_mode_enum, $5, $6, $7,
+                 $8::service_category_enum[], $9::service_venue_enum, $10::power_backup_enum[],
+                 ST_SetSRID(ST_MakePoint($11, $12), 4326)::geography,
+                 ST_SetSRID(ST_MakePoint($11, $12), 4326)::geography, now(),
+                 $13, $14, 'pending', $15::currency_code_enum)
+         RETURNING id`,
+        [
+          userId, user.country_code, area.id, input.businessMode, input.displayName.trim(), slug,
+          input.bio?.trim() || null, input.categories, input.venueMode, input.powerBackup ?? [],
+          input.lng, input.lat, input.shopAddress?.trim() || null, input.travelRadiusKm ?? 10,
+          market.defaultCurrency,
+        ],
+      );
+
+      await tx.query(
+        `UPDATE users SET roles = array_append(roles, 'provider'::account_role_enum)
+          WHERE id = $1 AND NOT ('provider' = ANY(roles))`,
+        [userId],
+      );
+
+      // Monday to Saturday, 08:00 to 18:00, editable from the availability
+      // screen. Weekday 0 is Sunday.
+      await tx.query(
+        `INSERT INTO availability_rules (provider_id, weekday, starts_at, ends_at)
+         SELECT $1, d, '08:00', '18:00' FROM generate_series(1, 6) AS d`,
+        [provider!.id],
+      );
+    });
+
+    const fresh = (await this.db.queryOne<UserRow>(
+      `SELECT ${USER_COLUMNS} FROM users WHERE id = $1`,
+      [userId],
+    ))!;
+    return this.issueTokens(fresh, false);
+  }
+
+  /** A readable, unique slug for the public profile URL. */
+  private async uniqueSlug(displayName: string): Promise<string> {
+    const base = displayName
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60) || 'pro';
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const candidate = attempt === 0 ? base : `${base}-${randomBytes(2).toString('hex')}`;
+      const taken = await this.db.queryOne<{ id: string }>(
+        'SELECT id FROM providers WHERE slug = $1',
+        [candidate],
+      );
+      if (!taken) return candidate;
+    }
+    return `${base}-${randomBytes(4).toString('hex')}`;
   }
 
   /**

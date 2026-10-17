@@ -1,9 +1,11 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  ArrayMaxSize, IsArray, IsBoolean, IsIn, IsNumber, IsOptional, IsString, Length, Max, Min,
+  ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString,
+  Length, Matches, Max, Min, ValidateNested,
 } from 'class-validator';
+import { SERVICE_CATEGORIES } from '../auth/dto/auth.dto';
 
 import { CurrentUser, Public, Roles } from '../../common/decorators';
 import { ProvidersService } from './providers.service';
@@ -42,6 +44,35 @@ class SuspensionDto {
   /// Required in both directions: a reinstatement with no stated reason is as
   /// unauditable as a suspension with none.
   @IsString() @Length(3, 500) reason!: string;
+}
+
+class UpdateBusinessDto {
+  @IsOptional() @IsString() @Length(2, 120) displayName?: string;
+  @IsOptional() @IsString() @Length(0, 600) bio?: string;
+  @IsOptional() @IsArray() @ArrayMinSize(1) @ArrayMaxSize(6)
+  @IsIn(SERVICE_CATEGORIES, { each: true })
+  categories?: string[];
+  @IsOptional() @IsIn(['mobile', 'in_shop', 'both']) venueMode?: 'mobile' | 'in_shop' | 'both';
+  @IsOptional() @IsArray() @ArrayMaxSize(5)
+  @IsIn(['generator', 'inverter', 'battery_clippers', 'portable_lights', 'solar'], { each: true })
+  powerBackup?: string[];
+  @IsOptional() @IsString() @Length(0, 300) shopAddress?: string;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(1) @Max(50) travelRadiusKm?: number;
+  @IsOptional() @IsBoolean() acceptsInstant?: boolean;
+  @IsOptional() @IsBoolean() acceptsScheduled?: boolean;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(-90) @Max(90) lat?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(-180) @Max(180) lng?: number;
+}
+
+class AvailabilityRuleDto {
+  @Type(() => Number) @IsInt() @Min(0) @Max(6) weekday!: number;
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/) startsAt!: string;
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/) endsAt!: string;
+}
+
+class AvailabilityRulesDto {
+  @IsArray() @ArrayMaxSize(21) @ValidateNested({ each: true }) @Type(() => AvailabilityRuleDto)
+  rules!: AvailabilityRuleDto[];
 }
 
 class BlockDto {
@@ -90,11 +121,35 @@ export class ProvidersController {
     return this.providers.setSuspension(id, dto.suspended, dto.reason, actorUserId);
   }
 
-  @Public()
-  @Get(':id')
-  @ApiOperation({ summary: 'Public provider profile with services and portfolio' })
-  profile(@Param('id', ParseUUIDPipe) id: string) {
-    return this.providers.profile(id);
+  @Roles('provider')
+  @Get('me')
+  @ApiOperation({ summary: 'Your own business details' })
+  myBusiness(@CurrentUser('providerId') providerId: string) {
+    return this.providers.myBusiness(providerId);
+  }
+
+  @Roles('provider')
+  @Patch('me')
+  @ApiOperation({ summary: 'Edit your business details' })
+  updateBusiness(@CurrentUser('providerId') providerId: string, @Body() dto: UpdateBusinessDto) {
+    return this.providers.updateBusiness(providerId, dto);
+  }
+
+  @Roles('provider')
+  @Get('me/availability/rules')
+  @ApiOperation({ summary: 'Your working hours, per weekday' })
+  availabilityRules(@CurrentUser('providerId') providerId: string) {
+    return this.providers.availabilityRules(providerId);
+  }
+
+  @Roles('provider')
+  @Put('me/availability/rules')
+  @ApiOperation({ summary: 'Replace your working hours' })
+  replaceAvailabilityRules(
+    @CurrentUser('providerId') providerId: string,
+    @Body() dto: AvailabilityRulesDto,
+  ) {
+    return this.providers.replaceAvailabilityRules(providerId, dto.rules);
   }
 
   @Roles('provider')
@@ -186,5 +241,14 @@ export class ProvidersController {
     @Body() dto: ClientNotesDto,
   ) {
     return this.providers.updateClientNotes(providerId, clientId, dto.notes);
+  }
+
+  // Declared last: Nest matches routes in order, and a ':id' above would
+  // swallow 'me' and answer 400 for a path that is not a UUID.
+  @Public()
+  @Get(':id')
+  @ApiOperation({ summary: 'Public provider profile with services and portfolio' })
+  profile(@Param('id', ParseUUIDPipe) id: string) {
+    return this.providers.profile(id);
   }
 }

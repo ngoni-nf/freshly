@@ -38,7 +38,7 @@ export class StitchPayoutProvider implements PayoutProvider {
     return method === 'bank_transfer';
   }
 
-  async send(instruction: PayoutInstruction): Promise<PayoutOutcome> {
+  async send(_instruction: PayoutInstruction): Promise<PayoutOutcome> {
     this.assertConfigured();
     await this.accessToken();
 

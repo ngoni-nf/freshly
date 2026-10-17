@@ -37,7 +37,7 @@ export class SmileIdKycProvider implements KycProvider {
     return countryCode === 'ZA' || countryCode === 'ZW';
   }
 
-  async submit(submission: KycSubmission): Promise<KycResult> {
+  async submit(_submission: KycSubmission): Promise<KycResult> {
     if (!this.config.partnerId || !this.config.apiKey) {
       throw new Error('SMILE_ID_PARTNER_ID and SMILE_ID_API_KEY must be set to verify identities');
     }

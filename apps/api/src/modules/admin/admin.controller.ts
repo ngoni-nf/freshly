@@ -1,10 +1,16 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Roles } from '../../common/decorators';
+import { IsIn, IsOptional, IsString, Length } from 'class-validator';
+import { CurrentUser, Roles } from '../../common/decorators';
 import { AdminService } from './admin.service';
 
 class ResolveDisputeDto {
-  decision!: 'refund_client' | 'release_to_pro';
+  @IsIn(['refund_client', 'release_to_pro']) decision!: 'refund_client' | 'release_to_pro';
+}
+
+class ReviewPayoutAccountDto {
+  @IsIn(['verified', 'rejected']) decision!: 'verified' | 'rejected';
+  @IsOptional() @IsString() @Length(3, 500) reason?: string;
 }
 
 @ApiTags('admin')
@@ -45,6 +51,23 @@ export class AdminController {
     @Body() dto: ResolveDisputeDto,
   ) {
     return this.admin.resolveDispute(id, dto.decision);
+  }
+
+  @Get('payout-accounts/pending')
+  @ApiOperation({ summary: 'Payout accounts waiting for verification' })
+  pendingPayoutAccounts() {
+    return this.admin.listUnverifiedPayoutAccounts();
+  }
+
+  @Roles('admin')
+  @Post('payout-accounts/:id/review')
+  @ApiOperation({ summary: 'Verify or refuse a payout account' })
+  reviewPayoutAccount(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') actorUserId: string,
+    @Body() dto: ReviewPayoutAccountDto,
+  ) {
+    return this.admin.reviewPayoutAccount(id, actorUserId, dto.decision, dto.reason);
   }
 
   @Roles('admin')

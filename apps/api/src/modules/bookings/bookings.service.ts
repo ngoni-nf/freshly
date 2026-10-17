@@ -173,7 +173,7 @@ export class BookingsService {
       });
     }
 
-    const { services, area, market, distanceKm } = await this.resolveContext(dto);
+    const { services, area, distanceKm } = await this.resolveContext(dto);
     const quote = await this.quote(dto);
 
     const durationMinutes = services.reduce((sum, s) => sum + s.duration_minutes, 0);
@@ -393,6 +393,72 @@ export class BookingsService {
     });
 
     return { status: 'completed' };
+  }
+
+  /**
+   * Screen B.11: the provider proposes one more service from their own menu
+   * while the job is in progress. Nothing is charged here. The item sits
+   * unapproved until the client says yes in their app, and only then does
+   * the escrow hold grow (respondToAddon). A provider can never raise what a
+   * customer pays on their own.
+   */
+  async requestAddon(providerId: string, bookingId: string, serviceId: string) {
+    const booking = await this.db.queryOne<{ provider_id: string | null; status: string; currency: string }>(
+      'SELECT provider_id, status, currency FROM bookings WHERE id = $1',
+      [bookingId],
+    );
+    if (!booking) throw new NotFoundError('Booking', bookingId);
+    if (booking.provider_id !== providerId) {
+      throw new ForbiddenException({ code: 'not_your_booking', message: 'This booking is not assigned to you' });
+    }
+    if (booking.status !== 'in_progress') {
+      throw new DomainError('addon_not_allowed', 'Extras can be suggested once the service has started');
+    }
+
+    const service = await this.db.queryOne<{
+      id: string; name: string; price_minor: string; currency: string; duration_minutes: number;
+    }>(
+      `SELECT id, name, price_minor, currency, duration_minutes FROM services
+        WHERE id = $1 AND provider_id = $2 AND is_active`,
+      [serviceId, providerId],
+    );
+    if (!service) throw new NotFoundError('Service', serviceId);
+    if (service.currency !== booking.currency) {
+      throw new DomainError('currency_mismatch', 'That service is priced in a different currency');
+    }
+
+    const pending = await this.db.queryOne<{ id: string }>(
+      `SELECT id FROM booking_items
+        WHERE booking_id = $1 AND is_addon AND client_approved_at IS NULL LIMIT 1`,
+      [bookingId],
+    );
+    if (pending) {
+      throw new DomainError('addon_pending', 'Wait for the client to answer the last suggestion first', HttpStatus.CONFLICT);
+    }
+
+    return this.db.transaction(async (tx) => {
+      const item = await tx.queryOne<{ id: string }>(
+        `INSERT INTO booking_items
+           (booking_id, service_id, name_snapshot, price_minor, duration_minutes, is_addon, added_mid_service)
+         VALUES ($1, $2, $3, $4, $5, true, true)
+         RETURNING id`,
+        [bookingId, service.id, service.name, Number(service.price_minor), service.duration_minutes],
+      );
+      await tx.emitEvent('booking', bookingId, 'booking.addon_requested', {
+        itemId: item!.id,
+        name: service.name,
+        priceMinor: Number(service.price_minor),
+        currency: service.currency,
+        durationMinutes: service.duration_minutes,
+      });
+      return {
+        itemId: item!.id,
+        name: service.name,
+        priceMinor: Number(service.price_minor),
+        currency: service.currency,
+        status: 'awaiting_client',
+      };
+    });
   }
 
   async respondToAddon(clientId: string, bookingId: string, itemId: string, approve: boolean) {

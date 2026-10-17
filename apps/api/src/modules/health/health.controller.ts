@@ -1,5 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/decorators';
 import { DatabaseService } from '../../common/database/database.service';
 import { RedisService } from '../../common/redis/redis.service';

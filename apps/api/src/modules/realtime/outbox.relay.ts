@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { DatabaseService } from '../../common/database/database.service';
 import { RealtimeGateway } from './realtime.gateway';
@@ -13,9 +13,17 @@ import { RealtimeGateway } from './realtime.gateway';
  * dies between commit and emit, which is exactly when it matters most.
  */
 @Injectable()
-export class OutboxRelay {
+export class OutboxRelay implements OnModuleDestroy {
   private readonly logger = new Logger(OutboxRelay.name);
   private draining = false;
+  private stopped = false;
+
+  // The interval keeps firing while Nest tears modules down, and a drain that
+  // starts after the pool has closed logs a failed UPDATE on every e2e run.
+  // Nothing is lost by stopping early: an unmarked event is retried next boot.
+  onModuleDestroy(): void {
+    this.stopped = true;
+  }
 
   constructor(
     private readonly db: DatabaseService,
@@ -24,7 +32,7 @@ export class OutboxRelay {
 
   @Interval(1_000)
   async drain(): Promise<void> {
-    if (this.draining) return;
+    if (this.draining || this.stopped) return;
     this.draining = true;
     try {
       const events = await this.db.query<{
@@ -46,14 +54,7 @@ export class OutboxRelay {
       for (const event of events) {
         try {
           if (event.aggregate_type === 'booking') {
-            this.realtime.emitToBooking(event.aggregate_id, 'booking.status', {
-              bookingId: event.aggregate_id,
-              status: event.event_type.replace('booking.', ''),
-              providerLocation: null,
-              etaMinutes: null,
-              distanceRemainingKm: null,
-              updatedAt: new Date().toISOString(),
-            });
+            this.publishBookingEvent(event.aggregate_id, event.event_type, event.payload);
           }
           await this.db.query('UPDATE outbox_events SET published_at = now() WHERE id = $1', [event.id]);
         } catch (err) {
@@ -73,4 +74,48 @@ export class OutboxRelay {
       this.draining = false;
     }
   }
+
+  /**
+   * Only a real state change is a `booking.status` update. Everything that
+   * happens to a booking used to be sent that way, so `booking.started`
+   * reached the apps as status "started" and `booking.addon_approved` as
+   * "addon_approved", neither of which exists; the tracking screen showed
+   * "Draft". Those now go out under their own names with their payload.
+   */
+  private publishBookingEvent(bookingId: string, eventType: string, payload: Record<string, unknown>): void {
+    const status = BOOKING_STATUS_EVENTS[eventType];
+    if (status) {
+      this.realtime.emitToBooking(bookingId, 'booking.status', {
+        bookingId,
+        status,
+        providerLocation: null,
+        etaMinutes: null,
+        distanceRemainingKm: null,
+        updatedAt: new Date().toISOString(),
+      });
+      return;
+    }
+    const name = NAMED_BOOKING_EVENTS[eventType] ?? eventType;
+    this.realtime.emitToBooking(bookingId, name, { bookingId, ...payload });
+  }
 }
+
+/** Outbox event types that are a booking status, and the status they carry. */
+const BOOKING_STATUS_EVENTS: Record<string, string> = {
+  'booking.pending_auth': 'pending_auth',
+  'booking.authorized': 'authorized',
+  'booking.accepted': 'accepted',
+  'booking.en_route': 'en_route',
+  'booking.arrived': 'arrived',
+  'booking.started': 'in_progress',
+  'booking.in_progress': 'in_progress',
+  'booking.completed': 'completed',
+  'booking.cancelled': 'cancelled',
+  'booking.expired': 'expired',
+  'booking.disputed': 'disputed',
+};
+
+/** Outbox event types the apps listen for under a different name. */
+const NAMED_BOOKING_EVENTS: Record<string, string> = {
+  'booking.addon_requested': 'addon.requested',
+};

@@ -4,7 +4,7 @@ import { Throttle } from '@nestjs/throttler';
 import { CurrentUser, Idempotent, Roles } from '../../common/decorators';
 import { BookingsService } from './bookings.service';
 import {
-  AddonResponseDto, AdvanceStatusDto, CancelBookingDto, ChangeDestinationDto, ChatMessageDto, CheckoutDto,
+  AddonRequestDto, AddonResponseDto, AdvanceStatusDto, CancelBookingDto, ChangeDestinationDto, ChatMessageDto, CheckoutDto,
   CreateBookingDto, QuoteBookingDto, ReviewDto, VerifyPinDto,
 } from './dto/bookings.dto';
 
@@ -157,6 +157,17 @@ export class BookingsController {
     @Body() dto: ChatMessageDto,
   ) {
     return this.bookings.sendChatMessage(userId, id, dto.body);
+  }
+
+  @Roles('provider')
+  @Post(':id/addons')
+  @ApiOperation({ summary: 'Suggest an extra service mid-job; the client approves it in their app' })
+  requestAddon(
+    @CurrentUser('providerId') providerId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AddonRequestDto,
+  ) {
+    return this.bookings.requestAddon(providerId, id, dto.serviceId);
   }
 
   @Post(':id/addons/:itemId/respond')
