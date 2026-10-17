@@ -842,6 +842,62 @@ class FreshlyApi {
       _unwrap(_dio.post('/safety/sos/$sosId/abort'), (_) {});
 
   // ─── Storage ─────────────────────────────────────────────────────────────
+  // ─── Invoices ─────────────────────────────────────────────────────────
+
+  Future<List<Invoice>> invoices(String bookingId) => _unwrap(
+        _dio.get('/bookings/$bookingId/invoices'),
+        (d) => (d as List)
+            .map((i) => Invoice.fromJson(i as Map<String, dynamic>))
+            .toList(),
+      );
+
+  /// The PDF bytes. Fetched through the client so the auth header goes with
+  /// it; the app then shares or opens the file itself.
+  Future<List<int>> downloadInvoice(String invoiceId) async {
+    final res = await _dio.get<List<int>>('/invoices/$invoiceId.pdf',
+        options: Options(responseType: ResponseType.bytes));
+    return res.data ?? const [];
+  }
+
+  // ─── Salon staff ──────────────────────────────────────────────────────
+
+  Future<List<StaffMember>> myStaff() => _unwrap(
+        _dio.get('/providers/me/staff'),
+        (d) => (d as List)
+            .map((s) => StaffMember.fromJson(s as Map<String, dynamic>))
+            .toList(),
+      );
+
+  Future<void> inviteStaff(String phoneE164) => _unwrap(
+      _dio.post('/providers/me/staff/invites', data: {'phone': phoneE164}),
+      (_) {});
+
+  Future<void> removeStaff(String id) =>
+      _unwrap(_dio.delete('/providers/me/staff/$id'), (_) {});
+
+  /// [staffId] null hands the job back to the salon itself.
+  Future<void> assignBooking(String bookingId, String? staffId) => _unwrap(
+      _dio.post('/bookings/$bookingId/assign', data: {'staffId': staffId}),
+      (_) {});
+
+  Future<List<StaffInvite>> staffInvites() => _unwrap(
+        _dio.get('/auth/staff-invites'),
+        (d) => (d as List)
+            .map((s) => StaffInvite.fromJson(s as Map<String, dynamic>))
+            .toList(),
+      );
+
+  /// Joining a salon is a sign-up: the session that comes back is the first
+  /// one carrying the provider role, exactly as after [becomeProvider].
+  Future<AuthSession> acceptStaffInvite(String id) async {
+    final result = await _unwrap(
+      _dio.post('/auth/staff-invites/$id/accept'),
+      (d) => AuthSession.fromJson(d as Map<String, dynamic>),
+    );
+    await session.save(result);
+    return result;
+  }
+
   // ─── Support ──────────────────────────────────────────────────────────
 
   Future<List<SupportTicket>> myTickets() => _unwrap(

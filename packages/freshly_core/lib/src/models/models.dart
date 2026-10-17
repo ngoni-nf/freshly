@@ -553,6 +553,9 @@ class Booking {
     this.cancelledAt,
     required this.scheduledStart,
     required this.createdAt,
+    this.assignedStaffId,
+    this.assignedStaffName,
+    this.reviewedByMe = false,
   });
 
   final String id;
@@ -568,6 +571,13 @@ class Booking {
   final DateTime? cancelledAt;
   final DateTime? scheduledStart;
   final DateTime createdAt;
+
+  /// Salon bookings only: the staff member the owner handed this job to.
+  final String? assignedStaffId;
+  final String? assignedStaffName;
+
+  /// Whether the caller has already left a review on this booking.
+  final bool reviewedByMe;
 
   factory Booking.fromJson(Map<String, dynamic> j) => Booking(
         id: j['id'] as String,
@@ -591,6 +601,9 @@ class Booking {
             ? DateTime.parse(j['scheduledStart'] as String)
             : null,
         createdAt: DateTime.parse(j['createdAt'] as String),
+        assignedStaffId: j['assignedStaffId'] as String?,
+        assignedStaffName: j['assignedStaffName'] as String?,
+        reviewedByMe: j['reviewedByMe'] as bool? ?? false,
       );
 }
 
@@ -992,6 +1005,7 @@ class Market {
     required this.cancellationWindowMinutes,
     required this.cancellationFeeBps,
     required this.noShowGraceMinutes,
+    this.emergencyNumber = '112',
   });
 
   final String code;
@@ -1003,6 +1017,9 @@ class Market {
   final int cancellationFeeBps;
   final int noShowGraceMinutes;
 
+  /// Who to call when SOS cannot be sent: the police line for the market.
+  final String emergencyNumber;
+
   factory Market.fromJson(Map<String, dynamic> j) => Market(
         code: j['code'] as String,
         name: j['name'] as String,
@@ -1012,6 +1029,7 @@ class Market {
         cancellationWindowMinutes: j['cancellationWindowMinutes'] as int? ?? 0,
         cancellationFeeBps: j['cancellationFeeBps'] as int? ?? 0,
         noShowGraceMinutes: j['noShowGraceMinutes'] as int? ?? 10,
+        emergencyNumber: j['emergencyNumber'] as String? ?? '112',
       );
 }
 
@@ -1311,5 +1329,89 @@ class SupportMessage {
         isStaff: j['isStaff'] as bool? ?? false,
         body: j['body'] as String,
         createdAt: DateTime.parse(j['createdAt'] as String),
+      );
+}
+
+/// One of the two invoices a completed booking produces: the provider's to
+/// the client, and Freshly's to the provider for its fees.
+class Invoice {
+  const Invoice({
+    required this.id,
+    required this.kind,
+    required this.number,
+    required this.issuedAt,
+    required this.total,
+  });
+
+  final String id;
+
+  /// 'provider_to_client' or 'platform_to_provider'.
+  final String kind;
+  final String number;
+  final DateTime issuedAt;
+  final Money total;
+
+  bool get isPlatformFee => kind == 'platform_to_provider';
+
+  factory Invoice.fromJson(Map<String, dynamic> j) => Invoice(
+        id: j['id'] as String,
+        kind: j['kind'] as String,
+        number: j['number'] as String,
+        issuedAt: DateTime.parse(j['issuedAt'] as String),
+        total: Money(
+            minor: j['totalMinor'] as int, currency: j['currency'] as String),
+      );
+}
+
+/// A salon's staff member, or an invitation that has not been taken up yet.
+class StaffMember {
+  const StaffMember({
+    required this.id,
+    required this.kind,
+    required this.displayName,
+    required this.phoneMasked,
+    required this.status,
+    required this.jobsThisWeek,
+    required this.completedJobs,
+  });
+
+  final String id;
+
+  /// 'staff' (a provider row) or 'invite' (a pending invitation).
+  final String kind;
+  final String? displayName;
+  final String phoneMasked;
+
+  /// 'active' or 'pending'.
+  final String status;
+  final int jobsThisWeek;
+  final int completedJobs;
+
+  bool get isPending => status == 'pending';
+
+  factory StaffMember.fromJson(Map<String, dynamic> j) => StaffMember(
+        id: j['id'] as String,
+        kind: j['kind'] as String? ?? 'staff',
+        displayName: j['displayName'] as String?,
+        phoneMasked: j['phone'] as String? ?? '',
+        status: j['status'] as String? ?? 'active',
+        jobsThisWeek: j['jobsThisWeek'] as int? ?? 0,
+        completedJobs: j['completedJobs'] as int? ?? 0,
+      );
+}
+
+/// An invitation to join a salon's team, waiting on the person invited.
+class StaffInvite {
+  const StaffInvite(
+      {required this.id, required this.salonName, required this.salonSuburb});
+
+  final String id;
+  final String salonName;
+  final String? salonSuburb;
+
+  factory StaffInvite.fromJson(Map<String, dynamic> j) => StaffInvite(
+        id: j['id'] as String,
+        salonName: j['salonName'] as String,
+        salonSuburb: j['salonSuburb'] as String?,
       );
 }
