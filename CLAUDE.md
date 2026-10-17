@@ -130,10 +130,13 @@ to Storage directly. Keys are derived server-side and namespaced under the
 owner's id — a client-supplied path is a traversal and an overwrite of someone
 else's identity document waiting to happen.
 
-Not built yet: a canonical service catalogue (providers type service names by
-hand, so a client cannot browse "Knotless Braids" across providers and
-`services.requires_credential` has nothing to derive from), salon staff
-management, Firebase FCM and Crashlytics wiring in the apps.
+The service catalogue is canonical (seed `003_service_catalogue`): a provider
+builds their menu from templates, so a client can browse "Knotless Braids"
+across providers and `services.requires_credential` is derived from the
+template. Firebase push and Crashlytics are wired in both apps; the API sends
+a push on a dispatch offer, a status change and a chat message when
+`PUSH_ENABLED=true`. Identity documents are captured in the app and uploaded
+through signed URLs.
 
 The API is deployed on Fly as `freshly-api` (London, two machines,
 `NODE_ENV=staging`), serving https://freshly-api.fly.dev since 21 August.
