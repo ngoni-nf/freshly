@@ -126,6 +126,15 @@ export interface ScheduledBooking {
   destinationAddress: string;
 }
 
+export interface Invoice {
+  id: string;
+  kind: 'provider_to_client' | 'platform_to_provider';
+  number: string;
+  issuedAt: string;
+  currency: string;
+  totalMinor: number;
+}
+
 export interface CompletedJob {
   id: string;
   reference: string;
@@ -361,6 +370,20 @@ export const api = {
 
   completed: (days = 30) =>
     request<CompletedJob[]>(`/providers/schedule/completed?days=${days}`),
+
+  invoices: (bookingId: string) =>
+    request<Invoice[]>(`/bookings/${bookingId}/invoices`),
+
+  /** The PDF arrives as bytes with the bearer token; a plain link would not carry it. */
+  invoicePdf: async (invoiceId: string): Promise<Blob> => {
+    const response = await fetch(`${BASE}/invoices/${invoiceId}.pdf`, {
+      headers: { Authorization: `Bearer ${token.get() ?? ''}` },
+    });
+    if (!response.ok) {
+      throw new ApiError('invoice_unavailable', 'The invoice could not be fetched', response.status);
+    }
+    return response.blob();
+  },
 
   tickets: (side: 'clients' | 'providers', status = 'open') =>
     request<Ticket[]>(`/support/queue/${side}?status=${status}`),

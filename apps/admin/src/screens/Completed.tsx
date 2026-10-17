@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api, type CompletedJob } from '../api';
+import { api, type CompletedJob, type Invoice } from '../api';
 import { messageFor } from '../App';
 import { formatMoney } from '../ui';
 
@@ -136,11 +136,64 @@ export function Completed() {
                 ) : (
                   <span className="pill warning">no review left</span>
                 )}
+                <Invoices bookingId={job.id} />
               </div>
             </div>
           </article>
         );
       })}
     </>
+  );
+}
+
+/**
+ * The two invoices a completed job produced, opened on demand. Fetched only
+ * when the operator asks: the list is long and most rows never need them.
+ */
+function Invoices({ bookingId }: { bookingId: string }) {
+  const [rows, setRows] = useState<Invoice[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    setBusy(true);
+    setError(null);
+    try {
+      setRows(await api.invoices(bookingId));
+    } catch (e) {
+      setError(messageFor(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function open(invoice: Invoice) {
+    try {
+      const blob = await api.invoicePdf(invoice.id);
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e) {
+      setError(messageFor(e));
+    }
+  }
+
+  if (rows === null) {
+    return (
+      <button className="action" type="button" onClick={load} disabled={busy}>
+        {busy ? 'Loading…' : 'Invoices'}
+      </button>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
+      {rows.length === 0 && <span className="meta">No invoices</span>}
+      {rows.map((inv) => (
+        <button className="action mono" type="button" key={inv.id} onClick={() => open(inv)}>
+          {inv.kind === 'provider_to_client' ? 'Client' : 'Fee'} · {inv.number}
+        </button>
+      ))}
+      {error && <span className="meta" style={{ color: 'var(--crimson)' }}>{error}</span>}
+    </div>
   );
 }
