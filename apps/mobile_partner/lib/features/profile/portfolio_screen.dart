@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
@@ -42,7 +41,8 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
       ref.invalidate(myPortfolioProvider);
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       if (mounted) setState(() => _uploading = false);
@@ -56,7 +56,9 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
         title: const Text('Remove photo?'),
         content: const Text('This photo will be removed from your portfolio.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: FreshlyColors.crimson),
@@ -73,7 +75,8 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
       ref.invalidate(myPortfolioProvider);
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -162,7 +165,8 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                           item.url,
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => ColoredBox(
-                            color: Theme.of(context).colorScheme.surfaceContainer,
+                            color:
+                                Theme.of(context).colorScheme.surfaceContainer,
                             child: const Icon(FreshlyIcons.gallery,
                                 color: FreshlyColors.inkMuted),
                           ),
@@ -178,7 +182,8 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                           width: 30,
                           height: 30,
                           decoration: BoxDecoration(
-                            color: FreshlyColors.obsidian.withValues(alpha: 0.6),
+                            color:
+                                FreshlyColors.obsidian.withValues(alpha: 0.6),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(FreshlyIcons.delete,

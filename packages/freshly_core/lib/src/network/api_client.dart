@@ -842,6 +842,36 @@ class FreshlyApi {
       _unwrap(_dio.post('/safety/sos/$sosId/abort'), (_) {});
 
   // ─── Storage ─────────────────────────────────────────────────────────────
+  // ─── Support ──────────────────────────────────────────────────────────
+
+  Future<List<SupportTicket>> myTickets() => _unwrap(
+        _dio.get('/support/tickets'),
+        (d) => (d as List)
+            .map((t) => SupportTicket.fromJson(t as Map<String, dynamic>))
+            .toList(),
+      );
+
+  /// [raisedBy] tells the ops console which queue to file it in.
+  Future<void> raiseTicket({
+    required String subject,
+    required String body,
+    required String raisedBy,
+    String? bookingId,
+  }) =>
+      _unwrap(
+        _dio.post('/support/tickets', data: {
+          'subject': subject,
+          'body': body,
+          'raisedBy': raisedBy,
+          if (bookingId != null) 'bookingId': bookingId,
+        }),
+        (_) {},
+      );
+
+  Future<void> addTicketMessage(String ticketId, String body) => _unwrap(
+      _dio.post('/support/tickets/$ticketId/messages', data: {'body': body}),
+      (_) {});
+
   Future<UploadInstruction> getUploadUrl(String contentType) => _unwrap(
         _dio.post('/storage/uploads', data: {'contentType': contentType}),
         (d) => UploadInstruction.fromJson(d as Map<String, dynamic>),

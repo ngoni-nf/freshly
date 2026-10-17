@@ -43,7 +43,8 @@ class _BrandMark extends StatelessWidget {
             style: FreshlyType.style(20,
                 weight: FontWeight.w800, color: Colors.white)),
         const SizedBox(width: 8),
-        const StatusPill(label: 'Partner', tone: FreshlyTone.brand, dense: true),
+        const StatusPill(
+            label: 'Partner', tone: FreshlyTone.brand, dense: true),
       ],
     );
   }
@@ -142,8 +143,9 @@ class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
   }
 
   /// The half shared by the typed-code path and Android's instant verification:
-  /// swap the Firebase token for a session, and refuse a client trying to sign
-  /// in to the pro app.
+  /// swap the Firebase token for a session. A number with no business yet is
+  /// not refused — the notifier routes it to business set-up, which is how a
+  /// new pro signs up in the first place.
   Future<void> _exchange(String idToken) async {
     final session = await ref.read(apiProvider).signInWithFirebase(
           idToken,
@@ -152,13 +154,6 @@ class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
               defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
           pushToken: ref.read(pushTokenProvider),
         );
-    if (!session.isProvider) {
-      if (mounted) {
-        setState(() => _error =
-            'This number is registered as a client. Contact support to become a Freshly pro.');
-      }
-      return;
-    }
     ref.read(partnerAuthProvider.notifier).signedIn(session);
   }
 
@@ -243,8 +238,8 @@ class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
                                               child: Text(e.value.prefix,
                                                   style: FreshlyType.style(16,
                                                       weight: FontWeight.w700,
-                                                      color: FreshlyColors
-                                                          .ink)),
+                                                      color:
+                                                          FreshlyColors.ink)),
                                             ))
                                         .toList(),
                                     items: _markets.entries

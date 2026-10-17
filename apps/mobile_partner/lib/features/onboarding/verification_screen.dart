@@ -167,8 +167,11 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
                 child: Form(
                   key: _formKey,
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(FreshlySpacing.lg,
-                        FreshlySpacing.sm, FreshlySpacing.lg, FreshlySpacing.lg),
+                    padding: const EdgeInsets.fromLTRB(
+                        FreshlySpacing.lg,
+                        FreshlySpacing.sm,
+                        FreshlySpacing.lg,
+                        FreshlySpacing.lg),
                     children: [
                       if (state == 'rejected' &&
                           submission?['rejectionReason'] != null) ...[
@@ -219,7 +222,8 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
                         initialValue: _documentType,
-                        decoration: const InputDecoration(labelText: 'Document'),
+                        decoration:
+                            const InputDecoration(labelText: 'Document'),
                         borderRadius:
                             BorderRadius.circular(FreshlySpacing.radius),
                         items: const [
@@ -254,8 +258,8 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
                           FilteringTextInputFormatter.allow(
                               RegExp(r'[A-Za-z0-9-]'))
                         ],
-                        decoration: const InputDecoration(
-                            labelText: 'Document number'),
+                        decoration:
+                            const InputDecoration(labelText: 'Document number'),
                         validator: (v) => (v == null || v.trim().length < 5)
                             ? 'Enter the number on the document'
                             : null,
@@ -409,7 +413,8 @@ class _ImagePickerBox extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      IconBadge(icon: icon, tone: FreshlyTone.neutral, size: 40),
+                      IconBadge(
+                          icon: icon, tone: FreshlyTone.neutral, size: 40),
                       const SizedBox(height: 8),
                       Text(label,
                           style: Theme.of(context).textTheme.titleSmall),

@@ -38,9 +38,8 @@ class ScheduleScreen extends ConsumerWidget {
               EmptyState(
                 icon: FreshlyIcons.error,
                 title: 'Your schedule did not load',
-                message: e is ApiException
-                    ? e.message
-                    : 'Pull down to try again.',
+                message:
+                    e is ApiException ? e.message : 'Pull down to try again.',
                 actionLabel: 'Try again',
                 onAction: () => ref.invalidate(scheduleProvider),
               ),
@@ -73,14 +72,17 @@ class ScheduleScreen extends ConsumerWidget {
                 return aStart.compareTo(bStart);
               });
 
-            final instant = sorted.where((j) => j['scheduledStart'] == null).toList();
-            final scheduled = sorted.where((j) => j['scheduledStart'] != null).toList();
+            final instant =
+                sorted.where((j) => j['scheduledStart'] == null).toList();
+            final scheduled =
+                sorted.where((j) => j['scheduledStart'] != null).toList();
 
             // Group scheduled by day
             final grouped = <String, List<Map<String, dynamic>>>{};
             for (final job in scheduled) {
               final date = (job['scheduledStart'] as DateTime).toLocal();
-              final key = DateTime(date.year, date.month, date.day).toIso8601String();
+              final key =
+                  DateTime(date.year, date.month, date.day).toIso8601String();
               grouped.putIfAbsent(key, () => []).add(job);
             }
 
@@ -132,7 +134,8 @@ class _DayHeader extends StatelessWidget {
     // the date, so the detail would repeat it.
     final showDetail = detail != null && !label.contains(' ');
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, FreshlySpacing.sm, 4, FreshlySpacing.sm),
+      padding:
+          const EdgeInsets.fromLTRB(4, FreshlySpacing.sm, 4, FreshlySpacing.sm),
       child: Row(
         children: [
           if (live) ...[

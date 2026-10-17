@@ -292,15 +292,13 @@ class _OfferOverlayState extends ConsumerState<OfferOverlay> {
                           style: OutlinedButton.styleFrom(
                             backgroundColor: Colors.transparent,
                             foregroundColor: FreshlyColors.inkMuted,
-                            disabledForegroundColor:
-                                FreshlyColors.inkSubtle,
+                            disabledForegroundColor: FreshlyColors.inkSubtle,
                             side: BorderSide(
                                 color: Colors.white.withValues(alpha: 0.16),
                                 width: 1.5),
                             padding: EdgeInsets.zero,
                           ),
-                          onPressed:
-                              _responding ? null : () => _respond(false),
+                          onPressed: _responding ? null : () => _respond(false),
                           child: const Text('Decline'),
                         ),
                       ),

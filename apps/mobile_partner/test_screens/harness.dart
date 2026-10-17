@@ -310,6 +310,34 @@ class FakeApi extends FreshlyApi {
 
   @override
   Future<List<PortfolioItem>> getMyPortfolio() async => [];
+
+  @override
+  Future<List<WorkingHours>> workingHours() async => [
+        for (final d in [1, 2, 3, 4, 5])
+          WorkingHours(weekday: d, startsAt: '08:00', endsAt: '18:00'),
+        const WorkingHours(weekday: 6, startsAt: '09:00', endsAt: '14:00'),
+      ];
+
+  @override
+  Future<List<SupportTicket>> myTickets() async => [
+        SupportTicket.fromJson({
+          'id': 't1',
+          'subject': 'Cash-out still processing',
+          'body': 'My Tuesday cash-out of US\$48 has been processing for '
+              'two days. Reference FR-4HNM.',
+          'status': 'open',
+          'createdAt': DateTime(2026, 10, 15, 9).toIso8601String(),
+          'messages': [
+            {
+              'id': 'm1',
+              'isStaff': true,
+              'body': 'Hi Tendai, EcoCash confirmed it this morning. It '
+                  'should show on your wallet within the hour.',
+              'createdAt': DateTime(2026, 10, 16, 11).toIso8601String(),
+            },
+          ],
+        }),
+      ];
 }
 
 /// Restores a session without touching secure storage.

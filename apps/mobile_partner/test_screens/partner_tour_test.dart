@@ -1,5 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:freshly_partner/features/availability/availability_screen.dart';
+import 'package:freshly_partner/features/job/addon_screen.dart';
+import 'package:freshly_partner/features/onboarding/business_setup_screen.dart';
+import 'package:freshly_partner/features/support/support_screen.dart';
 import 'package:freshly_partner/features/clients/client_detail_screen.dart';
 import 'package:freshly_partner/features/clients/client_list_screen.dart';
 import 'package:freshly_partner/features/dashboard/command_screen.dart';
@@ -86,7 +89,24 @@ void main() {
   });
 
   testWidgets('availability', (t) async {
-    await shoot(t, 'availability', (_) => const AvailabilityScreen());
+    await shoot(t, 'availability', (_) => const AvailabilityScreen(),
+        height: 1500);
+  });
+
+  testWidgets('business setup', (t) async {
+    await shoot(t, 'business_setup', (_) => const BusinessSetupScreen(),
+        height: 1800);
+  });
+
+  testWidgets('addon', (t) async {
+    await shoot(t, 'addon', (_) => const AddonScreen(bookingId: 'working'),
+        act: (tester) async => tester.tap(find.text('Beard trim and shape')));
+  });
+
+  testWidgets('support', (t) async {
+    await shoot(t, 'support', (_) => const SupportScreen(),
+        act: (tester) async =>
+            tester.tap(find.text('Cash-out still processing')));
   });
 
   testWidgets('schedule', (t) async {

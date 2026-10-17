@@ -87,9 +87,8 @@ class _SlideToConfirmState extends State<SlideToConfirm> {
                       widget.busy ? 'Updating…' : widget.label,
                       style: FreshlyType.style(17,
                           weight: FontWeight.w700,
-                          color: _enabled
-                              ? Colors.white
-                              : FreshlyColors.inkMuted),
+                          color:
+                              _enabled ? Colors.white : FreshlyColors.inkMuted),
                     ),
                   ),
                 ),

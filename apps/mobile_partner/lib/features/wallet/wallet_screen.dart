@@ -32,8 +32,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       context: context,
       builder: (context) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(FreshlySpacing.lg, 0,
-              FreshlySpacing.lg, FreshlySpacing.md),
+          padding: const EdgeInsets.fromLTRB(
+              FreshlySpacing.lg, 0, FreshlySpacing.lg, FreshlySpacing.md),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,

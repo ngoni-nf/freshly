@@ -106,8 +106,7 @@ final partnerRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
               path: '/business/edit',
               builder: (_, __) => const BusinessEditScreen()),
-          GoRoute(
-              path: '/support', builder: (_, __) => const SupportScreen()),
+          GoRoute(path: '/support', builder: (_, __) => const SupportScreen()),
           GoRoute(
               path: '/availability',
               builder: (_, __) => const AvailabilityScreen()),
@@ -116,8 +115,7 @@ final partnerRouterProvider = Provider<GoRouter>((ref) {
               path: '/portfolio', builder: (_, __) => const PortfolioScreen()),
           // The business screen already linked here; without the route the tap
           // fell through to the error page.
-          GoRoute(
-              path: '/reviews', builder: (_, __) => const ReviewsScreen()),
+          GoRoute(path: '/reviews', builder: (_, __) => const ReviewsScreen()),
           GoRoute(
               path: '/clients', builder: (_, __) => const ClientListScreen()),
           GoRoute(

@@ -83,10 +83,10 @@ p { margin: 0; }
   padding: 22px 16px 16px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
-.brand { display: flex; align-items: center; gap: 10px; padding: 0 8px 20px; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 0 8px 16px; }
 .brand-mark {
   width: 34px;
   height: 34px;
@@ -117,7 +117,7 @@ p { margin: 0; }
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: #6b778a;
-  padding: 16px 12px 6px;
+  padding: 14px 12px 5px;
 }
 
 .nav-item {
@@ -125,7 +125,7 @@ p { margin: 0; }
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 42px;
+  min-height: 40px;
   padding: 0 12px;
   border: 0;
   border-radius: 12px;
@@ -166,7 +166,7 @@ p { margin: 0; }
 .nav-count.warn { background: var(--gold); color: var(--obsidian); }
 .nav-count.danger { background: var(--crimson); color: #fff; animation: sos-pulse 1.6s ease-in-out infinite; }
 
-.sidebar .spacer { flex: 1; min-height: 16px; }
+.sidebar .spacer { flex: 1; min-height: 10px; }
 
 .who-card {
   display: flex;

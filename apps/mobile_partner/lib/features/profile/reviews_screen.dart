@@ -5,7 +5,8 @@ import 'package:freshly_core/freshly_core.dart';
 import '../../app/providers.dart';
 import '../../widgets/job_tile.dart' show JobTileSkeleton;
 
-final myReviewsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>(
+final myReviewsProvider =
+    FutureProvider.autoDispose<List<Map<String, dynamic>>>(
   (ref) => ref.watch(apiProvider).getMyReviews(),
 );
 

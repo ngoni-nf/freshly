@@ -72,8 +72,8 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
         child: Column(
           children: [
             const Padding(
-              padding: EdgeInsets.fromLTRB(FreshlySpacing.lg, FreshlySpacing.sm,
-                  FreshlySpacing.lg, 0),
+              padding: EdgeInsets.fromLTRB(
+                  FreshlySpacing.lg, FreshlySpacing.sm, FreshlySpacing.lg, 0),
               child: ScreenIntro(
                 eyebrow: 'Start the job',
                 title: 'Enter the client\'s code',
@@ -139,8 +139,7 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
                           const SizedBox(
                               width: 16,
                               height: 16,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2)),
+                              child: CircularProgressIndicator(strokeWidth: 2)),
                           const SizedBox(width: 10),
                           Text('Checking code',
                               style: Theme.of(context).textTheme.labelMedium),
@@ -204,9 +203,8 @@ class _Keypad extends StatelessWidget {
               child: TextButton(
                 onPressed: onTap ?? () => onDigit(label),
                 style: TextButton.styleFrom(
-                  backgroundColor: icon != null
-                      ? Colors.transparent
-                      : scheme.surface,
+                  backgroundColor:
+                      icon != null ? Colors.transparent : scheme.surface,
                   foregroundColor: scheme.onSurface,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(FreshlySpacing.radius),
@@ -219,8 +217,7 @@ class _Keypad extends StatelessWidget {
                     ? Icon(icon, size: 28, semanticLabel: 'Delete')
                     : Text(label,
                         style: FreshlyType.style(30,
-                            weight: FontWeight.w700,
-                            color: scheme.onSurface)),
+                            weight: FontWeight.w700, color: scheme.onSurface)),
               ),
             ),
           ),

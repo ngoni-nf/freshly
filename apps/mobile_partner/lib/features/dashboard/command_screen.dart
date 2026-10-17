@@ -99,8 +99,8 @@ class CommandScreen extends ConsumerWidget {
                           isOnline
                               ? 'You are visible\nto clients nearby.'
                               : 'You are not\ntaking jobs.',
-                          style: text.displaySmall
-                              ?.copyWith(color: Colors.white),
+                          style:
+                              text.displaySmall?.copyWith(color: Colors.white),
                         ),
                         const SizedBox(height: FreshlySpacing.lg),
                         // ── Go online ────────────────────────────────────
@@ -478,7 +478,8 @@ class _PresenceControlState extends State<_PresenceControl> {
 }
 
 class _Knob extends StatelessWidget {
-  const _Knob({required this.online, required this.enabled, required this.busy});
+  const _Knob(
+      {required this.online, required this.enabled, required this.busy});
   final bool online;
   final bool enabled;
   final bool busy;
@@ -584,14 +585,14 @@ class _VerificationBanner extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Verify your identity',
-                          style: text.titleSmall?.copyWith(
-                              color: FreshlyColors.loadSheddingInk)),
+                          style: text.titleSmall
+                              ?.copyWith(color: FreshlyColors.loadSheddingInk)),
                       const SizedBox(height: 2),
                       Text(
                         'You need this to go online. Set up your services in '
                         'the meantime.',
-                        style: text.bodySmall
-                            ?.copyWith(color: FreshlyColors.ink),
+                        style:
+                            text.bodySmall?.copyWith(color: FreshlyColors.ink),
                       ),
                     ],
                   ),

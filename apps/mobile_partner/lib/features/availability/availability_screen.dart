@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
 
 import '../../app/providers.dart';
+import '../../widgets/working_hours_editor.dart';
 
 final partnerGridProvider = FutureProvider.autoDispose<GridStatus>(
   // The provider's own market: a Harare barber needs ZESA's schedule, not
@@ -121,7 +122,8 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                   color: FreshlyColors.loadSheddingSoft,
                   borderRadius: BorderRadius.circular(FreshlySpacing.radius),
                   border: Border.all(
-                      color: FreshlyColors.loadShedding.withValues(alpha: 0.35)),
+                      color:
+                          FreshlyColors.loadShedding.withValues(alpha: 0.35)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -143,8 +145,8 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                                           color: FreshlyColors.loadSheddingInk)
                                       .copyWith(letterSpacing: 1.2)),
                               Text(status.label,
-                                  style: text.titleLarge?.copyWith(
-                                      color: FreshlyColors.ink)),
+                                  style: text.titleLarge
+                                      ?.copyWith(color: FreshlyColors.ink)),
                             ],
                           ),
                         ),
@@ -193,6 +195,8 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
               );
             },
           ),
+          const SizedBox(height: FreshlySpacing.lg),
+          const WorkingHoursEditor(),
           const SizedBox(height: FreshlySpacing.lg),
           GroupedList(
             title: 'Block time off',

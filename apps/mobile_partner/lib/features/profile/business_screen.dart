@@ -11,7 +11,9 @@ class BusinessScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(partnerAuthProvider);
-    final user = auth is PartnerReady ? auth.session : (auth is PartnerPendingVerification ? auth.session : null);
+    final user = auth is PartnerReady
+        ? auth.session
+        : (auth is PartnerPendingVerification ? auth.session : null);
 
     return Scaffold(
       appBar: AppBar(title: const Text('My business')),
@@ -20,8 +22,7 @@ class BusinessScreen extends ConsumerWidget {
             FreshlySpacing.md, FreshlySpacing.xl),
         children: [
           if (user != null) ...[
-            _BusinessHeader(
-                user: user, verified: auth is PartnerReady),
+            _BusinessHeader(user: user, verified: auth is PartnerReady),
             const SizedBox(height: FreshlySpacing.lg),
           ],
           GroupedList(
@@ -76,7 +77,7 @@ class BusinessScreen extends ConsumerWidget {
                 tone: FreshlyTone.neutral,
                 title: 'Help and support',
                 subtitle: 'Get assistance or report an issue',
-                onTap: () {},
+                onTap: () => context.push('/support'),
               ),
             ],
           ),

@@ -95,7 +95,7 @@ Turning Zimbabwe on is an UPDATE plus a payment adapter. Do not add
 
 ## Current state
 
-Working and verified: 85 unit tests and 16 end-to-end tests green (the
+Working and verified: 85 unit tests and 17 end-to-end tests green (the
 booking flow, and a provider's whole journey from a +263 number to a verified
 EcoCash wallet in `test/provider-onboarding.e2e-spec.ts`), `tsc` and ESLint
 clean, both smoke suites pass against a running API, and both Flutter apps

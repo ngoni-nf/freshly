@@ -189,8 +189,8 @@ class _JobScreenState extends ConsumerState<JobScreen> {
         data: (booking) => ListView(
           // Room at the bottom for the SOS button, so it never sits on top of
           // the last control on the page.
-          padding: const EdgeInsets.fromLTRB(FreshlySpacing.md,
-              FreshlySpacing.sm, FreshlySpacing.md, 96),
+          padding: const EdgeInsets.fromLTRB(
+              FreshlySpacing.md, FreshlySpacing.sm, FreshlySpacing.md, 96),
           children: [
             Card(
               child: Padding(
@@ -205,8 +205,7 @@ class _JobScreenState extends ConsumerState<JobScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_headline(booking.status),
-                        style: text.headlineSmall),
+                    Text(_headline(booking.status), style: text.headlineSmall),
                     const SizedBox(height: 4),
                     Text(_hint(booking.status),
                         style: text.bodyMedium?.copyWith(
@@ -299,9 +298,14 @@ class _JobScreenState extends ConsumerState<JobScreen> {
                 onPressed: _noShow,
               ),
             ],
-            // "Suggest an extra service" lived here and pushed
-            // /job/:id/addon, a route that was never built, so it opened the
-            // error page mid-job. It returns with the add-on screen (B.11).
+            if (booking.status == BookingStatus.inProgress) ...[
+              const SizedBox(height: FreshlySpacing.md),
+              OutlinedButton.icon(
+                onPressed: () => context.push('/job/${widget.bookingId}/addon'),
+                icon: const Icon(FreshlyIcons.addCircle),
+                label: const Text('Suggest an extra service'),
+              ),
+            ],
           ],
         ),
       ),
@@ -340,8 +344,7 @@ class _JobScreenState extends ConsumerState<JobScreen> {
           'Ask your client for their 4-digit code to start the job.',
         BookingStatus.inProgress =>
           'When you are done, finish the job to release your payment.',
-        BookingStatus.completed =>
-          'The money for this job is in your wallet.',
+        BookingStatus.completed => 'The money for this job is in your wallet.',
         _ => 'Nothing more to do on this booking.',
       };
 }
@@ -363,7 +366,8 @@ class _ActionTile extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+              Icon(icon,
+                  size: 20, color: Theme.of(context).colorScheme.primary),
               const SizedBox(width: 8),
               Text(label, style: Theme.of(context).textTheme.titleMedium),
             ],
@@ -434,8 +438,8 @@ class _NoShowButtonState extends ConsumerState<_NoShowButton> {
                 : Theme.of(context).colorScheme.outline,
             width: 1.5),
       ),
-      icon: Icon(enabled ? FreshlyIcons.block : FreshlyIcons.hourglass,
-          size: 18),
+      icon:
+          Icon(enabled ? FreshlyIcons.block : FreshlyIcons.hourglass, size: 18),
       label: Text(enabled
           ? 'Client not here? Declare no-show'
           : 'No-show available in $countdown'),
@@ -542,9 +546,8 @@ class _StatusStrip extends StatelessWidget {
                           ? FreshlyColors.mint
                           : scheme.surface,
                   border: Border.all(
-                      color: done || current
-                          ? Colors.transparent
-                          : scheme.outline,
+                      color:
+                          done || current ? Colors.transparent : scheme.outline,
                       width: 2),
                   shape: BoxShape.circle,
                 ),

@@ -113,8 +113,10 @@ class MenuScreen extends ConsumerWidget {
     );
   }
 
-  void _showEditPriceDialog(BuildContext context, WidgetRef ref, ProviderMenuItem item) {
-    final controller = TextEditingController(text: minorToInput(item.price.minor));
+  void _showEditPriceDialog(
+      BuildContext context, WidgetRef ref, ProviderMenuItem item) {
+    final controller =
+        TextEditingController(text: minorToInput(item.price.minor));
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
@@ -129,7 +131,9 @@ class MenuScreen extends ConsumerWidget {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           FilledButton(
             style: FilledButton.styleFrom(minimumSize: const Size(96, 48)),
             onPressed: () async {
@@ -144,7 +148,8 @@ class MenuScreen extends ConsumerWidget {
                 if (context.mounted) Navigator.pop(context);
               } on ApiException catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(content: Text(e.message)));
                 }
               }
             },
@@ -184,7 +189,8 @@ class _AddServiceSheetState extends ConsumerState<_AddServiceSheet> {
       children: [
         AppBar(
           backgroundColor: Colors.transparent,
-          title: Text(_category == null ? 'Choose a category' : _category!.label),
+          title:
+              Text(_category == null ? 'Choose a category' : _category!.label),
           leading: _category != null
               ? BackButton(onPressed: () => setState(() => _category = null))
               : const CloseButton(),
@@ -248,7 +254,8 @@ class _AddServiceSheetState extends ConsumerState<_AddServiceSheet> {
             const SizedBox(height: FreshlySpacing.md),
             TextField(
               controller: controller,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               autofocus: true,
               decoration: InputDecoration(
                 prefixText: _currencyPrefix,
@@ -259,7 +266,9 @@ class _AddServiceSheetState extends ConsumerState<_AddServiceSheet> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           FilledButton(
             style: FilledButton.styleFrom(minimumSize: const Size(96, 48)),
             onPressed: () async {
@@ -277,7 +286,8 @@ class _AddServiceSheetState extends ConsumerState<_AddServiceSheet> {
                 }
               } on ApiException catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(content: Text(e.message)));
                 }
               }
             },
@@ -321,7 +331,8 @@ class _CatalogServiceList extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(
               FreshlySpacing.md, 0, FreshlySpacing.md, FreshlySpacing.md),
           itemCount: list.length,
-          separatorBuilder: (_, __) => const SizedBox(height: FreshlySpacing.sm),
+          separatorBuilder: (_, __) =>
+              const SizedBox(height: FreshlySpacing.sm),
           itemBuilder: (context, i) {
             final s = list[i];
             return Card(

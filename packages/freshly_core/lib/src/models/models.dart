@@ -1258,3 +1258,58 @@ class AddonRequest {
             minor: j['priceMinor'] as int, currency: j['currency'] as String),
       );
 }
+
+/// A help request or complaint, with the thread of replies on it.
+class SupportTicket {
+  const SupportTicket({
+    required this.id,
+    required this.subject,
+    required this.body,
+    required this.status,
+    required this.createdAt,
+    required this.messages,
+  });
+
+  final String id;
+  final String subject;
+  final String body;
+
+  /// 'open' or 'closed'.
+  final String status;
+  final DateTime createdAt;
+  final List<SupportMessage> messages;
+
+  bool get isOpen => status == 'open';
+
+  factory SupportTicket.fromJson(Map<String, dynamic> j) => SupportTicket(
+        id: j['id'] as String,
+        subject: j['subject'] as String,
+        body: j['body'] as String,
+        status: j['status'] as String,
+        createdAt: DateTime.parse(j['createdAt'] as String),
+        messages: (j['messages'] as List? ?? [])
+            .map((m) => SupportMessage.fromJson(m as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+class SupportMessage {
+  const SupportMessage({
+    required this.id,
+    required this.isStaff,
+    required this.body,
+    required this.createdAt,
+  });
+
+  final String id;
+  final bool isStaff;
+  final String body;
+  final DateTime createdAt;
+
+  factory SupportMessage.fromJson(Map<String, dynamic> j) => SupportMessage(
+        id: j['id'] as String,
+        isStaff: j['isStaff'] as bool? ?? false,
+        body: j['body'] as String,
+        createdAt: DateTime.parse(j['createdAt'] as String),
+      );
+}
