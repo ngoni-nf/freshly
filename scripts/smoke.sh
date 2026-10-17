@@ -84,9 +84,11 @@ QUOTE=$(curl -sS -X POST "$API/bookings/quote" -H "Authorization: Bearer $CLIENT
   -d "{\"providerId\":\"$PROVIDER_ID\",\"serviceIds\":[\"$SERVICE_ID\"],\"destination\":{\"lat\":$LAT,\"lng\":$LNG}}")
 TOTAL=$(echo "$QUOTE" | jq_get "j.totalMinor")
 [ -n "$TOTAL" ] || fail "quote failed: $QUOTE"
-RECONCILES=$(echo "$QUOTE" | jq_get "j.commissionMinor + j.providerPayoutMinor + j.serviceFeeMinor === j.totalMinor")
-[ "$RECONCILES" = "true" ] || fail "quote does not reconcile: $QUOTE"
-green "total R$(echo "$TOTAL" | awk '{printf "%.2f", $1/100}') and the split reconciles"
+# The customer sees the lines and the total, nothing about the split; the
+# split is proved at step 13 when the ledger nets to zero.
+RECONCILES=$(echo "$QUOTE" | jq_get "j.breakdown.reduce((s, l) => s + l.amountMinor, 0) === j.totalMinor && j.commissionMinor === undefined")
+[ "$RECONCILES" = "true" ] || fail "quote lines do not add up, or the split leaked: $QUOTE"
+green "total R$(echo "$TOTAL" | awk '{printf "%.2f", $1/100}'), lines add up, split not exposed"
 
 step "6. Create booking"
 KEY="smoke-$(date +%s)"
