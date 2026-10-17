@@ -4,6 +4,7 @@ import 'package:freshly_core/freshly_core.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/providers.dart';
+import '../../widgets/job_tile.dart';
 
 class ScheduleScreen extends ConsumerWidget {
   const ScheduleScreen({super.key});
@@ -14,26 +15,49 @@ class ScheduleScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Schedule'),
+        title: const Text('Schedule'),
+        actions: [
+          TextButton.icon(
+            onPressed: () => context.push('/availability'),
+            icon: const Icon(FreshlyIcons.eventAvailable, size: 18),
+            label: const Text('Availability'),
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(scheduleProvider),
         child: schedule.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, __) => Center(
-            child: Text(e is ApiException ? e.message : 'Could not load your schedule'),
+          loading: () => ListView(
+            padding: const EdgeInsets.all(FreshlySpacing.md),
+            children: const [JobTileSkeleton(count: 4)],
+          ),
+          // Inside a ListView so pull-to-refresh still works on an error.
+          error: (e, __) => ListView(
+            children: [
+              EmptyState(
+                icon: FreshlyIcons.error,
+                title: 'Your schedule did not load',
+                message: e is ApiException
+                    ? e.message
+                    : 'Pull down to try again.',
+                actionLabel: 'Try again',
+                onAction: () => ref.invalidate(scheduleProvider),
+              ),
+            ],
           ),
           data: (jobs) {
             if (jobs.isEmpty) {
               return ListView(
                 children: [
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-                  const Icon(FreshlyIcons.calendar, size: 48, color: FreshlyColors.inkMuted),
-                  const SizedBox(height: FreshlySpacing.md),
-                  const Text(
-                    'No jobs scheduled for this week.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: FreshlyColors.inkMuted),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.1),
+                  EmptyState(
+                    icon: FreshlyIcons.calendar,
+                    title: 'Nothing booked yet',
+                    message: 'Scheduled jobs land here as clients book you. '
+                        'Keep your hours up to date so they can.',
+                    actionLabel: 'Set availability',
+                    onAction: () => context.push('/availability'),
                   ),
                 ],
               );
@@ -61,25 +85,23 @@ class ScheduleScreen extends ConsumerWidget {
             }
 
             return ListView(
-              padding: const EdgeInsets.all(FreshlySpacing.md),
+              padding: const EdgeInsets.fromLTRB(FreshlySpacing.md,
+                  FreshlySpacing.sm, FreshlySpacing.md, FreshlySpacing.xl),
               children: [
                 if (instant.isNotEmpty) ...[
-                  const Text('Active Now', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: FreshlySpacing.sm),
+                  const _DayHeader(label: 'Active now', live: true),
                   ...instant.map((j) => _ScheduleCard(job: j)),
-                  const SizedBox(height: FreshlySpacing.lg),
+                  const SizedBox(height: FreshlySpacing.md),
                 ],
                 ...grouped.entries.map((entry) {
                   final date = DateTime.parse(entry.key);
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Text(
-                          formatDate(date),
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: FreshlyColors.ink),
-                        ),
+                      _DayHeader(
+                        label: formatSlot(date).split(', ').first,
+                        detail: formatDate(date),
+                        count: entry.value.length,
                       ),
                       ...entry.value.map((j) => _ScheduleCard(job: j)),
                       const SizedBox(height: FreshlySpacing.md),
@@ -95,35 +117,51 @@ class ScheduleScreen extends ConsumerWidget {
   }
 }
 
+class _DayHeader extends StatelessWidget {
+  const _DayHeader(
+      {required this.label, this.detail, this.count, this.live = false});
+  final String label;
+  final String? detail;
+  final int? count;
+  final bool live;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    // formatSlot names today and tomorrow; any other day it already returns
+    // the date, so the detail would repeat it.
+    final showDetail = detail != null && !label.contains(' ');
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, FreshlySpacing.sm, 4, FreshlySpacing.sm),
+      child: Row(
+        children: [
+          if (live) ...[
+            const OnlineDot(size: 10),
+            const SizedBox(width: 8),
+          ],
+          Text(label, style: text.titleLarge),
+          if (showDetail) ...[
+            const SizedBox(width: 8),
+            Text(detail!, style: text.bodySmall),
+          ],
+          const Spacer(),
+          if (count != null)
+            Text('$count job${count == 1 ? '' : 's'}', style: text.labelMedium),
+        ],
+      ),
+    );
+  }
+}
+
 class _ScheduleCard extends StatelessWidget {
   const _ScheduleCard({required this.job});
   final Map<String, dynamic> job;
 
   @override
   Widget build(BuildContext context) {
-    final status = job['status'] as BookingStatus;
-    final money = job['total'] as Money;
-    final start = job['scheduledStart'] as DateTime?;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: FreshlySpacing.sm),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: start == null ? FreshlyColors.mintSoft : FreshlyColors.line.withValues(alpha: 0.3),
-          child: Text(
-            start != null ? formatSlot(start).split(', ').last : 'Now',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: start == null ? FreshlyColors.mintDark : FreshlyColors.inkMuted,
-            ),
-          ),
-        ),
-        title: Text(job['address'] as String, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Text('${job['reference']} · ${status.clientLabel}'),
-        trailing: Text(money.format(compact: true), style: const TextStyle(fontWeight: FontWeight.w700)),
-        onTap: () => context.push('/job/${job['id']}'),
-      ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: FreshlySpacing.sm),
+      child: JobTile(job: job),
     );
   }
 }

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:freshly_core/freshly_core.dart';
 
-/// The load-shedding banner is the most South-Africa-specific piece of this
-/// product. It answers the question a customer actually asks before booking a
-/// clipper cut at 18:00 — "will there be power?" — before they have to ask it.
+/// Answers the question a customer actually asks before booking a clipper cut
+/// at 18:00 — "will there be power?" — before they have to ask it.
 class LoadSheddingBanner extends StatelessWidget {
   const LoadSheddingBanner(
       {required this.status, this.onFilterPressed, super.key});
@@ -15,47 +14,55 @@ class LoadSheddingBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!status.isActive) return const SizedBox.shrink();
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final window = status.nextWindowStart != null &&
             status.nextWindowEnd != null
-        ? '${formatSlot(status.nextWindowStart!)} – ${TimeOfDay.fromDateTime(status.nextWindowEnd!).format(context)}'
+        ? '${formatSlot(status.nextWindowStart!)} – ${formatSlot(status.nextWindowEnd!).split(', ').last}'
         : null;
+    final ink =
+        isDark ? FreshlyColors.loadShedding : FreshlyColors.loadSheddingInk;
 
     return Container(
-      margin: const EdgeInsets.symmetric(
-          horizontal: FreshlySpacing.md, vertical: FreshlySpacing.sm),
-      padding: const EdgeInsets.all(FreshlySpacing.md),
+      margin: const EdgeInsets.fromLTRB(
+          FreshlySpacing.md, FreshlySpacing.sm + 4, FreshlySpacing.md, 0),
+      padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
       decoration: BoxDecoration(
-        color: FreshlyColors.loadShedding.withValues(alpha: 0.10),
+        color:
+            isDark ? const Color(0xFF2A1B10) : FreshlyColors.loadSheddingSoft,
         borderRadius: BorderRadius.circular(FreshlySpacing.radius),
-        border: Border.all(
-            color: FreshlyColors.loadShedding.withValues(alpha: 0.35)),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(FreshlyIcons.bolt, color: FreshlyColors.loadShedding),
-          const SizedBox(width: FreshlySpacing.sm),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: const BoxDecoration(
+              color: FreshlyColors.loadShedding,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(FreshlyIcons.bolt, size: 20, color: Colors.white),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(status.label,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 15)),
+                    style: FreshlyType.style(15,
+                        weight: FontWeight.w800, color: ink)),
                 if (window != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
-                    child: Text('Next outage in your area: $window',
-                        style: const TextStyle(
-                            fontSize: 13, color: FreshlyColors.inkMuted)),
+                    child: Text('Next outage: $window',
+                        style: Theme.of(context).textTheme.bodySmall),
                   ),
                 if (status.forcesPowerFilter)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
                     child: Text(
                       'Showing pros with backup power only.',
-                      style:
-                          TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      style: FreshlyType.style(13,
+                          weight: FontWeight.w700, color: ink),
                     ),
                   ),
               ],
@@ -63,6 +70,7 @@ class LoadSheddingBanner extends StatelessWidget {
           ),
           if (onFilterPressed != null && !status.forcesPowerFilter)
             TextButton(
+              style: TextButton.styleFrom(foregroundColor: ink),
               onPressed: onFilterPressed,
               child: const Text('Backup only'),
             ),

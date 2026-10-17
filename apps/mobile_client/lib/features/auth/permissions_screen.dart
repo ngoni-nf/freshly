@@ -33,34 +33,37 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
         child: Padding(
           padding: const EdgeInsets.all(FreshlySpacing.lg),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: FreshlySpacing.xl),
-              Text('Two quick permissions',
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineMedium
-                      ?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: FreshlySpacing.lg),
+              const ScreenIntro(
+                eyebrow: 'Last step',
+                title: 'Two quick permissions',
+                subtitle: 'You can change either one later in Settings.',
+              ),
+              const SizedBox(height: FreshlySpacing.xl),
               const _PermissionRow(
                 icon: FreshlyIcons.location,
                 title: 'Location',
-                body:
-                    'So we can show pros near you and give your barber your address '
-                    'only once a booking is confirmed.',
+                body: 'So we can show pros near you. Your address goes to a '
+                    'pro only once a booking is confirmed.',
               ),
               const _PermissionRow(
                 icon: FreshlyIcons.notifications,
                 title: 'Notifications',
-                body:
-                    'So you know the moment a pro accepts, and when they are at your door.',
+                body: 'So you know the moment a pro accepts, and when they '
+                    'are at your door.',
               ),
               const Spacer(),
               FilledButton(
                 onPressed: _busy ? null : _request,
-                child: const Text('Allow'),
+                child: const Text('Allow both'),
               ),
+              const SizedBox(height: FreshlySpacing.sm),
               TextButton(
+                style: TextButton.styleFrom(
+                    foregroundColor:
+                        Theme.of(context).colorScheme.onSurfaceVariant),
                 onPressed: () => context.go('/home'),
                 child: const Text('Not now'),
               ),
@@ -82,34 +85,28 @@ class _PermissionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: FreshlySpacing.lg),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: FreshlyColors.mintSoft,
-              borderRadius: BorderRadius.circular(FreshlySpacing.radius),
-            ),
-            child: Icon(icon, color: FreshlyColors.mintDark),
+      padding: const EdgeInsets.only(bottom: FreshlySpacing.sm),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(FreshlySpacing.md),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconBadge(icon: icon, size: 48),
+              const SizedBox(width: FreshlySpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text(body, style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: FreshlySpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 16)),
-                const SizedBox(height: 4),
-                Text(body,
-                    style: const TextStyle(
-                        color: FreshlyColors.inkMuted, height: 1.4)),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
 
 import '../../app/providers.dart';
+import '../../widgets/job_tile.dart' show JobTileSkeleton;
 
 final myReviewsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>(
   (ref) => ref.watch(apiProvider).getMyReviews(),
@@ -16,38 +17,36 @@ class ReviewsScreen extends ConsumerWidget {
     final reviews = ref.watch(myReviewsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Client Reviews')),
+      appBar: AppBar(title: const Text('Reviews')),
       body: reviews.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, __) => Center(child: Text(err is ApiException ? err.message : 'Could not load reviews')),
+        loading: () => ListView(
+          padding: const EdgeInsets.all(FreshlySpacing.md),
+          children: const [JobTileSkeleton(count: 4)],
+        ),
+        error: (err, __) => EmptyState(
+          icon: FreshlyIcons.star,
+          title: 'Reviews did not load',
+          message: err is ApiException
+              ? err.message
+              : 'Check your connection and try again.',
+          actionLabel: 'Try again',
+          onAction: () => ref.invalidate(myReviewsProvider),
+        ),
         data: (list) {
           if (list.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(FreshlySpacing.xl),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(FreshlyIcons.star, size: 48, color: FreshlyColors.inkMuted),
-                    SizedBox(height: FreshlySpacing.md),
-                    Text(
-                      'No reviews yet. Completed jobs will show up here once clients rate them.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: FreshlyColors.inkMuted, height: 1.4),
-                    ),
-                  ],
-                ),
-              ),
+            return const EmptyState(
+              icon: FreshlyIcons.star,
+              title: 'No reviews yet',
+              message: 'Clients rate you after each job. Their reviews will '
+                  'show up here.',
             );
           }
           return ListView.separated(
             padding: const EdgeInsets.all(FreshlySpacing.md),
             itemCount: list.length,
-            separatorBuilder: (_, __) => const SizedBox(height: FreshlySpacing.sm),
-            itemBuilder: (context, i) {
-              final r = list[i];
-              return _ReviewCard(review: r);
-            },
+            separatorBuilder: (_, __) =>
+                const SizedBox(height: FreshlySpacing.sm),
+            itemBuilder: (context, i) => _ReviewCard(review: list[i]),
           );
         },
       ),
@@ -63,6 +62,9 @@ class _ReviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final rating = (review['rating'] as num).toDouble();
     final tags = (review['tags'] as List? ?? []).cast<String>();
+    final author = review['author'] as String;
+    final comment = review['comment'] as String?;
+    final text = Theme.of(context).textTheme;
 
     return Card(
       child: Padding(
@@ -71,36 +73,50 @@ class _ReviewCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(review['author'] as String, style: const TextStyle(fontWeight: FontWeight.w700)),
+                FreshlyAvatar(name: author, size: 40),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(author, style: text.titleMedium),
+                      const SizedBox(height: 2),
+                      Semantics(
+                        label: '${rating.round()} out of 5 stars',
+                        excludeSemantics: true,
+                        child: Row(
+                          children: List.generate(
+                            5,
+                            (i) => Icon(
+                              FreshlyIcons.star,
+                              size: 14,
+                              color: i < rating
+                                  ? FreshlyColors.gold
+                                  : Theme.of(context).colorScheme.outline,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 Text(formatDate(DateTime.parse(review['createdAt'] as String)),
-                    style: const TextStyle(fontSize: 12, color: FreshlyColors.inkMuted)),
+                    style: text.bodySmall),
               ],
             ),
-            const SizedBox(height: 4),
-            Row(
-              children: List.generate(5, (i) {
-                return Icon(
-                  i < rating ? FreshlyIcons.star : FreshlyIcons.star, // Simplified stars
-                  size: 14,
-                  color: i < rating ? FreshlyColors.gold : FreshlyColors.line,
-                );
-              }),
-            ),
-            if (review['comment'] != null && (review['comment'] as String).isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(review['comment'] as String, style: const TextStyle(height: 1.4)),
+            if (comment != null && comment.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(comment, style: text.bodyMedium),
             ],
             if (tags.isNotEmpty) ...[
-              const SizedBox(height: FreshlySpacing.sm),
+              const SizedBox(height: 12),
               Wrap(
-                spacing: 4,
-                children: tags.map((t) => Chip(
-                  label: Text(t, style: const TextStyle(fontSize: 10)),
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                )).toList(),
+                spacing: 6,
+                runSpacing: 6,
+                children: tags
+                    .map((t) => StatusPill(label: t, tone: FreshlyTone.brand))
+                    .toList(),
               ),
             ],
           ],

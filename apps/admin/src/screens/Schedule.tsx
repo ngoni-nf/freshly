@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, type ScheduledBooking } from '../api';
 import { messageFor } from '../App';
+import { formatMoney } from '../ui';
 
 /**
  * The diary.
@@ -55,31 +56,35 @@ export function Schedule() {
 
   return (
     <>
-      <h2>Schedule</h2>
-      <p className="sub">
-        Everything happening now or booked ahead. A job with no provider is the
-        one to deal with first.
-      </p>
+      <header className="page-head">
+        <div>
+          <h2>Schedule</h2>
+          <p className="sub">
+            Everything happening now or booked ahead. A job with no provider is the
+            one to deal with first.
+          </p>
+        </div>
+      </header>
 
-      <div className="card">
-        <div className="row">
-          <div className="meta">
-            {rows === null ? 'Loading…' : `${rows.length} booking${rows.length === 1 ? '' : 's'}`}
-            {unassigned > 0 && (
-              <> · <span className="tag bad">{unassigned} with nobody assigned</span></>
-            )}
-          </div>
-          <div className="actions">
-            {[7, 14, 30].map((d) => (
-              <button
-                key={d}
-                className={`chip ${days === d ? 'on' : ''}`}
-                onClick={() => setDays(d)}
-              >
-                {d} days
-              </button>
-            ))}
-          </div>
+      <div className="toolbar">
+        <div className="summary">
+          {rows === null ? 'Loading…' : (
+            <strong>{`${rows.length} booking${rows.length === 1 ? '' : 's'}`}</strong>
+          )}
+          {unassigned > 0 && (
+            <span className="pill danger"><span className="dot" />{unassigned} with nobody assigned</span>
+          )}
+        </div>
+        <div className="filters">
+          {[7, 14, 30].map((d) => (
+            <button
+              key={d}
+              className={`chip ${days === d ? 'on' : ''}`}
+              onClick={() => setDays(d)}
+            >
+              {d} days
+            </button>
+          ))}
         </div>
       </div>
 
@@ -90,47 +95,66 @@ export function Schedule() {
 
       {groups.map(([day, list]) => (
         <section key={day}>
-          <h3 className="day">
+          <h3 className={`day ${day === 'Now' ? 'now' : ''}`}>
+            {day === 'Now' && <span className="live-dot" aria-hidden="true" />}
             {day === 'Now' ? 'Happening now' : day}
             <span className="count">{list.length}</span>
           </h3>
-          {list.map((b) => (
-            <div className="card" key={b.id}>
-              <div className="row">
-                <div>
-                  <div className="name">
-                    {b.services.length ? b.services.join(' · ') : b.reference}
-                  </div>
-                  <div className="meta">
-                    {!b.providerName && <span className="tag bad">unassigned</span>}
-                    <span className="tag">{b.status.replace('_', ' ')}</span>
-                    <span className="tag">{b.bookingType}</span>
-                    {b.scheduledStart && (
-                      <span className="tag">
-                        {new Date(b.scheduledStart).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
-                    )}
-                    <br />
-                    {b.reference} · {b.clientName} ·{' '}
-                    {b.providerName ?? 'waiting for a provider'}
-                    <br />
-                    {b.destinationAddress}
-                  </div>
-                </div>
-                <div className="actions">
-                  <div className="amount">
-                    {(b.total.minor / 100).toLocaleString(undefined, {
-                      style: 'currency',
-                      currency: b.total.currency,
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
+          <div className="card flush">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th style={{ width: 110 }}>Time</th>
+                  <th>Booking</th>
+                  <th>Provider</th>
+                  <th>Status</th>
+                  <th className="num">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {list.map((b) => (
+                  <tr key={b.id} className={!b.providerName ? 'attention' : undefined}>
+                    <td className="time-cell">
+                      {b.scheduledStart
+                        ? new Date(b.scheduledStart).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })
+                        : 'Now'}
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 700 }}>
+                        {b.services.length ? b.services.join(' · ') : b.reference}
+                      </div>
+                      <div className="muted" style={{ marginTop: 2 }}>
+                        {b.reference} · {b.clientName}
+                      </div>
+                      <div className="muted">{b.destinationAddress}</div>
+                    </td>
+                    <td>
+                      {b.providerName ? (
+                        <span style={{ fontWeight: 600 }}>{b.providerName}</span>
+                      ) : (
+                        <span className="pill danger"><span className="dot" />unassigned</span>
+                      )}
+                      {!b.providerName && (
+                        <div className="muted" style={{ marginTop: 4 }}>waiting for a provider</div>
+                      )}
+                    </td>
+                    <td>
+                      <div className="pills">
+                        <span className="pill info" style={{ textTransform: 'capitalize' }}>
+                          {b.status.replace('_', ' ')}
+                        </span>
+                        <span className="pill" style={{ textTransform: 'capitalize' }}>{b.bookingType}</span>
+                      </div>
+                    </td>
+                    <td className="num amount">{formatMoney(b.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       ))}
     </>

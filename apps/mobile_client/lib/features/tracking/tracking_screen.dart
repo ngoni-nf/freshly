@@ -23,6 +23,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
   StreamSubscription<RealtimeConnectionState>? _statusSub;
   StreamSubscription<Map<String, dynamic>>? _addonSub;
   Timer? _poll;
+  late final RealtimeClient _realtime;
 
   TrackingUpdate? _latest;
   Booking? _booking;
@@ -31,7 +32,10 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
   @override
   void initState() {
     super.initState();
-    final realtime = ref.read(realtimeProvider)..joinBooking(widget.bookingId);
+    // Held for dispose(): Riverpod forbids `ref` once the widget is being
+    // torn down, and reading it there threw on every exit from this screen.
+    final realtime =
+        _realtime = ref.read(realtimeProvider)..joinBooking(widget.bookingId);
 
     _sub = realtime.tracking.listen((update) {
       if (update.bookingId != widget.bookingId) return;
@@ -81,40 +85,61 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
     final approved = await showModalBottomSheet<bool>(
       context: context,
       isDismissible: false,
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(FreshlySpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Your pro suggested an extra',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-            const SizedBox(height: FreshlySpacing.md),
-            Text(payload['name'] as String? ?? 'Additional service',
-                style: const TextStyle(fontSize: 16)),
-            const SizedBox(height: 4),
-            Text(
-              formatMinor(payload['priceMinor'] as int? ?? 0,
-                  payload['currency'] as String? ?? 'ZAR'),
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: FreshlySpacing.lg),
-            Row(children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('No thanks'),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+              FreshlySpacing.lg, 0, FreshlySpacing.lg, FreshlySpacing.md),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const IconBadge(icon: FreshlyIcons.addCircle, size: 52),
+              const SizedBox(height: FreshlySpacing.md),
+              Text('Your pro suggested an extra',
+                  style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 4),
+              Text(
+                  'Nothing changes unless you approve. The amount is added to '
+                  'the payment we are holding.',
+                  style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: FreshlySpacing.md),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(FreshlySpacing.md),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                            payload['name'] as String? ?? 'Additional service',
+                            style: Theme.of(context).textTheme.titleMedium),
+                      ),
+                      Text(
+                        formatMinor(payload['priceMinor'] as int? ?? 0,
+                            payload['currency'] as String? ?? 'ZAR'),
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(width: FreshlySpacing.sm),
-              Expanded(
-                child: FilledButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Approve'),
+              const SizedBox(height: FreshlySpacing.lg),
+              Row(children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('No thanks'),
+                  ),
                 ),
-              ),
-            ]),
-          ],
+                const SizedBox(width: FreshlySpacing.sm),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('Approve'),
+                  ),
+                ),
+              ]),
+            ],
+          ),
         ),
       ),
     );
@@ -177,95 +202,160 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
               top: MediaQuery.of(context).padding.top + 8,
               left: FreshlySpacing.md,
               right: FreshlySpacing.md,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: FreshlyColors.ink.withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                  SizedBox(
-                    width: 12,
-                    height: 12,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
+              child: Center(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: FreshlyColors.obsidian,
+                    borderRadius: BorderRadius.circular(999),
                   ),
-                  SizedBox(width: 8),
-                  Text('Reconnecting — updates may be delayed',
-                      style: TextStyle(color: Colors.white, fontSize: 12)),
-                ]),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: FreshlyColors.mint),
+                    ),
+                    const SizedBox(width: 10),
+                    Text('Reconnecting — updates may be delayed',
+                        style: FreshlyType.style(12,
+                            weight: FontWeight.w600, color: Colors.white)),
+                  ]),
+                ),
               ),
             ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 8,
+            left: FreshlySpacing.sm,
+            child: IconButton(
+              tooltip: 'Back',
+              style: IconButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.surface,
+                foregroundColor: Theme.of(context).colorScheme.onSurface,
+              ),
+              onPressed: () =>
+                  context.canPop() ? context.pop() : context.go('/home'),
+              icon: const Icon(FreshlyIcons.chevronLeft, size: 20),
+            ),
+          ),
           DraggableScrollableSheet(
-            initialChildSize: 0.32,
-            minChildSize: 0.22,
+            initialChildSize: 0.36,
+            minChildSize: 0.24,
             maxChildSize: 0.7,
-            builder: (context, controller) => Container(
+            builder: (context, controller) => DecoratedBox(
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surface,
                 borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(FreshlySpacing.radiusLarge)),
+                boxShadow: FreshlyShadows.floating,
               ),
               child: ListView(
                 controller: controller,
-                padding: const EdgeInsets.all(FreshlySpacing.lg),
+                padding: const EdgeInsets.fromLTRB(FreshlySpacing.md, 10,
+                    FreshlySpacing.md, FreshlySpacing.lg),
                 children: [
                   Center(
                     child: Container(
                       width: 40,
-                      height: 4,
+                      height: 5,
                       decoration: BoxDecoration(
-                        color: FreshlyColors.line,
-                        borderRadius: BorderRadius.circular(2),
+                        color: Theme.of(context).colorScheme.outline,
+                        borderRadius: BorderRadius.circular(3),
                       ),
                     ),
                   ),
                   const SizedBox(height: FreshlySpacing.md),
-                  Text(status.clientLabel,
-                      style: const TextStyle(
-                          fontSize: 22, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 4),
-                  Text(
-                    _latest?.etaMinutes != null
-                        ? 'Arriving in ${formatEta(_latest!.etaMinutes)}'
-                        : _booking?.reference ?? '',
-                    style: const TextStyle(color: FreshlyColors.inkMuted),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(status.clientLabel,
+                                style:
+                                    Theme.of(context).textTheme.headlineMedium),
+                            const SizedBox(height: 2),
+                            Text(_booking?.reference ?? '',
+                                style: Theme.of(context).textTheme.bodySmall),
+                          ],
+                        ),
+                      ),
+                      if (_latest?.etaMinutes != null)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(formatEta(_latest!.etaMinutes),
+                                style: FreshlyType.style(24,
+                                    weight: FontWeight.w800,
+                                    color:
+                                        Theme.of(context).colorScheme.primary)),
+                            Text('away',
+                                style: Theme.of(context).textTheme.bodySmall),
+                          ],
+                        ),
+                    ],
                   ),
+                  const SizedBox(height: FreshlySpacing.md),
+                  BookingProgress(status: status),
                   const SizedBox(height: FreshlySpacing.lg),
                   Card(
-                    child: ListTile(
-                      leading: const CircleAvatar(
-                        backgroundColor: FreshlyColors.mintSoft,
-                        child: Icon(FreshlyIcons.person,
-                            color: FreshlyColors.mintDark),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          FreshlyAvatar(
+                              name: _booking?.providerName ?? 'Your pro',
+                              size: 48),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(_booking?.providerName ?? 'Your pro',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium),
+                                const SizedBox(height: 2),
+                                Text('Calls and messages are private',
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall),
+                              ],
+                            ),
+                          ),
+                          _RoundAction(
+                            icon: FreshlyIcons.chat,
+                            tooltip: 'Message',
+                            onPressed: () =>
+                                context.push('/track/${widget.bookingId}/chat'),
+                          ),
+                          const SizedBox(width: 8),
+                          _RoundAction(
+                            icon: FreshlyIcons.call,
+                            tooltip: 'Call',
+                            onPressed: () {},
+                          ),
+                        ],
                       ),
-                      title: Text(_booking?.providerName ?? 'Your pro'),
-                      subtitle:
-                          const Text('Calls and messages are number-masked'),
-                      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                        IconButton(
-                            icon: const Icon(FreshlyIcons.chat),
-                            onPressed: () => context
-                                .push('/track/${widget.bookingId}/chat')),
-                        IconButton(
-                            icon: const Icon(FreshlyIcons.call),
-                            onPressed: () {}),
-                      ]),
                     ),
                   ),
                   const SizedBox(height: FreshlySpacing.md),
                   if (status == BookingStatus.arrived ||
-                      status == BookingStatus.inProgress)
+                      status == BookingStatus.inProgress) ...[
                     FilledButton.icon(
                       onPressed: _promptForPin,
-                      icon: const Icon(FreshlyIcons.pin),
-                      label: const Text('Show my completion code'),
+                      icon: const Icon(FreshlyIcons.lock),
+                      label: const Text('Show my code'),
                     ),
-                  const SizedBox(height: FreshlySpacing.md),
+                    const SizedBox(height: FreshlySpacing.sm),
+                  ],
                   TextButton.icon(
+                    style: TextButton.styleFrom(
+                        foregroundColor:
+                            Theme.of(context).colorScheme.onSurfaceVariant),
                     onPressed: () {},
-                    icon: const Icon(FreshlyIcons.warning),
+                    icon: const Icon(FreshlyIcons.warning, size: 18),
                     label: const Text('Report a problem'),
                   ),
                 ],
@@ -274,7 +364,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
           ),
           Positioned(
             right: FreshlySpacing.md,
-            bottom: MediaQuery.of(context).size.height * 0.36,
+            bottom: MediaQuery.of(context).size.height * 0.38,
             child: SosButton(bookingId: widget.bookingId),
           ),
         ],
@@ -288,8 +378,29 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
     _sub?.cancel();
     _statusSub?.cancel();
     _addonSub?.cancel();
-    ref.read(realtimeProvider).leaveBooking(widget.bookingId);
+    _realtime.leaveBooking(widget.bookingId);
     _map?.dispose();
     super.dispose();
+  }
+}
+
+class _RoundAction extends StatelessWidget {
+  const _RoundAction(
+      {required this.icon, required this.tooltip, required this.onPressed});
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      style: IconButton.styleFrom(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+      ),
+      icon: Icon(icon, size: 20),
+    );
   }
 }

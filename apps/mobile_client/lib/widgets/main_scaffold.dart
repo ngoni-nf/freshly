@@ -10,36 +10,28 @@ class MainScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: navigationShell,
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: navigationShell.currentIndex,
-        onTap: (index) => navigationShell.goBranch(index),
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: FreshlyColors.mint,
-        unselectedItemColor: FreshlyColors.inkMuted,
-        selectedLabelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-        unselectedLabelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(FreshlyIcons.sparkles),
-            activeIcon: Icon(FreshlyIcons.sparkles),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(FreshlyIcons.search),
-            activeIcon: Icon(FreshlyIcons.search),
-            label: 'Explore',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(FreshlyIcons.receipt),
-            activeIcon: Icon(FreshlyIcons.receipt),
-            label: 'Bookings',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(FreshlyIcons.person),
-            activeIcon: Icon(FreshlyIcons.person),
-            label: 'Profile',
-          ),
-        ],
+      bottomNavigationBar: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+              top: BorderSide(color: Theme.of(context).colorScheme.outline)),
+        ),
+        child: NavigationBar(
+          selectedIndex: navigationShell.currentIndex,
+          // Tapping the current tab again returns to its root, as every
+          // native app does.
+          onDestinationSelected: (index) => navigationShell.goBranch(index,
+              initialLocation: index == navigationShell.currentIndex),
+          destinations: const [
+            NavigationDestination(
+                icon: Icon(FreshlyIcons.sparkles), label: 'Home'),
+            NavigationDestination(
+                icon: Icon(FreshlyIcons.search), label: 'Explore'),
+            NavigationDestination(
+                icon: Icon(FreshlyIcons.calendar), label: 'Bookings'),
+            NavigationDestination(
+                icon: Icon(FreshlyIcons.person), label: 'Profile'),
+          ],
+        ),
       ),
     );
   }

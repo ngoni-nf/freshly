@@ -8,6 +8,7 @@ import '../theme/freshly_icons.dart';
 import '../network/api_client.dart';
 import '../realtime/realtime_client.dart';
 import '../theme/freshly_theme.dart';
+import 'ui_kit.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({
@@ -159,19 +160,17 @@ class _ChatScreenState extends State<ChatScreen> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              color: FreshlyColors.line.withValues(alpha: 0.5),
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               child: Row(
                 children: [
-                  const Icon(FreshlyIcons.lock,
-                      size: 16, color: FreshlyColors.inkMuted),
+                  Icon(FreshlyIcons.lock,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'This conversation is closed. You can no longer send messages.',
-                      style: TextStyle(
-                          fontSize: 13,
-                          color: FreshlyColors.inkMuted,
-                          height: 1.3),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
                 ],
@@ -181,61 +180,45 @@ class _ChatScreenState extends State<ChatScreen> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _error != null
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(FreshlySpacing.lg),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(_error!,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                  color: FreshlyColors.inkMuted)),
-                          const SizedBox(height: FreshlySpacing.md),
-                          OutlinedButton(
-                            onPressed: () {
-                              setState(() {
-                                _error = null;
-                                _loading = true;
-                              });
-                              _loadHistory();
-                            },
-                            child: const Text('Try again'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : _messages.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(FreshlyIcons.chat,
-                                size: 48, color: FreshlyColors.inkMuted),
-                            const SizedBox(height: 12),
-                            Text('No messages yet',
-                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: FreshlyColors.inkMuted)),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        controller: _scroll,
-                        padding: const EdgeInsets.all(FreshlySpacing.md),
-                        itemCount: _messages.length,
-                        itemBuilder: (context, i) {
-                          final msg = _messages[i];
-                          final isMe = msg.authorId == widget.currentUserId;
-                          return _ChatBubble(message: msg, isMe: isMe);
+                    ? EmptyState(
+                        icon: FreshlyIcons.error,
+                        title: 'Messages did not load',
+                        message: _error,
+                        actionLabel: 'Try again',
+                        onAction: () {
+                          setState(() {
+                            _error = null;
+                            _loading = true;
+                          });
+                          _loadHistory();
                         },
-                      ),
+                      )
+                    : _messages.isEmpty
+                        ? const EmptyState(
+                            icon: FreshlyIcons.chat,
+                            title: 'No messages yet',
+                            message: 'Say hello. Numbers stay private on both '
+                                'sides.',
+                          )
+                        : ListView.builder(
+                            controller: _scroll,
+                            padding: const EdgeInsets.all(FreshlySpacing.md),
+                            itemCount: _messages.length,
+                            itemBuilder: (context, i) {
+                              final msg = _messages[i];
+                              final isMe = msg.authorId == widget.currentUserId;
+                              return _ChatBubble(message: msg, isMe: isMe);
+                            },
+                          ),
           ),
           if (!_expired)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surface,
-                border: const Border(top: BorderSide(color: FreshlyColors.line)),
+                border: Border(
+                    top: BorderSide(
+                        color: Theme.of(context).colorScheme.outline)),
               ),
               child: SafeArea(
                 child: Row(
@@ -244,22 +227,32 @@ class _ChatScreenState extends State<ChatScreen> {
                       child: TextField(
                         controller: _controller,
                         textCapitalization: TextCapitalization.sentences,
+                        minLines: 1,
+                        maxLines: 4,
                         decoration: InputDecoration(
-                          hintText: 'Type a message...',
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          hintText: 'Message',
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 18, vertical: 12),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(24),
                             borderSide: BorderSide.none,
                           ),
-                          filled: true,
-                          fillColor: FreshlyColors.line.withValues(alpha: 0.3),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none,
+                          ),
                         ),
                         onSubmitted: (_) => _send(),
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 8),
                     IconButton(
-                      icon: const Icon(FreshlyIcons.send, color: FreshlyColors.mint),
+                      tooltip: 'Send',
+                      style: IconButton.styleFrom(
+                        backgroundColor: FreshlyColors.mint,
+                        foregroundColor: FreshlyColors.obsidian,
+                      ),
+                      icon: const Icon(FreshlyIcons.send, size: 20),
                       onPressed: _send,
                     ),
                   ],
@@ -289,27 +282,39 @@ class _ChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Mine on obsidian, theirs on the surface: two clearly different voices,
+    // both readable in sunlight. Mint is kept for the read receipt.
+    final fill = isMe
+        ? (isDark ? const Color(0xFF0E3A2A) : FreshlyColors.obsidian)
+        : scheme.surface;
+    final ink = isMe ? Colors.white : scheme.onSurface;
+    final meta = isMe ? FreshlyColors.inkMuted : scheme.onSurfaceVariant;
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.fromLTRB(14, 10, 12, 8),
+        constraints:
+            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
         decoration: BoxDecoration(
-          color: isMe ? FreshlyColors.mint : FreshlyColors.line.withValues(alpha: 0.4),
+          color: fill,
+          border: isMe ? null : Border.all(color: scheme.outline),
           borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: Radius.circular(isMe ? 16 : 4),
-            bottomRight: Radius.circular(isMe ? 4 : 16),
+            topLeft: const Radius.circular(18),
+            topRight: const Radius.circular(18),
+            bottomLeft: Radius.circular(isMe ? 18 : 6),
+            bottomRight: Radius.circular(isMe ? 6 : 18),
           ),
         ),
         child: Column(
-          crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment:
+              isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             Text(
               message.body,
-              style: TextStyle(color: isMe ? Colors.white : Colors.black, fontSize: 15),
+              style: FreshlyType.style(15, height: 1.4, color: ink),
             ),
             const SizedBox(height: 4),
             Row(
@@ -317,10 +322,7 @@ class _ChatBubble extends StatelessWidget {
               children: [
                 Text(
                   DateFormat('HH:mm').format(message.createdAt),
-                  style: TextStyle(
-                    color: isMe ? Colors.white70 : FreshlyColors.inkMuted,
-                    fontSize: 10,
-                  ),
+                  style: FreshlyType.style(11, color: meta),
                 ),
                 // Only on your own messages. A receipt on someone else's is
                 // meaningless — you obviously read it, you are looking at it.
@@ -330,12 +332,11 @@ class _ChatBubble extends StatelessWidget {
                     message.isRead
                         ? FreshlyIcons.checkDouble
                         : FreshlyIcons.check,
-                    size: 12,
+                    size: 13,
                     // Read is the state worth noticing, so it is the one that
                     // gets colour; delivered stays quiet.
-                    color: message.isRead
-                        ? FreshlyColors.mintSoft
-                        : Colors.white54,
+                    color: message.isRead ? FreshlyColors.mint : meta,
+                    semanticLabel: message.isRead ? 'Read' : 'Delivered',
                   ),
                 ],
               ],

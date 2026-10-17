@@ -7,6 +7,7 @@ import '../models/models.dart';
 import '../network/api_client.dart';
 import '../theme/freshly_icons.dart';
 import '../theme/freshly_theme.dart';
+import 'ui_kit.dart';
 
 /// What the picker hands back: somewhere bookable.
 class PickedAddress {
@@ -105,7 +106,11 @@ class _AddressPickerSheetState extends State<AddressPickerSheet> {
   Future<void> _loadSaved() async {
     try {
       final saved = await widget.api.savedAddresses();
-      if (mounted) setState(() { _saved = saved; _loadingSaved = false; });
+      if (mounted)
+        setState(() {
+          _saved = saved;
+          _loadingSaved = false;
+        });
     } catch (_) {
       if (mounted) setState(() => _loadingSaved = false);
     }
@@ -124,7 +129,10 @@ class _AddressPickerSheetState extends State<AddressPickerSheet> {
 
   Future<void> _search(String query) async {
     final id = ++_requestId;
-    setState(() { _searching = true; _error = null; });
+    setState(() {
+      _searching = true;
+      _error = null;
+    });
     try {
       final found = await widget.api.searchAddresses(
         query: query.trim(),
@@ -134,7 +142,10 @@ class _AddressPickerSheetState extends State<AddressPickerSheet> {
         nearLng: widget.nearLng,
       );
       if (!mounted || id != _requestId) return;
-      setState(() { _suggestions = found; _searching = false; });
+      setState(() {
+        _suggestions = found;
+        _searching = false;
+      });
     } on ApiException catch (e) {
       if (!mounted || id != _requestId) return;
       setState(() {
@@ -161,7 +172,11 @@ class _AddressPickerSheetState extends State<AddressPickerSheet> {
         ),
       );
     } on ApiException catch (e) {
-      if (mounted) setState(() { _error = e.message; _resolving = false; });
+      if (mounted)
+        setState(() {
+          _error = e.message;
+          _resolving = false;
+        });
     }
   }
 
@@ -194,7 +209,7 @@ class _AddressPickerSheetState extends State<AddressPickerSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: FreshlyColors.line,
+                color: Theme.of(context).colorScheme.outline,
                 borderRadius: BorderRadius.circular(999),
               ),
             ),
@@ -203,7 +218,10 @@ class _AddressPickerSheetState extends State<AddressPickerSheet> {
               child: TextField(
                 controller: _controller,
                 autofocus: true,
-                onChanged: (v) { _onChanged(v); setState(() {}); },
+                onChanged: (v) {
+                  _onChanged(v);
+                  setState(() {});
+                },
                 textCapitalization: TextCapitalization.words,
                 decoration: InputDecoration(
                   hintText: widget.countryCode == 'ZA'
@@ -235,7 +253,8 @@ class _AddressPickerSheetState extends State<AddressPickerSheet> {
                 padding: const EdgeInsets.symmetric(
                     horizontal: FreshlySpacing.md, vertical: 4),
                 child: Text(_error!,
-                    style: const TextStyle(color: FreshlyColors.crimson)),
+                    style: FreshlyType.style(14,
+                        weight: FontWeight.w600, color: FreshlyColors.crimson)),
               ),
             Expanded(
               child: ListView(
@@ -251,35 +270,32 @@ class _AddressPickerSheetState extends State<AddressPickerSheet> {
                         child: Center(child: CircularProgressIndicator()),
                       )
                     else if (_saved.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.all(FreshlySpacing.lg),
-                        child: Text(
-                          'Start typing an address. Save the ones you use often '
-                          'and they will appear here.',
-                          style: TextStyle(
-                              color: FreshlyColors.inkMuted, height: 1.4),
-                        ),
+                      const EmptyState(
+                        compact: true,
+                        icon: FreshlyIcons.location,
+                        title: 'Where should your pro go?',
+                        message: 'Start typing an address. Save the ones you '
+                            'use often and they will appear here.',
                       )
                     else ...[
                       const Padding(
                         padding: EdgeInsets.fromLTRB(FreshlySpacing.md, 0,
                             FreshlySpacing.md, FreshlySpacing.sm),
-                        child: Text('Saved',
+                        child: Text('SAVED',
                             style: TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 13)),
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                                letterSpacing: 1)),
                       ),
                       ..._saved.map((a) => ListTile(
-                            leading: Icon(
-                              a.isDefault
-                                  ? FreshlyIcons.checkCircle
-                                  : FreshlyIcons.location,
-                              color: a.isDefault
-                                  ? FreshlyColors.mint
-                                  : FreshlyColors.inkMuted,
+                            leading: IconBadge(
+                              icon: FreshlyIcons.location,
+                              size: 40,
+                              tone: a.isDefault
+                                  ? FreshlyTone.brand
+                                  : FreshlyTone.neutral,
                             ),
-                            title: Text(a.label,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w600)),
+                            title: Text(a.label),
                             subtitle: Text(a.formatted),
                             onTap: () => Navigator.pop(
                               context,
@@ -296,18 +312,26 @@ class _AddressPickerSheetState extends State<AddressPickerSheet> {
 
                   if (typing)
                     ..._suggestions.map((s) => ListTile(
-                          leading: const Icon(FreshlyIcons.location),
+                          leading: const IconBadge(
+                              icon: FreshlyIcons.location,
+                              size: 40,
+                              tone: FreshlyTone.neutral),
                           title: Text(s.primary),
-                          subtitle: s.secondary.isEmpty ? null : Text(s.secondary),
+                          subtitle:
+                              s.secondary.isEmpty ? null : Text(s.secondary),
                           enabled: !_resolving,
                           onTap: () => _choose(s),
                         )),
 
-                  if (typing && _suggestions.isEmpty && !_searching && _error == null)
-                    const Padding(
-                      padding: EdgeInsets.all(FreshlySpacing.lg),
-                      child: Text('No addresses matched.',
-                          style: TextStyle(color: FreshlyColors.inkMuted)),
+                  if (typing &&
+                      _suggestions.isEmpty &&
+                      !_searching &&
+                      _error == null)
+                    const EmptyState(
+                      compact: true,
+                      icon: FreshlyIcons.searchOff,
+                      title: 'No addresses matched',
+                      message: 'Try the street name and suburb.',
                     ),
                 ],
               ),

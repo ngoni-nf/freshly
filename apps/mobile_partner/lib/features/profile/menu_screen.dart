@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
 
 import '../../app/providers.dart';
+import '../../widgets/category_icon.dart';
+import '../../widgets/job_tile.dart' show JobTileSkeleton;
 
 class MenuScreen extends ConsumerWidget {
   const MenuScreen({super.key});
@@ -12,68 +14,87 @@ class MenuScreen extends ConsumerWidget {
     final menu = ref.watch(myMenuProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Services'),
-        actions: [
-          IconButton(
-            icon: const Icon(FreshlyIcons.add),
-            onPressed: () => _showAddServiceSheet(context, ref),
-            tooltip: 'Add service',
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Service menu')),
+      floatingActionButton: menu.valueOrNull?.isNotEmpty ?? false
+          ? FloatingActionButton.extended(
+              heroTag: 'add-service',
+              onPressed: () => _showAddServiceSheet(context, ref),
+              icon: const Icon(FreshlyIcons.add),
+              label: const Text('Add service'),
+            )
+          : null,
       body: menu.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, __) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(FreshlySpacing.xl),
-            child: Text(
-              err is ApiException ? err.message : 'Could not load your menu',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: FreshlyColors.inkMuted),
-            ),
-          ),
+        loading: () => ListView(
+          padding: const EdgeInsets.all(FreshlySpacing.md),
+          children: const [JobTileSkeleton(count: 4)],
+        ),
+        error: (err, __) => EmptyState(
+          icon: FreshlyIcons.style,
+          title: 'Your menu did not load',
+          message: err is ApiException
+              ? err.message
+              : 'Check your connection and try again.',
+          actionLabel: 'Try again',
+          onAction: () => ref.invalidate(myMenuProvider),
         ),
         data: (items) {
           if (items.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(FreshlySpacing.xl),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(FreshlyIcons.style, size: 48, color: FreshlyColors.inkMuted),
-                    const SizedBox(height: FreshlySpacing.md),
-                    const Text(
-                      'Your menu is empty. Add services you offer to start receiving jobs.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: FreshlyColors.inkMuted, height: 1.4),
-                    ),
-                    const SizedBox(height: FreshlySpacing.lg),
-                    FilledButton(
-                      onPressed: () => _showAddServiceSheet(context, ref),
-                      child: const Text('Add my first service'),
-                    ),
-                  ],
-                ),
-              ),
+            return EmptyState(
+              icon: FreshlyIcons.style,
+              title: 'Your menu is empty',
+              message: 'Add the services you offer and set your price. '
+                  'Clients can only book what is on your menu.',
+              actionLabel: 'Add my first service',
+              onAction: () => _showAddServiceSheet(context, ref),
             );
           }
           return ListView.separated(
-            padding: const EdgeInsets.all(FreshlySpacing.md),
-            itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(height: FreshlySpacing.sm),
+            padding: const EdgeInsets.fromLTRB(
+                FreshlySpacing.md, FreshlySpacing.sm, FreshlySpacing.md, 96),
+            itemCount: items.length + 1,
+            separatorBuilder: (_, i) =>
+                SizedBox(height: i == 0 ? 4 : FreshlySpacing.sm),
             itemBuilder: (context, i) {
-              final item = items[i];
+              final text = Theme.of(context).textTheme;
+              if (i == 0) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text('Tap a service to change its price.',
+                      style: text.bodySmall),
+                );
+              }
+              final item = items[i - 1];
               return Card(
-                child: ListTile(
-                  title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: Text(item.category.label),
-                  trailing: Text(
-                    item.price.format(),
-                    style: const TextStyle(fontWeight: FontWeight.w700, color: FreshlyColors.mintDark),
-                  ),
+                child: InkWell(
                   onTap: () => _showEditPriceDialog(context, ref, item),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        IconBadge(icon: categoryIcon(item.category), size: 44),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(item.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: text.titleMedium),
+                              const SizedBox(height: 2),
+                              Text(
+                                  '${item.category.label} · ${formatDuration(item.durationMinutes)}',
+                                  style: text.bodySmall),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(item.price.format(),
+                            style: text.titleMedium?.copyWith(
+                                color: Theme.of(context).colorScheme.primary)),
+                      ],
+                    ),
+                  ),
                 ),
               );
             },
@@ -93,29 +114,31 @@ class MenuScreen extends ConsumerWidget {
   }
 
   void _showEditPriceDialog(BuildContext context, WidgetRef ref, ProviderMenuItem item) {
-    final controller = TextEditingController(text: (item.price.minor / 100).toStringAsFixed(2));
+    final controller = TextEditingController(text: minorToInput(item.price.minor));
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Edit Price: ${item.name}'),
+        title: Text(item.name),
         content: TextField(
           controller: controller,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            prefixText: 'R ',
+          autofocus: true,
+          decoration: InputDecoration(
+            prefixText: '${item.price.currency} ',
             labelText: 'Your price',
           ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          TextButton(
+          FilledButton(
+            style: FilledButton.styleFrom(minimumSize: const Size(96, 48)),
             onPressed: () async {
-              final val = double.tryParse(controller.text);
+              final val = parseMinor(controller.text);
               if (val == null) return;
               try {
                 await ref.read(apiProvider).updateMenuItem(
                       catalogServiceId: item.catalogServiceId,
-                      priceMinor: (val * 100).round(),
+                      priceMinor: val,
                     );
                 ref.invalidate(myMenuProvider);
                 if (context.mounted) Navigator.pop(context);
@@ -143,12 +166,25 @@ class _AddServiceSheet extends ConsumerStatefulWidget {
 class _AddServiceSheetState extends ConsumerState<_AddServiceSheet> {
   ServiceCategory? _category;
 
+  /// The provider's own currency beside the price field. A Harare barber
+  /// typing a price next to "R" would reasonably wonder which money they are
+  /// being asked for.
+  String? get _currencyPrefix {
+    final code = ref.read(countryCodeProvider);
+    final markets = ref.read(marketsProvider).valueOrNull ?? const [];
+    for (final m in markets) {
+      if (m.code == code) return '${m.currency} ';
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         AppBar(
-          title: Text(_category == null ? 'Choose Category' : _category!.label),
+          backgroundColor: Colors.transparent,
+          title: Text(_category == null ? 'Choose a category' : _category!.label),
           leading: _category != null
               ? BackButton(onPressed: () => setState(() => _category = null))
               : const CloseButton(),
@@ -159,21 +195,32 @@ class _AddServiceSheetState extends ConsumerState<_AddServiceSheet> {
                   padding: const EdgeInsets.all(FreshlySpacing.md),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
-                    crossAxisSpacing: FreshlySpacing.md,
-                    mainAxisSpacing: FreshlySpacing.md,
+                    crossAxisSpacing: FreshlySpacing.sm,
+                    mainAxisSpacing: FreshlySpacing.sm,
+                    childAspectRatio: 0.95,
                   ),
                   itemCount: ServiceCategory.values.length,
                   itemBuilder: (context, i) {
                     final cat = ServiceCategory.values[i];
-                    return InkWell(
-                      onTap: () => setState(() => _category = cat),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(FreshlyIcons.category, color: FreshlyColors.mint),
-                          const SizedBox(height: 4),
-                          Text(cat.label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
-                        ],
+                    return Card(
+                      child: InkWell(
+                        onTap: () => setState(() => _category = cat),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              IconBadge(icon: categoryIcon(cat), size: 48),
+                              const SizedBox(height: 8),
+                              Text(cat.label,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: FreshlyType.style(13,
+                                      weight: FontWeight.w600, height: 1.2)),
+                            ],
+                          ),
+                        ),
                       ),
                     );
                   },
@@ -203,9 +250,9 @@ class _AddServiceSheetState extends ConsumerState<_AddServiceSheet> {
               controller: controller,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               autofocus: true,
-              decoration: const InputDecoration(
-                prefixText: 'R ',
-                labelText: 'Price',
+              decoration: InputDecoration(
+                prefixText: _currencyPrefix,
+                labelText: 'Your price',
                 hintText: '0.00',
               ),
             ),
@@ -213,14 +260,15 @@ class _AddServiceSheetState extends ConsumerState<_AddServiceSheet> {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          TextButton(
+          FilledButton(
+            style: FilledButton.styleFrom(minimumSize: const Size(96, 48)),
             onPressed: () async {
-              final val = double.tryParse(controller.text);
+              final val = parseMinor(controller.text);
               if (val == null) return;
               try {
                 await ref.read(apiProvider).updateMenuItem(
                       catalogServiceId: service.id,
-                      priceMinor: (val * 100).round(),
+                      priceMinor: val,
                     );
                 ref.invalidate(myMenuProvider);
                 if (context.mounted) {
@@ -251,21 +299,42 @@ class _CatalogServiceList extends ConsumerWidget {
     final services = ref.watch(catalogServicesProvider(category));
 
     return services.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, __) => Center(child: Text(err.toString())),
-      data: (list) => ListView.separated(
-        itemCount: list.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
-        itemBuilder: (context, i) {
-          final s = list[i];
-          return ListTile(
-            title: Text(s.name),
-            subtitle: Text('${s.typicalDurationMinutes} min'),
-            trailing: const Icon(FreshlyIcons.add),
-            onTap: () => onSelect(s),
-          );
-        },
+      loading: () => ListView(
+        padding: const EdgeInsets.all(FreshlySpacing.md),
+        children: const [JobTileSkeleton(count: 5)],
       ),
+      error: (err, __) => EmptyState(
+        compact: true,
+        icon: FreshlyIcons.error,
+        title: 'Services did not load',
+        message: err is ApiException ? err.message : err.toString(),
+      ),
+      data: (list) {
+        if (list.isEmpty) {
+          return const EmptyState(
+            compact: true,
+            icon: FreshlyIcons.style,
+            title: 'Nothing in this category yet',
+          );
+        }
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(
+              FreshlySpacing.md, 0, FreshlySpacing.md, FreshlySpacing.md),
+          itemCount: list.length,
+          separatorBuilder: (_, __) => const SizedBox(height: FreshlySpacing.sm),
+          itemBuilder: (context, i) {
+            final s = list[i];
+            return Card(
+              child: ListTile(
+                title: Text(s.name),
+                subtitle: Text(formatDuration(s.typicalDurationMinutes)),
+                trailing: const IconBadge(icon: FreshlyIcons.add, size: 36),
+                onTap: () => onSelect(s),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/providers.dart';
 import '../../widgets/load_shedding_banner.dart';
+import '../../widgets/provider_card.dart';
 import '../../widgets/provider_compact_card.dart';
 import '../booking/booking_draft.dart';
 import '../discovery/feed_screen.dart' show currentPositionProvider;
@@ -143,224 +144,202 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     // The hero runs up behind the status bar, so the bar's icons have to turn
     // light over it. SafeArea keeps the bottom inset and leaves the top to the
     // hero, which pads itself by the same amount.
+    final venue = ref.watch(dashboardVenueProvider);
+    final text = Theme.of(context).textTheme;
+
+    // The hero runs up behind the status bar, so the bar's icons have to turn
+    // light over it. SafeArea keeps the bottom inset and leaves the top to the
+    // hero, which pads itself by the same amount.
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
-      body: SafeArea(
-        top: false,
-        child: RefreshIndicator(
-          onRefresh: () async => ref.invalidate(gridStatusProvider),
-          child: ListView(
-            padding: const EdgeInsets.only(bottom: FreshlySpacing.xl),
-            children: [
-              ParallaxHero(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                      FreshlySpacing.md,
-                      MediaQuery.paddingOf(context).top + FreshlySpacing.md,
-                      FreshlySpacing.xs,
-                      FreshlySpacing.xl),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+        body: SafeArea(
+          top: false,
+          child: RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(gridStatusProvider);
+              ref.invalidate(topRatedProvidersProvider);
+              ref.invalidate(powerBackupProvidersProvider);
+              ref.invalidate(recentBookingsProvider);
+            },
+            child: ListView(
+              padding: const EdgeInsets.only(bottom: FreshlySpacing.xl),
+              children: [
+                ParallaxHero(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                        FreshlySpacing.md,
+                        MediaQuery.paddingOf(context).top + FreshlySpacing.sm,
+                        FreshlySpacing.md,
+                        FreshlySpacing.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
-                            Text('Freshly',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineMedium
-                                    ?.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w700)),
-                            const SizedBox(height: 2),
-                            // The chosen location, and the way to change it.
-                            // Where somebody wants service is a preference, and
-                            // a preference you cannot revisit is a trap.
-                            InkWell(
-                              onTap: () => context.push('/location'),
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 6),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(FreshlyIcons.location,
-                                        size: 14, color: FreshlyColors.mint),
-                                    const SizedBox(width: 4),
-                                    Flexible(
-                                      child: Text(
-                                        ref
-                                                .watch(serviceAreaProvider)
-                                                ?.displayName ??
-                                            'Freshness on demand.',
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                            color: FreshlyColors.inkMuted,
-                                            fontSize: 14),
-                                      ),
-                                    ),
-                                    const Icon(FreshlyIcons.expandMore,
-                                        size: 16,
-                                        color: FreshlyColors.inkMuted),
-                                  ],
-                                ),
+                            Expanded(
+                              child: _LocationChip(
+                                label: ref
+                                        .watch(serviceAreaProvider)
+                                        ?.displayName ??
+                                    'Choose your area',
+                                onTap: () => context.push('/location'),
                               ),
+                            ),
+                            const SizedBox(width: FreshlySpacing.sm),
+                            _HeroIconButton(
+                              icon: FreshlyIcons.receipt,
+                              tooltip: 'My bookings',
+                              onPressed: () => context.go('/bookings'),
                             ),
                           ],
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () => context.push('/bookings'),
-                        icon: const Icon(FreshlyIcons.receipt),
-                        color: Colors.white,
-                        tooltip: 'My bookings',
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: FreshlySpacing.md),
-
-              // ── Mode switch ────────────────────────────────────────────────
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
-                child: SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(
-                        value: true,
-                        icon: Icon(FreshlyIcons.car),
-                        label: Text('To me')),
-                    ButtonSegment(
-                        value: false,
-                        icon: Icon(FreshlyIcons.storefront),
-                        label: Text('At a shop')),
-                  ],
-                  selected: {ref.watch(dashboardVenueProvider) == 'mobile'},
-                  onSelectionChanged: (s) => ref
-                      .read(dashboardVenueProvider.notifier)
-                      .state = s.first ? 'mobile' : 'in_shop',
-                  showSelectedIcon: false,
-                ),
-              ),
-
-              grid.when(
-                data: (status) => LoadSheddingBanner(
-                  status: status,
-                  onFilterPressed: () => context.push('/discover?power=true'),
-                ),
-                loading: () => const SizedBox(height: FreshlySpacing.sm),
-                error: (_, __) => const SizedBox(height: FreshlySpacing.sm),
-              ),
-
-              // ── Concierge search ───────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.all(FreshlySpacing.md),
-                child: TextField(
-                  controller: _searchController,
-                  textInputAction: TextInputAction.search,
-                  onSubmitted: (_) => _runConcierge(),
-                  decoration: InputDecoration(
-                    hintText: 'Try "fade at my place tomorrow 4pm"',
-                    prefixIcon: const Icon(FreshlyIcons.sparkles,
-                        color: FreshlyColors.mint),
-                    suffixIcon: _parsing
-                        ? const Padding(
-                            padding: EdgeInsets.all(14),
-                            child: SizedBox(
-                                width: 18,
-                                height: 18,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2)),
-                          )
-                        : IconButton(
-                            icon: const Icon(FreshlyIcons.mic),
-                            tooltip: 'Speak',
-                            onPressed: () {},
+                        const SizedBox(height: FreshlySpacing.lg),
+                        Text(_greeting(),
+                            style: text.bodyLarge
+                                ?.copyWith(color: FreshlyColors.inkMuted)),
+                        const SizedBox(height: 4),
+                        Text('Look sharp,\nwherever you are.',
+                            style: text.displaySmall
+                                ?.copyWith(color: Colors.white)),
+                        const SizedBox(height: FreshlySpacing.lg),
+                        // The concierge: one sentence instead of four taps.
+                        TextField(
+                          controller: _searchController,
+                          textInputAction: TextInputAction.search,
+                          onSubmitted: (_) => _runConcierge(),
+                          style: FreshlyType.style(15,
+                              weight: FontWeight.w500,
+                              color: FreshlyColors.ink),
+                          decoration: InputDecoration(
+                            fillColor: Colors.white,
+                            hintText: 'Try "fade at my place tomorrow 4pm"',
+                            prefixIcon: const Icon(FreshlyIcons.sparkles,
+                                color: FreshlyColors.mintDark),
+                            suffixIcon: _parsing
+                                ? const Padding(
+                                    padding: EdgeInsets.all(14),
+                                    child: SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2)),
+                                  )
+                                : IconButton(
+                                    icon: const Icon(FreshlyIcons.search),
+                                    color: FreshlyColors.ink,
+                                    tooltip: 'Search',
+                                    onPressed: _runConcierge,
+                                  ),
                           ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(height: FreshlySpacing.md),
 
-              // ── Categories ─────────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                    FreshlySpacing.md, 0, FreshlySpacing.md, FreshlySpacing.sm),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('What do you need?',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 17)),
-                    TextButton(
-                      onPressed: () => context.push('/catalog'),
-                      child: const Text('See all'),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(
-                height: 108,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
+                // ── Mode switch ──────────────────────────────────────────────
+                Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
-                  itemCount: ServiceCategory.values.length,
-                  separatorBuilder: (_, __) =>
-                      const SizedBox(width: FreshlySpacing.sm),
-                  itemBuilder: (context, i) {
-                    final category = ServiceCategory.values[i];
-                    return _CategoryTile(
-                      category: category,
-                      onTap: () => _openCategory(category),
-                    );
-                  },
+                  child: SegmentedButton<bool>(
+                    segments: const [
+                      ButtonSegment(
+                          value: true,
+                          icon: Icon(FreshlyIcons.car),
+                          label: Text('Come to me')),
+                      ButtonSegment(
+                          value: false,
+                          icon: Icon(FreshlyIcons.storefront),
+                          label: Text('At a shop')),
+                    ],
+                    selected: {venue == 'mobile'},
+                    onSelectionChanged: (s) => ref
+                        .read(dashboardVenueProvider.notifier)
+                        .state = s.first ? 'mobile' : 'in_shop',
+                    showSelectedIcon: false,
+                  ),
                 ),
-              ),
 
-              const SizedBox(height: FreshlySpacing.lg),
-              _CollectionSection(
-                title: 'Top rated near you',
-                provider: topRatedProvidersProvider,
-                onSeeAll: () => context.push('/discover?rating=4.5'),
-              ),
+                grid.when(
+                  data: (status) => LoadSheddingBanner(
+                    status: status,
+                    onFilterPressed: () => context.push('/discover?power=true'),
+                  ),
+                  loading: () => const SizedBox(height: FreshlySpacing.sm),
+                  error: (_, __) => const SizedBox(height: FreshlySpacing.sm),
+                ),
 
-              const SizedBox(height: FreshlySpacing.lg),
-              _CollectionSection(
-                title: 'Load-shedding ready',
-                provider: powerBackupProvidersProvider,
-                onSeeAll: () => context.push('/discover?power=true'),
-              ),
+                // ── Categories ───────────────────────────────────────────────
+                const SizedBox(height: FreshlySpacing.md),
+                SectionHeader(
+                  title: 'What do you need?',
+                  actionLabel: 'See all',
+                  onAction: () => context.push('/catalog'),
+                ),
+                SizedBox(
+                  height: 104,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: FreshlySpacing.md),
+                    itemCount: ServiceCategory.values.length,
+                    separatorBuilder: (_, __) =>
+                        const SizedBox(width: FreshlySpacing.sm),
+                    itemBuilder: (context, i) {
+                      final category = ServiceCategory.values[i];
+                      return _CategoryTile(
+                        category: category,
+                        onTap: () => _openCategory(category),
+                      );
+                    },
+                  ),
+                ),
 
-              // ── Salons, when they are shopping for one ─────────────────────
-              // Only in shop mode. In mobile mode a list of premises is noise:
-              // the whole proposition there is that nobody has to travel.
-              if (ref.watch(dashboardVenueProvider) == 'in_shop') ...[
                 const SizedBox(height: FreshlySpacing.lg),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
-                  child: Text('Salons near you',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
+                _CollectionSection(
+                  title: 'Top rated near you',
+                  subtitle: venue == 'mobile'
+                      ? 'Pros who come to your door'
+                      : 'Chairs worth the trip',
+                  provider: topRatedProvidersProvider,
+                  onSeeAll: () => context.push('/discover?rating=4.5'),
                 ),
-                const _NearbyShops(),
-              ],
 
-              const SizedBox(height: FreshlySpacing.lg),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
-                child: Text('Book again',
-                    style:
-                        TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
-              ),
-              const _RecentBookings(),
-            ],
+                const SizedBox(height: FreshlySpacing.lg),
+                _CollectionSection(
+                  title: 'Load-shedding ready',
+                  subtitle: 'Battery clippers, lights and backup power',
+                  provider: powerBackupProvidersProvider,
+                  onSeeAll: () => context.push('/discover?power=true'),
+                ),
+
+                // ── Salons, when they are shopping for one ───────────────────
+                // Only in shop mode. In mobile mode a list of premises is noise:
+                // the whole proposition there is that nobody has to travel.
+                if (venue == 'in_shop') ...[
+                  const SizedBox(height: FreshlySpacing.lg),
+                  const SectionHeader(title: 'Salons near you'),
+                  const _NearbyShops(),
+                ],
+
+                const SizedBox(height: FreshlySpacing.lg),
+                const SectionHeader(title: 'Book again'),
+                const _RecentBookings(),
+              ],
+            ),
           ),
         ),
       ),
-    ),
     );
+  }
+
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
   }
 
   @override
@@ -395,32 +374,95 @@ class _CategoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(FreshlySpacing.radius),
-      child: SizedBox(
-        width: 88,
-        child: Column(
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: FreshlyColors.mintSoft,
-                borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+    return Semantics(
+      button: true,
+      label: category.label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+        child: SizedBox(
+          width: 80,
+          child: Column(
+            children: [
+              IconBadge(icon: _icons[category]!, size: 64),
+              const SizedBox(height: 8),
+              ExcludeSemantics(
+                child: Text(category.label,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: FreshlyType.style(12,
+                        weight: FontWeight.w600, height: 1.2)),
               ),
-              child: Icon(_icons[category],
-                  color: FreshlyColors.mintDark, size: 28),
-            ),
-            const SizedBox(height: 6),
-            Text(category.label,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                style:
-                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-          ],
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _LocationChip extends StatelessWidget {
+  const _LocationChip({required this.label, required this.onTap});
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    // Where somebody wants service is a preference, and a preference you
+    // cannot revisit is a trap — so the location is always one tap away.
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Material(
+        color: Colors.white.withValues(alpha: 0.08),
+        shape: const StadiumBorder(),
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const StadiumBorder(),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(FreshlyIcons.location,
+                    size: 16, color: FreshlyColors.mint),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(label,
+                      overflow: TextOverflow.ellipsis,
+                      style: FreshlyType.style(14,
+                          weight: FontWeight.w600, color: Colors.white)),
+                ),
+                const SizedBox(width: 4),
+                const Icon(FreshlyIcons.expandMore,
+                    size: 14, color: FreshlyColors.inkMuted),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroIconButton extends StatelessWidget {
+  const _HeroIconButton(
+      {required this.icon, required this.tooltip, required this.onPressed});
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: onPressed,
+      tooltip: tooltip,
+      style: IconButton.styleFrom(
+        backgroundColor: Colors.white.withValues(alpha: 0.08),
+        foregroundColor: Colors.white,
+        minimumSize: const Size(44, 44),
+      ),
+      icon: Icon(icon, size: 20),
     );
   }
 }
@@ -433,60 +475,62 @@ class _NearbyShops extends ConsumerWidget {
     final shops = ref.watch(nearbyShopsProvider);
 
     return shops.when(
-      loading: () => const Padding(
-        padding: EdgeInsets.all(FreshlySpacing.lg),
-        child: Center(child: CircularProgressIndicator()),
-      ),
-      error: (e, __) => Padding(
-        padding: const EdgeInsets.all(FreshlySpacing.md),
-        child: Text(
-          e is ApiException ? e.message : 'We could not load salons near you.',
-          style: const TextStyle(color: FreshlyColors.inkMuted),
-        ),
+      loading: () => const _ListSkeleton(),
+      error: (e, __) => EmptyState(
+        compact: true,
+        icon: FreshlyIcons.storefront,
+        title: 'Salons did not load',
+        message: e is ApiException ? e.message : 'Pull down to try again.',
       ),
       data: (list) {
         if (list.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.all(FreshlySpacing.md),
-            child: Text(
-              'No salons near you yet. Switch to "To me" and a pro will come '
-              'to you instead.',
-              style: TextStyle(color: FreshlyColors.inkMuted, height: 1.4),
-            ),
+          return EmptyState(
+            compact: true,
+            icon: FreshlyIcons.storefront,
+            title: 'No salons near you yet',
+            message: 'Switch to "Come to me" and a pro will come to you '
+                'instead.',
+            actionLabel: 'Come to me',
+            onAction: () =>
+                ref.read(dashboardVenueProvider.notifier).state = 'mobile',
           );
         }
-        return Column(
-          children: list.map((p) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(
-                  FreshlySpacing.md, FreshlySpacing.sm, FreshlySpacing.md, 0),
-              child: Card(
-                child: ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: FreshlyColors.mintSoft,
-                    child: Icon(FreshlyIcons.storefront,
-                        color: FreshlyColors.mintDark),
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
+          child: Column(
+            children: [
+              for (final p in list)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: FreshlySpacing.sm),
+                  child: ProviderCard(
+                    provider: p,
+                    onTap: () => context.push('/provider/${p.id}'),
                   ),
-                  title: Text(p.displayName,
-                      style: const TextStyle(fontWeight: FontWeight.w700)),
-                  // The address is the whole point of a salon listing: it is
-                  // how somebody decides whether they are willing to travel.
-                  subtitle: Text(
-                    [
-                      if (p.shopAddress != null) p.shopAddress!,
-                      '${p.distanceKm.toStringAsFixed(1)} km · from ${p.fromPrice.format()}',
-                    ].join('\n'),
-                    style: const TextStyle(height: 1.3),
-                  ),
-                  isThreeLine: p.shopAddress != null,
-                  trailing: const Icon(FreshlyIcons.chevronRight),
-                  onTap: () => context.push('/provider/${p.id}'),
                 ),
-              ),
-            );
-          }).toList(),
+            ],
+          ),
         );
       },
+    );
+  }
+}
+
+class _ListSkeleton extends StatelessWidget {
+  const _ListSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
+      child: Column(
+        children: [
+          for (var i = 0; i < 2; i++)
+            const Padding(
+              padding: EdgeInsets.only(bottom: FreshlySpacing.sm),
+              child: Skeleton(height: 84, radius: FreshlySpacing.radius),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -499,46 +543,83 @@ class _RecentBookings extends ConsumerWidget {
     final bookings = ref.watch(recentBookingsProvider);
 
     return bookings.when(
-      loading: () => const Padding(
-        padding: EdgeInsets.all(FreshlySpacing.lg),
-        child: Center(child: CircularProgressIndicator()),
-      ),
+      loading: () => const _ListSkeleton(),
       error: (_, __) => const SizedBox.shrink(),
       data: (list) {
         if (list.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.all(FreshlySpacing.md),
-            child: Text('Your past bookings will appear here.',
-                style: TextStyle(color: FreshlyColors.inkMuted)),
+          return const EmptyState(
+            compact: true,
+            icon: FreshlyIcons.calendar,
+            title: 'Nothing booked yet',
+            message: 'Your favourite pros will be here, one tap from your '
+                'next appointment.',
           );
         }
-        return Column(
-          children: list.take(3).map((b) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(
-                  FreshlySpacing.md, FreshlySpacing.sm, FreshlySpacing.md, 0),
-              child: Card(
-                child: ListTile(
-                  title: Text(b.providerName ?? 'Freshly booking'),
-                  subtitle: Text('${b.reference} · ${b.total.format()}'),
-                  trailing: b.status.isLive
-                      ? const Icon(FreshlyIcons.navigation,
-                          color: FreshlyColors.mint)
-                      : TextButton(
-                          onPressed: () {
-                            final state = context
-                                .findAncestorStateOfType<_DashboardScreenState>();
-                            state?._rebook(b);
-                          },
-                          child: const Text('Rebook'),
-                        ),
-                  onTap: () => b.status.isLive
-                      ? context.push('/track/${b.id}')
-                      : context.push('/provider/${b.providerId}'),
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
+          child: Column(
+            children: list.take(3).map((b) {
+              final name = b.providerName ?? 'Freshly booking';
+              return Padding(
+                padding: const EdgeInsets.only(bottom: FreshlySpacing.sm),
+                child: Card(
+                  child: InkWell(
+                    onTap: () => b.status.isLive
+                        ? context.push('/track/${b.id}')
+                        : context.push('/provider/${b.providerId}'),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          FreshlyAvatar(name: name, size: 48),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium),
+                                const SizedBox(height: 2),
+                                Text(
+                                    '${formatDate(b.scheduledStart ?? b.createdAt)} · ${b.total.format()}',
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall),
+                              ],
+                            ),
+                          ),
+                          if (b.status.isLive)
+                            const StatusPill(
+                                label: 'Live',
+                                tone: FreshlyTone.brand,
+                                icon: FreshlyIcons.navigation)
+                          else
+                            FilledButton(
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size(0, 40),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
+                                textStyle: FreshlyType.style(14,
+                                    weight: FontWeight.w700),
+                              ),
+                              onPressed: () {
+                                final state = context.findAncestorStateOfType<
+                                    _DashboardScreenState>();
+                                state?._rebook(b);
+                              },
+                              child: const Text('Rebook'),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            );
-          }).toList(),
+              );
+            }).toList(),
+          ),
         );
       },
     );
@@ -550,9 +631,11 @@ class _CollectionSection extends ConsumerWidget {
     required this.title,
     required this.provider,
     required this.onSeeAll,
+    this.subtitle,
   });
 
   final String title;
+  final String? subtitle;
   final AutoDisposeFutureProvider<List<ProviderSummary>> provider;
   final VoidCallback onSeeAll;
 
@@ -560,54 +643,49 @@ class _CollectionSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final results = ref.watch(provider);
 
+    // A rail with nothing in it is a heading over a gap; drop the section.
+    if (results.hasValue && (results.value?.isEmpty ?? true)) {
+      return const SizedBox.shrink();
+    }
+    if (results.hasError) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(title,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 17)),
-              TextButton(onPressed: onSeeAll, child: const Text('See all')),
-            ],
-          ),
+        SectionHeader(
+          title: title,
+          subtitle: subtitle,
+          actionLabel: 'See all',
+          onAction: onSeeAll,
         ),
         SizedBox(
-          height: 200,
+          height: ProviderCompactCard.height,
           child: results.when(
             loading: () => ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
               itemCount: 3,
               separatorBuilder: (_, __) =>
-                  const SizedBox(width: FreshlySpacing.sm),
-              itemBuilder: (_, __) => Container(
-                width: 160,
-                decoration: BoxDecoration(
-                  color: FreshlyColors.line.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(FreshlySpacing.radius),
-                ),
-              ),
+                  const SizedBox(width: FreshlySpacing.sm + 4),
+              itemBuilder: (_, __) => const Skeleton(
+                  width: ProviderCompactCard.width,
+                  height: ProviderCompactCard.height,
+                  radius: FreshlySpacing.radius),
             ),
             error: (_, __) => const SizedBox.shrink(),
-            data: (list) {
-              if (list.isEmpty) return const SizedBox.shrink();
-              return ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
-                itemCount: list.length,
-                separatorBuilder: (_, __) =>
-                    const SizedBox(width: FreshlySpacing.sm),
-                itemBuilder: (context, i) => ProviderCompactCard(
-                  provider: list[i],
-                  onTap: () => context.push('/provider/${list[i].id}'),
-                ),
-              );
-            },
+            data: (list) => ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
+              itemCount: list.length,
+              separatorBuilder: (_, __) =>
+                  const SizedBox(width: FreshlySpacing.sm + 4),
+              itemBuilder: (context, i) => ProviderCompactCard(
+                provider: list[i],
+                onTap: () => context.push('/provider/${list[i].id}'),
+              ),
+            ),
           ),
         ),
       ],

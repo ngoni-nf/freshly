@@ -16,5 +16,6 @@ export 'src/widgets/gallery_viewer.dart';
 export 'src/widgets/chat_screen.dart';
 export 'src/widgets/address_picker.dart';
 export 'src/widgets/parallax.dart';
+export 'src/widgets/ui_kit.dart';
 export 'src/util/money.dart';
 export 'src/util/formatters.dart';

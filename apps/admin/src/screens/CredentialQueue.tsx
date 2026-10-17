@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, type Credential } from '../api';
 import { messageFor } from '../App';
+import { Icon, Monogram } from '../ui';
 
 const KIND_LABEL: Record<string, string> = {
   skin_penetration_permit: 'Skin penetration permit',
@@ -53,43 +54,51 @@ export function CredentialQueue() {
 
   return (
     <>
-      <h2>Practitioner licences</h2>
-      <p className="sub">
-        Required before a provider may list microblading, microneedling, laser
-        or scalp micropigmentation. Rejecting one takes their gated services off
-        the market immediately.
-      </p>
+      <header className="page-head">
+        <div>
+          <h2>Practitioner licences</h2>
+          <p className="sub">
+            Required before a provider may list microblading, microneedling, laser
+            or scalp micropigmentation. Rejecting one takes their gated services off
+            the market immediately.
+          </p>
+        </div>
+        {rows !== null && rows.length > 0 && (
+          <span className="pill warning">{rows.length} waiting</span>
+        )}
+      </header>
 
       <div className="notice">
-        Check the registration number against the regulator before approving.
-        Your decision is recorded against your account.
+        <Icon name="shield" size={16} />
+        <span>
+          Check the registration number against the regulator before approving.
+          Your decision is recorded against your account.
+        </span>
       </div>
 
       {error && <p className="error">{error}</p>}
-      {rows === null && <p className="empty">Loading…</p>}
-      {rows?.length === 0 && <p className="empty">No licences waiting.</p>}
+      {rows === null && <p className="empty loading">Loading…</p>}
+      {rows?.length === 0 && (
+        <div className="empty">
+          <div className="empty-title">No licences waiting</div>
+          Submitted permits and registrations appear here for checking.
+        </div>
+      )}
 
       {rows?.map((row) => {
         const expired = row.expiresOn !== null && new Date(row.expiresOn) < new Date();
         return (
-          <div className="card" key={row.id}>
-            <div className="row">
-              <div>
+          <article className="card" key={row.id}>
+            <div className="row center">
+              <Monogram name={row.providerName} large />
+              <div className="grow">
                 <div className="name">{row.providerName}</div>
-                <div className="meta">
-                  <span className="tag">{row.category}</span>
-                  <span className="tag">{row.countryCode}</span>
-                  {expired && <span className="tag bad">already expired</span>}
-                  <br />
-                  {KIND_LABEL[row.credentialKind] ?? row.credentialKind}
-                  {row.issuer && ` · issued by ${row.issuer}`}
-                  <br />
-                  Reference ending {row.referenceLast4 ?? '—'} · expires{' '}
-                  {row.expiresOn ?? 'not stated'} · submitted{' '}
-                  {new Date(row.submittedAt).toLocaleString()}
+                <div className="pills">
+                  <span className="pill info" style={{ textTransform: 'capitalize' }}>{row.category}</span>
+                  <span className="pill">{row.countryCode}</span>
+                  {expired && <span className="pill danger"><span className="dot" />already expired</span>}
                 </div>
               </div>
-
               <div className="actions">
                 <button
                   className="action danger"
@@ -108,7 +117,31 @@ export function CredentialQueue() {
                 </button>
               </div>
             </div>
-          </div>
+            <div className="facts-row">
+              <div className="fact">
+                <div className="k">Licence</div>
+                <div className="v">{KIND_LABEL[row.credentialKind] ?? row.credentialKind}</div>
+              </div>
+              <div className="fact">
+                <div className="k">Issued by</div>
+                <div className="v">{row.issuer ?? 'not stated'}</div>
+              </div>
+              <div className="fact">
+                <div className="k">Reference ending</div>
+                <div className="v mono">{row.referenceLast4 ?? '—'}</div>
+              </div>
+              <div className="fact">
+                <div className="k">Expires</div>
+                <div className="v" style={expired ? { color: 'var(--crimson-ink)' } : undefined}>
+                  {row.expiresOn ?? 'not stated'}
+                </div>
+              </div>
+              <div className="fact">
+                <div className="k">Submitted</div>
+                <div className="v">{new Date(row.submittedAt).toLocaleString()}</div>
+              </div>
+            </div>
+          </article>
         );
       })}
     </>

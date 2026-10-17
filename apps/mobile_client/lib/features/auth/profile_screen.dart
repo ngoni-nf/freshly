@@ -50,67 +50,94 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final law = ref.watch(countryCodeProvider) == 'ZW'
+        ? 'the Cyber and Data Protection Act'
+        : 'POPIA';
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Almost there')),
+      appBar: AppBar(),
       body: ListView(
-        padding: const EdgeInsets.all(FreshlySpacing.lg),
+        padding: const EdgeInsets.fromLTRB(
+            FreshlySpacing.lg, 0, FreshlySpacing.lg, FreshlySpacing.lg),
         children: [
-          Text('Tell us who you are',
-              style: Theme.of(context)
-                  .textTheme
-                  .headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: FreshlySpacing.lg),
+          const ScreenIntro(
+            eyebrow: 'Almost there',
+            title: 'Tell us who you are',
+            subtitle: 'We put your name on bookings and invoices.',
+          ),
+          const SizedBox(height: FreshlySpacing.xl),
           TextField(
             controller: _name,
             textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(labelText: 'Full name'),
+            autofillHints: const [AutofillHints.name],
+            decoration: const InputDecoration(
+              labelText: 'Full name',
+              prefixIcon: Icon(FreshlyIcons.person),
+            ),
             onChanged: (_) => setState(() {}),
           ),
-          const SizedBox(height: FreshlySpacing.md),
+          const SizedBox(height: 12),
           TextField(
             controller: _email,
             keyboardType: TextInputType.emailAddress,
+            autofillHints: const [AutofillHints.email],
             decoration: const InputDecoration(
               labelText: 'Email (optional)',
-              helperText: 'Used to send you invoices after each booking',
+              helperText: 'For the invoice after each booking',
+              prefixIcon: Icon(Icons.mail_outline),
             ),
           ),
           const SizedBox(height: FreshlySpacing.lg),
-          CheckboxListTile(
-            value: _terms,
-            onChanged: (v) => setState(() => _terms = v ?? false),
-            controlAffinity: ListTileControlAffinity.leading,
-            contentPadding: EdgeInsets.zero,
-            title: const Text('I accept the Freshly Terms of Service'),
-          ),
-          CheckboxListTile(
-            value: _privacy,
-            onChanged: (v) => setState(() => _privacy = v ?? false),
-            controlAffinity: ListTileControlAffinity.leading,
-            contentPadding: EdgeInsets.zero,
-            title: const Text('I have read the Privacy Notice'),
-            subtitle: const Text(
-              'How we collect, use and protect your personal information under POPIA.',
+          Card(
+            child: Column(
+              children: [
+                CheckboxListTile(
+                  value: _terms,
+                  onChanged: (v) => setState(() => _terms = v ?? false),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: const Text('I accept the Freshly Terms of Service'),
+                ),
+                const Divider(indent: 16, endIndent: 16),
+                CheckboxListTile(
+                  value: _privacy,
+                  onChanged: (v) => setState(() => _privacy = v ?? false),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: const Text('I have read the Privacy Notice'),
+                  subtitle: Text(
+                    'How we collect, use and protect your personal '
+                    'information under $law.',
+                  ),
+                ),
+                const Divider(indent: 16, endIndent: 16),
+                CheckboxListTile(
+                  value: _marketing,
+                  onChanged: (v) => setState(() => _marketing = v ?? false),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: const Text('Send me offers and updates'),
+                  subtitle: const Text('Optional. Turn off any time.'),
+                ),
+              ],
             ),
-          ),
-          CheckboxListTile(
-            value: _marketing,
-            onChanged: (v) => setState(() => _marketing = v ?? false),
-            controlAffinity: ListTileControlAffinity.leading,
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Send me offers and updates (optional)'),
           ),
           if (_error != null) ...[
             const SizedBox(height: FreshlySpacing.md),
-            Text(_error!, style: const TextStyle(color: FreshlyColors.crimson)),
+            Text(_error!,
+                style: FreshlyType.style(14,
+                    weight: FontWeight.w600, color: FreshlyColors.crimson)),
           ],
-          const SizedBox(height: FreshlySpacing.lg),
-          FilledButton(
-            onPressed: _valid && !_busy ? _submit : null,
-            child: const Text('Continue'),
-          ),
         ],
+      ),
+      bottomNavigationBar: StickyActionBar(
+        child: FilledButton(
+          onPressed: _valid && !_busy ? _submit : null,
+          child: _busy
+              ? const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2.5, color: FreshlyColors.obsidian))
+              : const Text('Continue'),
+        ),
       ),
     );
   }
