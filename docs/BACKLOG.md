@@ -66,18 +66,15 @@ and `PUT /providers/me/availability/rules`.
 
 ## Where things are
 
-**There are three apps in the plan and only two exist.**
-
 | Surface | Path | State |
 |---|---|---|
 | Customer app | `apps/mobile_client` | Built, runs |
 | Provider app | `apps/mobile_partner` | Built, runs |
-| **Admin / ops portal** | `apps/admin` | **Does not exist** |
+| Admin / ops portal | `apps/admin` | Built, deployed as the Cloudflare Worker `freshly` |
 
 `command_screen.dart` in the partner app is a *provider's* dashboard — going
-online, today's jobs, earnings. It is not the ops console. The admin side has
-working API endpoints that nothing calls: KYC review, credential review,
-dispute handling, provider suspension. See issue #1.
+online, today's jobs, earnings. It is not the ops console; that is
+`apps/admin`.
 
 ### Where the API connections live
 
