@@ -161,8 +161,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/track/:id',
           parentNavigatorKey: rootNavigatorKey,
-          builder: (_, s) =>
-              TrackingScreen(bookingId: s.pathParameters['id']!),
+          builder: (_, s) => TrackingScreen(bookingId: s.pathParameters['id']!),
           routes: [
             GoRoute(
               path: 'chat',

@@ -30,7 +30,8 @@ class BiometricLock {
     }
   }
 
-  Future<bool> isEnabled() async => (await _storage.read(key: _enabledKey)) == '1';
+  Future<bool> isEnabled() async =>
+      (await _storage.read(key: _enabledKey)) == '1';
 
   Future<void> setEnabled(bool value) =>
       _storage.write(key: _enabledKey, value: value ? '1' : '0');

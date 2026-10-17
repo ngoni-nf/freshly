@@ -7,7 +7,7 @@ const ZA: MarketConfig = {
   commissionBps: 1250, serviceFeeMinor: 1000, travelFeePerKmMinor: 700, travelFeeFreeKm: 3,
   vatBps: 1500, vatLabel: 'VAT', taxAuthority: 'SARS', paymentProvider: 'stitch',
   kycProvider: 'smileid', sosProvider: 'aura', gridStatusProvider: 'eskom_se_push',
-  cancellationWindowMinutes: 120, cancellationFeeBps: 5000, noShowGraceMinutes: 10,
+  cancellationWindowMinutes: 120, cancellationFeeBps: 5000, noShowGraceMinutes: 10, minPayoutMinor: 5000,
   referralRefereeDiscountMinor: 5000, referralReferrerCreditMinor: 5000, referralCreditTtlDays: 90,
   dispatchOfferSeconds: 60, maxSearchRadiusKm: 25, isLive: true,
 };

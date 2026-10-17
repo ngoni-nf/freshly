@@ -1,4 +1,8 @@
-import { IsBoolean, IsEmail, IsIn, IsOptional, IsString, IsUUID, Length, Matches } from 'class-validator';
+import {
+  ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsEmail, IsIn, IsNumber, IsOptional, IsString,
+  IsUUID, Length, Matches, Max, Min,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class SetServiceAreaDto {
@@ -122,4 +126,60 @@ export class LinkPhoneDto {
   @ApiProperty({ enum: ['ZA', 'ZW'] })
   @IsIn(['ZA', 'ZW'])
   countryCode!: 'ZA' | 'ZW';
+}
+
+/** Mirrors service_category_enum. The database refuses anything else, but a
+ *  validation error names the field; a cast error does not. */
+export const SERVICE_CATEGORIES = [
+  'barber', 'hair', 'nails', 'makeup', 'aesthetics', 'braiding', 'locs', 'massage',
+  'brows', 'lashes', 'beard', 'scalp', 'extensions', 'color', 'body_grooming',
+];
+
+export class BecomeProviderDto {
+  @ApiProperty({ example: 'Tendai Moyo' })
+  @IsString()
+  @Length(2, 120)
+  displayName!: string;
+
+  @ApiProperty({ enum: ['solo', 'salon'] })
+  @IsIn(['solo', 'salon'])
+  businessMode!: 'solo' | 'salon';
+
+  @ApiProperty({ example: ['barber', 'beard'] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(6)
+  @IsIn(SERVICE_CATEGORIES, { each: true })
+  categories!: string[];
+
+  @ApiProperty({ enum: ['mobile', 'in_shop', 'both'] })
+  @IsIn(['mobile', 'in_shop', 'both'])
+  venueMode!: 'mobile' | 'in_shop' | 'both';
+
+  /** Where they work from: the shop, or home for a mobile pro. Dispatch and
+   *  discovery measure from here until the first live location arrives. */
+  @ApiProperty({ example: -17.7932 })
+  @Type(() => Number) @IsNumber() @Min(-90) @Max(90)
+  lat!: number;
+
+  @ApiProperty({ example: 31.0361 })
+  @Type(() => Number) @IsNumber() @Min(-180) @Max(180)
+  lng!: number;
+
+  @ApiPropertyOptional({ example: 'Avondale Shopping Centre, Shop 12' })
+  @IsOptional() @IsString() @Length(3, 300)
+  shopAddress?: string;
+
+  @ApiPropertyOptional({ example: 10, description: 'How far a mobile pro will travel' })
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(1) @Max(50)
+  travelRadiusKm?: number;
+
+  @ApiPropertyOptional({ example: ['battery_clippers'] })
+  @IsOptional() @IsArray() @ArrayMaxSize(5)
+  @IsIn(['generator', 'inverter', 'battery_clippers', 'portable_lights', 'solar'], { each: true })
+  powerBackup?: string[];
+
+  @ApiPropertyOptional({ example: 'Fades and line-ups, ten years in Avondale.' })
+  @IsOptional() @IsString() @Length(0, 600)
+  bio?: string;
 }

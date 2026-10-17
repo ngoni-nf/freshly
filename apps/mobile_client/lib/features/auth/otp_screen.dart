@@ -93,24 +93,23 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final activeEdge = isDark ? FreshlyColors.mint : FreshlyColors.obsidian;
+
     return Scaffold(
       appBar: AppBar(leading: BackButton(onPressed: () => context.pop())),
       body: Padding(
-        padding: const EdgeInsets.all(FreshlySpacing.lg),
+        padding: const EdgeInsets.fromLTRB(
+            FreshlySpacing.lg, 0, FreshlySpacing.lg, FreshlySpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Enter your code',
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineMedium
-                    ?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: FreshlySpacing.sm),
-            Text('Sent to ${widget.phone}',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyLarge
-                    ?.copyWith(color: FreshlyColors.inkMuted)),
+            ScreenIntro(
+              eyebrow: 'Verify',
+              title: 'Enter your code',
+              subtitle: 'We sent 6 digits to ${widget.phone}',
+            ),
             const SizedBox(height: FreshlySpacing.xl),
             // A single hidden field backs six visible boxes: SMS autofill on
             // both platforms targets one field, and fighting that with six
@@ -138,27 +137,37 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                 GestureDetector(
                   onTap: () => _focus.requestFocus(),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: List.generate(6, (i) {
                       final filled = i < _controller.text.length;
-                      return Container(
-                        width: 48,
-                        height: 60,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: filled
-                                ? FreshlyColors.mint
-                                : FreshlyColors.line,
-                            width: filled ? 2 : 1,
+                      final active = i == _controller.text.length;
+                      return Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(left: i == 0 ? 0 : 8),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 120),
+                            height: 64,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: filled
+                                  ? scheme.surface
+                                  : scheme.surfaceContainerHighest,
+                              border: Border.all(
+                                color: _error != null
+                                    ? FreshlyColors.crimson
+                                    : active || filled
+                                        ? activeEdge
+                                        : Colors.transparent,
+                                width: active ? 2 : 1.5,
+                              ),
+                              borderRadius: BorderRadius.circular(
+                                  FreshlySpacing.buttonRadius),
+                            ),
+                            child: Text(
+                              filled ? _controller.text[i] : '',
+                              style: FreshlyType.style(26,
+                                  weight: FontWeight.w800),
+                            ),
                           ),
-                          borderRadius:
-                              BorderRadius.circular(FreshlySpacing.radius),
-                        ),
-                        child: Text(
-                          filled ? _controller.text[i] : '',
-                          style: const TextStyle(
-                              fontSize: 24, fontWeight: FontWeight.w700),
                         ),
                       );
                     }),
@@ -168,21 +177,45 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
             ),
             if (_error != null) ...[
               const SizedBox(height: FreshlySpacing.md),
-              Text(_error!,
-                  style: const TextStyle(color: FreshlyColors.crimson)),
+              Row(
+                children: [
+                  const Icon(FreshlyIcons.error,
+                      size: 18, color: FreshlyColors.crimson),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(_error!,
+                        style: FreshlyType.style(14,
+                            weight: FontWeight.w600,
+                            color: FreshlyColors.crimson)),
+                  ),
+                ],
+              ),
             ],
             const SizedBox(height: FreshlySpacing.lg),
-            Center(
-              child: _secondsLeft > 0
-                  ? Text('Resend code in ${_secondsLeft}s',
-                      style: const TextStyle(color: FreshlyColors.inkMuted))
-                  : TextButton(
-                      onPressed: _resend, child: const Text('Resend code')),
-            ),
             if (_busy)
-              const Padding(
-                padding: EdgeInsets.only(top: FreshlySpacing.lg),
-                child: Center(child: CircularProgressIndicator()),
+              const Row(
+                children: [
+                  SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2)),
+                  SizedBox(width: 10),
+                  Text('Checking your code…'),
+                ],
+              )
+            else if (_secondsLeft > 0)
+              Text(
+                  'Resend code in 0:${_secondsLeft.toString().padLeft(2, '0')}',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: scheme.onSurfaceVariant))
+            else
+              TextButton.icon(
+                style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                onPressed: _resend,
+                icon: const Icon(FreshlyIcons.message, size: 18),
+                label: const Text('Send a new code'),
               ),
           ],
         ),

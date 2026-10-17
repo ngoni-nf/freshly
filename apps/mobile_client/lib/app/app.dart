@@ -37,8 +37,7 @@ class _FreshlyClientAppState extends ConsumerState<FreshlyClientApp>
     // Cover the app the moment it leaves the foreground, so the last screen is
     // already hidden in the task switcher and behind whatever unlock the next
     // resume demands.
-    if (state == AppLifecycleState.paused &&
-        ref.read(lockEnabledProvider)) {
+    if (state == AppLifecycleState.paused && ref.read(lockEnabledProvider)) {
       ref.read(appLockedProvider.notifier).state = true;
     }
   }

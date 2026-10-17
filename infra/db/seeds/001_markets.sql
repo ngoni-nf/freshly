@@ -8,13 +8,15 @@ INSERT INTO countries (
   timezone, commission_bps, service_fee_minor, travel_fee_per_km_minor, travel_fee_free_km,
   vat_bps, vat_label, tax_authority, payment_provider, kyc_provider, sos_provider,
   grid_status_provider, cancellation_window_minutes, cancellation_fee_bps,
-  no_show_grace_minutes, dispatch_offer_seconds, max_search_radius_km, is_live
+  no_show_grace_minutes, dispatch_offer_seconds, max_search_radius_km, is_live,
+  min_payout_minor
 ) VALUES
 -- South Africa: 12.5% commission, R10 service fee, R7/km beyond 3km, 15% VAT.
 ('ZA', 'South Africa', 'ZAR', ARRAY['ZAR']::currency_code_enum[], '+27', 9,
  'Africa/Johannesburg', 1250, 1000, 700, 3.00,
  1500, 'VAT', 'SARS', 'stitch', 'smileid', 'aura',
- 'eskom_se_push', 120, 5000, 10, 60, 25.00, true),
+ 'eskom_se_push', 120, 5000, 10, 60, 25.00, true,
+ 5000),
 
 -- Zimbabwe: USD-first (the functional retail currency), 12.5% commission,
 -- $0.50 service fee, $0.40/km. 15.5% VAT administered by ZIMRA, from
@@ -24,7 +26,9 @@ INSERT INTO countries (
 ('ZW', 'Zimbabwe', 'USD', ARRAY['USD','ZWG']::currency_code_enum[], '+263', 9,
  'Africa/Harare', 1250, 50, 40, 3.00,
  1550, 'VAT', 'ZIMRA', 'paynow', 'smileid', 'mock',
- 'zesa', 120, 5000, 10, 75, 20.00, true);
+ 'zesa', 120, 5000, 10, 75, 20.00, true,
+ -- US$20: two fades, not five. The ZA figure is R50 for the same reason.
+ 2000);
 
 -- --------------------------------------------------------------------------
 -- Launch service areas. Boundaries here are deliberately coarse bounding
@@ -62,7 +66,6 @@ INSERT INTO platform_settings (key, value, description) VALUES
 ('escrow.auth_hold_hours',        '168',             'Gateway authorisation validity; re-auth scheduled jobs beyond this'),
 ('escrow.capture_delay_minutes',  '0',               'Delay between completion and capture, for a dispute cooling-off window'),
 ('payout.instant_fee_bps',        '150',             'Fee charged for instant cash-out versus the free daily batch'),
-('payout.min_amount_minor',       '5000',            'Minimum balance that can be withdrawn'),
 ('review.reveal_window_hours',    '336',             'Both-sided reviews stay hidden until this lapses'),
 ('safety.sos_abort_seconds',      '3',               'Countdown before an SOS is transmitted'),
 ('loadshedding.auto_filter_stage','4',               'At or above this stage, force the power-backup filter on'),

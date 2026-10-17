@@ -14,6 +14,11 @@ export class ChatMessageDto {
   @IsString() @Length(1, 2000) body!: string;
 }
 
+export class AddonRequestDto {
+  @ApiProperty({ description: 'One of your own active services' })
+  @IsUUID() serviceId!: string;
+}
+
 export class AddonResponseDto {
   @ApiProperty({ description: 'The client accepting or refusing the extra work' })
   @IsBoolean() approve!: boolean;

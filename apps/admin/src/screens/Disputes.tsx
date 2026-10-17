@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, type DisputedBooking, type ChatMessage } from '../api';
 import { messageFor } from '../App';
+import { formatMoney } from '../ui';
 
 export function Disputes() {
   const [list, setList] = useState<DisputedBooking[]>([]);
@@ -46,61 +47,97 @@ export function Disputes() {
 
   return (
     <div className="disputes">
-      <header>
-        <h2>Dispute Resolution</h2>
-        <p className="meta">Bookings flagged for mediation. Review evidence and settle funds.</p>
+      <header className="page-head">
+        <div>
+          <h2>Dispute Resolution</h2>
+          <p className="sub">Bookings flagged for mediation. Review evidence and settle funds.</p>
+        </div>
+        {list.length > 0 && <span className="pill warning">{list.length} open</span>}
       </header>
 
-      <div className="split-view" style={{ display: 'grid', gridTemplateColumns: '350px 1fr', gap: '24px' }}>
+      <div className="split">
         <div className="queue">
           {list.length === 0 ? (
-            <div className="empty">No active disputes</div>
+            <div className="empty">
+              <div className="empty-title">No active disputes</div>
+              Flagged bookings land here with their chat history.
+            </div>
           ) : (
             list.map((b) => (
-              <div key={b.id} className={`card clickable ${selected?.id === b.id ? 'active' : ''}`} onClick={() => openDetail(b)}>
-                <div className="row">
-                  <div className="name">{b.reference}</div>
-                  <div className="amount">R {(b.total.minor / 100).toFixed(2)}</div>
+              <button
+                key={b.id}
+                className={`queue-item ${selected?.id === b.id ? 'active' : ''}`}
+                onClick={() => openDetail(b)}
+              >
+                <div className="row center">
+                  <span className="pill mono dark">{b.reference}</span>
+                  <span className="amount">{formatMoney(b.total)}</span>
                 </div>
-                <p className="meta">{b.clientName} vs {b.providerName}</p>
-                <p className="meta" style={{ fontSize: '11px' }}>Flagged {new Date(b.createdAt).toLocaleDateString()}</p>
-              </div>
+                <div style={{ marginTop: 10, fontWeight: 600 }}>
+                  {b.clientName} <span className="meta">vs</span> {b.providerName}
+                </div>
+                <p className="meta" style={{ marginTop: 2 }}>
+                  Flagged {new Date(b.createdAt).toLocaleDateString()}
+                </p>
+              </button>
             ))
           )}
         </div>
 
         <div className="detail">
           {selected ? (
-            <div className="card">
-              <h3>{selected.reference} Detail</h3>
-              <div className="row" style={{ marginBottom: '24px' }}>
+            <div className="card detail-card flush">
+              <div style={{ padding: 24 }}>
+              <div className="row center">
                 <div>
-                   <p className="meta">Client: <strong>{selected.clientName}</strong></p>
-                   <p className="meta">Provider: <strong>{selected.providerName}</strong></p>
+                  <div className="meta">Disputed booking</div>
+                  <h3 style={{ fontSize: 22, fontWeight: 800 }}>{selected.reference}</h3>
                 </div>
-                <div className="actions">
-                  <button className="action danger" disabled={busy} onClick={() => resolve('refund_client')}>Refund Client</button>
-                  <button className="action primary" disabled={busy} onClick={() => resolve('release_to_pro')}>Release to Pro</button>
+                <div style={{ textAlign: 'right' }}>
+                  <div className="meta">Booking total</div>
+                  <div className="amount" style={{ fontSize: 22 }}>{formatMoney(selected.total)}</div>
                 </div>
               </div>
 
-              <h4>Evidence: Chat History</h4>
-              <div className="chat-log" style={{ background: '#f6f8fa', padding: '16px', borderRadius: '8px', maxHeight: '400px', overflowY: 'auto' }}>
+              <div className="parties">
+                <div className="party">
+                  <div className="k">Client</div>
+                  <div className="v">{selected.clientName}</div>
+                </div>
+                <span className="versus">VS</span>
+                <div className="party">
+                  <div className="k">Provider</div>
+                  <div className="v">{selected.providerName}</div>
+                </div>
+              </div>
+
+              <h4 className="section-title" style={{ marginTop: 0, fontSize: 14 }}>Evidence: Chat History</h4>
+              <div className="chat-log">
                 {chat.length === 0 ? (
                   <p className="meta">No messages exchanged</p>
                 ) : (
                   chat.map((m) => (
-                    <div key={m.id} className="bubble">
+                    <div key={m.id} className="bubble" style={{ background: 'var(--surface)' }}>
                        <div className="who">{m.authorId === selected.id ? 'System' : 'Participant'}</div>
                        {m.body}
                     </div>
                   ))
                 )}
               </div>
+              </div>
+
+              <div className="decision-bar">
+                <p className="meta">Settling decides who receives this booking's money. Read the evidence first.</p>
+                <div className="actions">
+                  <button className="action danger lg" disabled={busy} onClick={() => resolve('refund_client')}>Refund Client</button>
+                  <button className="action primary lg" disabled={busy} onClick={() => resolve('release_to_pro')}>Release to Pro</button>
+                </div>
+              </div>
             </div>
           ) : (
-            <div className="empty" style={{ textAlign: 'center', paddingTop: '100px' }}>
-              <p className="meta">Select a dispute from the list to review evidence</p>
+            <div className="empty" style={{ paddingTop: 100, paddingBottom: 100 }}>
+              <div className="empty-title">Nothing selected</div>
+              Select a dispute from the list to review evidence
             </div>
           )}
         </div>

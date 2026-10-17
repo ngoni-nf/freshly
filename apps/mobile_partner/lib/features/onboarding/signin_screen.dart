@@ -19,6 +19,37 @@ class PartnerSignInScreen extends ConsumerStatefulWidget {
       _PartnerSignInScreenState();
 }
 
+class _BrandMark extends StatelessWidget {
+  const _BrandMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: FreshlyColors.mint,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text('F',
+              style: FreshlyType.style(22,
+                  weight: FontWeight.w800, color: FreshlyColors.obsidian)),
+        ),
+        const SizedBox(width: 10),
+        Text('Freshly',
+            style: FreshlyType.style(20,
+                weight: FontWeight.w800, color: Colors.white)),
+        const SizedBox(width: 8),
+        const StatusPill(
+            label: 'Partner', tone: FreshlyTone.brand, dense: true),
+      ],
+    );
+  }
+}
+
 class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
   final _phone = TextEditingController();
   final _code = TextEditingController();
@@ -28,8 +59,8 @@ class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
   String? _error;
 
   static const _markets = {
-    'ZW': (prefix: '+263', digits: 9, flag: '🇿🇼'),
-    'ZA': (prefix: '+27', digits: 9, flag: '🇿🇦'),
+    'ZW': (prefix: '+263', digits: 9, name: 'Zimbabwe', hint: '77 123 4567'),
+    'ZA': (prefix: '+27', digits: 9, name: 'South Africa', hint: '82 123 4567'),
   };
 
   /// The number as Firebase and the backend expect it.
@@ -112,8 +143,9 @@ class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
   }
 
   /// The half shared by the typed-code path and Android's instant verification:
-  /// swap the Firebase token for a session, and refuse a client trying to sign
-  /// in to the pro app.
+  /// swap the Firebase token for a session. A number with no business yet is
+  /// not refused — the notifier routes it to business set-up, which is how a
+  /// new pro signs up in the first place.
   Future<void> _exchange(String idToken) async {
     final session = await ref.read(apiProvider).signInWithFirebase(
           idToken,
@@ -122,130 +154,200 @@ class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
               defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
           pushToken: ref.read(pushTokenProvider),
         );
-    if (!session.isProvider) {
-      if (mounted) {
-        setState(() => _error =
-            'This number is registered as a client. Contact support to become a Freshly pro.');
-      }
-      return;
-    }
     ref.read(partnerAuthProvider.notifier).signedIn(session);
   }
 
   @override
   Widget build(BuildContext context) {
     final market = _markets[_country]!;
+    final text = Theme.of(context).textTheme;
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
 
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(FreshlySpacing.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: FreshlySpacing.xl),
-              Text('Freshly Partner',
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineMedium
-                      ?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: FreshlySpacing.sm),
-              const Text(
-                'Take bookings, get paid the moment a job is done, and keep your '
-                'own diary.',
-                style: TextStyle(
-                    fontSize: 16, height: 1.5, color: FreshlyColors.inkMuted),
-              ),
-              const SizedBox(height: FreshlySpacing.xl),
-              if (!_codeSent) ...[
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 14),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: FreshlyColors.line),
-                        borderRadius:
-                            BorderRadius.circular(FreshlySpacing.radius),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _country,
-                          items: _markets.entries
-                              .map((e) => DropdownMenuItem(
-                                    value: e.key,
-                                    child: Text(
-                                        '${e.value.flag}  ${e.value.prefix}'),
-                                  ))
-                              .toList(),
-                          onChanged: (v) => setState(() => _country = v!),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: FreshlySpacing.sm),
-                    Expanded(
-                      child: TextField(
-                        controller: _phone,
-                        autofocus: true,
-                        keyboardType: TextInputType.phone,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(market.digits + 1),
+    final canSubmit = _codeSent
+        ? _code.text.length == 6
+        : _phone.text.replaceFirst(RegExp(r'^0+'), '').length == market.digits;
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        body: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  ParallaxHero(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                          FreshlySpacing.lg,
+                          MediaQuery.paddingOf(context).top + FreshlySpacing.lg,
+                          FreshlySpacing.lg,
+                          FreshlySpacing.xl),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const _BrandMark(),
+                          const SizedBox(height: FreshlySpacing.xl),
+                          Text('Run your chair\nfrom your phone.',
+                              style: text.displaySmall
+                                  ?.copyWith(color: Colors.white)),
+                          const SizedBox(height: FreshlySpacing.sm),
+                          Text(
+                            'Take bookings, get paid the moment a job is '
+                            'done, and keep your own diary.',
+                            style: text.bodyLarge
+                                ?.copyWith(color: FreshlyColors.inkMuted),
+                          ),
                         ],
-                        decoration:
-                            const InputDecoration(hintText: '82 123 4567'),
-                        onChanged: (_) => setState(() {}),
                       ),
                     ),
-                  ],
-                ),
-              ] else ...[
-                Text('Code sent to ${market.prefix}${_phone.text}',
-                    style: const TextStyle(color: FreshlyColors.inkMuted)),
-                const SizedBox(height: FreshlySpacing.md),
-                TextField(
-                  controller: _code,
-                  autofocus: true,
-                  keyboardType: TextInputType.number,
-                  autofillHints: const [AutofillHints.oneTimeCode],
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(6),
-                  ],
-                  decoration: const InputDecoration(hintText: '6-digit code'),
-                  onChanged: (v) {
-                    setState(() {});
-                    if (v.length == 6) _verify();
-                  },
-                ),
-              ],
-              if (_error != null) ...[
-                const SizedBox(height: FreshlySpacing.md),
-                Text(_error!,
-                    style: const TextStyle(color: FreshlyColors.crimson)),
-              ],
-              const Spacer(),
-              FilledButton(
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(FreshlySpacing.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (!_codeSent) ...[
+                          Text('Your mobile number', style: text.titleMedium),
+                          const SizedBox(height: 4),
+                          Text('We will text you a code to sign in.',
+                              style: text.bodyMedium?.copyWith(color: muted)),
+                          const SizedBox(height: FreshlySpacing.md),
+                          Row(
+                            children: [
+                              Container(
+                                height: 56,
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 12),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainer,
+                                  borderRadius: BorderRadius.circular(
+                                      FreshlySpacing.buttonRadius),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value: _country,
+                                    borderRadius: BorderRadius.circular(
+                                        FreshlySpacing.radius),
+                                    icon: const Icon(FreshlyIcons.expandMore,
+                                        size: 16),
+                                    selectedItemBuilder: (_) => _markets.entries
+                                        .map((e) => Center(
+                                              child: Text(e.value.prefix,
+                                                  style: FreshlyType.style(16,
+                                                      weight: FontWeight.w700,
+                                                      color:
+                                                          FreshlyColors.ink)),
+                                            ))
+                                        .toList(),
+                                    items: _markets.entries
+                                        .map((e) => DropdownMenuItem(
+                                              value: e.key,
+                                              child: Text(
+                                                  '${e.value.name}  ${e.value.prefix}'),
+                                            ))
+                                        .toList(),
+                                    onChanged: (v) =>
+                                        setState(() => _country = v!),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: FreshlySpacing.sm),
+                              Expanded(
+                                child: TextField(
+                                  controller: _phone,
+                                  autofocus: true,
+                                  keyboardType: TextInputType.phone,
+                                  style: FreshlyType.style(17,
+                                      weight: FontWeight.w600,
+                                      color: FreshlyColors.ink),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(
+                                        market.digits + 1),
+                                  ],
+                                  decoration:
+                                      InputDecoration(hintText: market.hint),
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ] else ...[
+                          Text('Enter your code', style: text.titleMedium),
+                          const SizedBox(height: 4),
+                          Text('Sent to ${market.prefix} ${_phone.text}',
+                              style: text.bodyMedium?.copyWith(color: muted)),
+                          const SizedBox(height: FreshlySpacing.md),
+                          TextField(
+                            controller: _code,
+                            autofocus: true,
+                            keyboardType: TextInputType.number,
+                            autofillHints: const [AutofillHints.oneTimeCode],
+                            textAlign: TextAlign.center,
+                            style: FreshlyType.style(26,
+                                    weight: FontWeight.w800,
+                                    color: FreshlyColors.ink)
+                                .copyWith(letterSpacing: 10),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(6),
+                            ],
+                            decoration:
+                                const InputDecoration(hintText: '000000'),
+                            onChanged: (v) {
+                              setState(() {});
+                              if (v.length == 6) _verify();
+                            },
+                          ),
+                        ],
+                        if (_error != null) ...[
+                          const SizedBox(height: FreshlySpacing.md),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: FreshlyColors.crimsonSoft,
+                              borderRadius: BorderRadius.circular(
+                                  FreshlySpacing.radiusSmall),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(FreshlyIcons.error,
+                                    size: 18, color: Color(0xFFB4232A)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(_error!,
+                                      style: text.bodyMedium?.copyWith(
+                                          color: const Color(0xFFB4232A))),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            StickyActionBar(
+              child: FilledButton(
                 onPressed: _busy
                     ? null
-                    : (_codeSent
-                        ? (_code.text.length == 6 ? _verify : null)
-                        : (_phone.text
-                                    .replaceFirst(RegExp(r'^0+'), '')
-                                    .length ==
-                                market.digits
-                            ? _sendCode
-                            : null)),
+                    : (canSubmit ? (_codeSent ? _verify : _sendCode) : null),
                 child: _busy
                     ? const SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
+                            strokeWidth: 2.5, color: FreshlyColors.inkMuted))
                     : Text(_codeSent ? 'Sign in' : 'Send code'),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

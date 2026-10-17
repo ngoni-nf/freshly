@@ -94,59 +94,73 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             ('card', 'Card', FreshlyIcons.card),
           ];
 
+    final text = Theme.of(context).textTheme;
+    final draft = widget.draft;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Confirm and pay')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const _CheckoutSkeleton()
           : ListView(
-              padding: const EdgeInsets.all(FreshlySpacing.md),
+              padding: const EdgeInsets.fromLTRB(FreshlySpacing.md,
+                  FreshlySpacing.sm, FreshlySpacing.md, FreshlySpacing.xl),
               children: [
+                // What they are paying for, in one glance, before the money.
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(FreshlySpacing.md),
+                    child: Row(
+                      children: [
+                        FreshlyAvatar(name: draft.providerName, size: 48),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(draft.providerName, style: text.titleMedium),
+                              const SizedBox(height: 2),
+                              Text(
+                                [
+                                  draft.bookingType == 'scheduled' &&
+                                          draft.scheduledStart != null
+                                      ? formatSlot(draft.scheduledStart!)
+                                      : 'As soon as possible',
+                                  if (draft.destinationAddress != null)
+                                    draft.destinationAddress!,
+                                ].join(' · '),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: text.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 if (_quote != null) ...[
+                  const SizedBox(height: FreshlySpacing.md),
                   Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(FreshlySpacing.md),
+                      padding: const EdgeInsets.fromLTRB(FreshlySpacing.md, 10,
+                          FreshlySpacing.md, FreshlySpacing.md),
                       child: Column(
                         children: [
-                          ..._quote!.breakdown.map((line) => Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 6),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Text(line.label,
-                                          style: TextStyle(
-                                              color: line.kind == 'discount'
-                                                  ? FreshlyColors.mintDark
-                                                  : null)),
-                                    ),
-                                    Text(
-                                      '${line.kind == 'discount' ? '−' : ''}'
-                                      '${formatMinor(line.amountMinor.abs(), _quote!.currency)}',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        color: line.kind == 'discount'
-                                            ? FreshlyColors.mintDark
-                                            : null,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )),
-                          const Divider(height: FreshlySpacing.lg),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Total',
-                                  style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700)),
-                              Text(_quote!.total.format(),
-                                  style: const TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w700)),
-                            ],
+                          for (final line in _quote!.breakdown)
+                            LineItem(
+                              label: line.label,
+                              value: '${line.kind == 'discount' ? '−' : ''}'
+                                  '${formatMinor(line.amountMinor.abs(), _quote!.currency)}',
+                              muted: line.kind == 'info',
+                            ),
+                          const SizedBox(height: 8),
+                          const Divider(),
+                          const SizedBox(height: 8),
+                          LineItem(
+                            label: 'Total',
+                            value: _quote!.total.format(),
+                            emphasis: true,
                           ),
                         ],
                       ),
@@ -154,57 +168,158 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   ),
                   const SizedBox(height: FreshlySpacing.md),
                   const _SecurePaymentInfo(),
-                  const SizedBox(height: FreshlySpacing.md),
-                  const _CancellationPolicyInfo(),
                 ],
                 const SizedBox(height: FreshlySpacing.lg),
-                const Text('Pay with',
-                    style:
-                        TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                const SizedBox(height: FreshlySpacing.sm),
+                Text('Pay with', style: text.titleLarge),
+                const SizedBox(height: 12),
                 // RadioGroup replaced per-tile groupValue/onChanged in Flutter
                 // 3.32; the group now owns the selection.
                 RadioGroup<String>(
                   groupValue: _method,
                   onChanged: (v) => setState(() => _method = v!),
                   child: Column(
-                    children: methods
-                        .map((m) => Card(
-                              margin: const EdgeInsets.only(
-                                  bottom: FreshlySpacing.sm),
-                              child: RadioListTile<String>(
-                                value: m.$1,
-                                secondary: Icon(m.$3),
-                                title: Text(m.$2),
-                              ),
-                            ))
-                        .toList(),
+                    children: [
+                      for (final m in methods)
+                        Padding(
+                          padding:
+                              const EdgeInsets.only(bottom: FreshlySpacing.sm),
+                          child: _MethodTile(
+                            value: m.$1,
+                            label: m.$2,
+                            icon: m.$3,
+                            selected: _method == m.$1,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 if (_error != null) ...[
-                  const SizedBox(height: FreshlySpacing.md),
-                  Text(_error!,
-                      style: const TextStyle(color: FreshlyColors.crimson)),
+                  const SizedBox(height: FreshlySpacing.sm),
+                  _ErrorBanner(
+                      message: _error!,
+                      onRetry: _quote == null ? _fetchQuote : null),
                 ],
+                const SizedBox(height: FreshlySpacing.md),
+                const _CancellationPolicyInfo(),
               ],
             ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(FreshlySpacing.md),
-          child: FilledButton(
-            onPressed: _quote == null || _paying ? null : _pay,
-            child: _paying
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white))
-                : Text(_quote == null
-                    ? 'Confirm'
-                    : 'Pay ${_quote!.total.format()}'),
-          ),
+      bottomNavigationBar: StickyActionBar(
+        child: FilledButton(
+          onPressed: _quote == null || _paying ? null : _pay,
+          child: _paying
+              ? const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2.5, color: FreshlyColors.obsidian))
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(FreshlyIcons.lock, size: 18),
+                    const SizedBox(width: 8),
+                    Text(_quote == null
+                        ? 'Confirm'
+                        : 'Pay ${_quote!.total.format()}'),
+                  ],
+                ),
         ),
       ),
+    );
+  }
+}
+
+class _MethodTile extends StatelessWidget {
+  const _MethodTile({
+    required this.value,
+    required this.label,
+    required this.icon,
+    required this.selected,
+  });
+
+  final String value;
+  final String label;
+  final IconData icon;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: scheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+        side: BorderSide(
+          color: selected
+              ? (isDark ? FreshlyColors.mint : FreshlyColors.obsidian)
+              : scheme.outline,
+          width: selected ? 2 : 1,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: RadioListTile<String>(
+        value: value,
+        controlAffinity: ListTileControlAffinity.trailing,
+        contentPadding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
+        secondary: IconBadge(
+            icon: icon,
+            size: 40,
+            tone: selected ? FreshlyTone.dark : FreshlyTone.neutral),
+        title: Text(label),
+      ),
+    );
+  }
+}
+
+class _ErrorBanner extends StatelessWidget {
+  const _ErrorBanner({required this.message, this.onRetry});
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+      decoration: BoxDecoration(
+        color: FreshlyColors.crimsonSoft,
+        borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+      ),
+      child: Row(
+        children: [
+          const Icon(FreshlyIcons.error, color: FreshlyColors.crimson),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(message,
+                style: FreshlyType.style(14,
+                    weight: FontWeight.w600, color: const Color(0xFFB4232A))),
+          ),
+          if (onRetry != null)
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
+      ),
+    );
+  }
+}
+
+class _CheckoutSkeleton extends StatelessWidget {
+  const _CheckoutSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(FreshlySpacing.md),
+      physics: const NeverScrollableScrollPhysics(),
+      children: const [
+        Skeleton(height: 80, radius: FreshlySpacing.radius),
+        SizedBox(height: FreshlySpacing.md),
+        Skeleton(height: 180, radius: FreshlySpacing.radius),
+        SizedBox(height: FreshlySpacing.lg),
+        Skeleton(width: 120, height: 22),
+        SizedBox(height: 12),
+        Skeleton(height: 64, radius: FreshlySpacing.radius),
+        SizedBox(height: 8),
+        Skeleton(height: 64, radius: FreshlySpacing.radius),
+      ],
     );
   }
 }
@@ -214,22 +329,39 @@ class _SecurePaymentInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(FreshlySpacing.md),
       decoration: BoxDecoration(
-        color: FreshlyColors.mintSoft,
+        color: isDark ? const Color(0xFF0E3A2A) : FreshlyColors.mintSoft,
         borderRadius: BorderRadius.circular(FreshlySpacing.radius),
       ),
-      child: const Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(FreshlyIcons.lock, color: FreshlyColors.mintDark, size: 20),
-          SizedBox(width: FreshlySpacing.sm),
+          const IconBadge(
+              icon: FreshlyIcons.shield, size: 36, tone: FreshlyTone.dark),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              'We hold your payment securely and only release it to your pro '
-              'once the service is done and you have shared your 4-digit code.',
-              style: TextStyle(fontSize: 13, height: 1.4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Protected by Freshly',
+                    style: FreshlyType.style(14,
+                        weight: FontWeight.w800,
+                        color: isDark
+                            ? FreshlyColors.mint
+                            : FreshlyColors.mintInk)),
+                const SizedBox(height: 2),
+                Text(
+                  'We hold your payment securely and only release it to your '
+                  'pro once the service is done and you have shared your '
+                  '4-digit code.',
+                  style: FreshlyType.style(13,
+                      height: 1.45,
+                      color: isDark ? Colors.white70 : FreshlyColors.mintInk),
+                ),
+              ],
             ),
           ),
         ],
@@ -248,34 +380,29 @@ class _CancellationPolicyInfo extends ConsumerWidget {
 
     return markets.when(
       data: (list) {
-        final market = list.firstWhere((m) => m.code == country,
-            orElse: () => list.first);
+        final market =
+            list.firstWhere((m) => m.code == country, orElse: () => list.first);
         final feePct = (market.cancellationFeeBps / 100).toStringAsFixed(0);
-        final windowHrs = (market.cancellationWindowMinutes / 60).toStringAsFixed(0);
+        final windowHrs =
+            (market.cancellationWindowMinutes / 60).toStringAsFixed(0);
 
-        return Container(
-          padding: const EdgeInsets.all(FreshlySpacing.md),
-          decoration: BoxDecoration(
-            color: FreshlyColors.line.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(FreshlySpacing.radius),
-          ),
-          child: Column(
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Row(
-                children: [
-                  Icon(FreshlyIcons.info, size: 18),
-                  SizedBox(width: 8),
-                  Text('Cancellation Policy',
-                      style: TextStyle(fontWeight: FontWeight.w700)),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Cancel for free up to $windowHrs hours before your appointment. '
-                'Late cancellations or no-shows carry a $feePct% fee to protect '
-                'your professional’s time and travel costs.',
-                style: const TextStyle(fontSize: 12, height: 1.4),
+              Icon(FreshlyIcons.info,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Free cancellation up to $windowHrs hours before your '
+                  'appointment. Late cancellations or no-shows carry a '
+                  '$feePct% fee to protect your professional’s time and '
+                  'travel costs.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ),
             ],
           ),

@@ -40,6 +40,14 @@ class PartnerSignedOut extends PartnerAuthState {
   const PartnerSignedOut();
 }
 
+/// Signed in with a plain customer account. Every provider endpoint answers
+/// `insufficient_role` until they open a business, so the app shows nothing
+/// else until they have.
+class PartnerNeedsBusiness extends PartnerAuthState {
+  const PartnerNeedsBusiness(this.session);
+  final AuthSession session;
+}
+
 /// Signed in but not yet cleared to work. The provider can browse and finish
 /// onboarding, but cannot go online or receive a dispatch offer.
 class PartnerPendingVerification extends PartnerAuthState {
@@ -76,11 +84,6 @@ class PartnerAuthNotifier extends StateNotifier<PartnerAuthState> {
 
     try {
       final user = await _ref.read(apiProvider).me();
-      if (!user.isProvider) {
-        await _ref.read(sessionStoreProvider).clear();
-        state = const PartnerSignedOut();
-        return;
-      }
 
       final session = AuthSession(
         accessToken: token,
@@ -97,10 +100,20 @@ class PartnerAuthNotifier extends StateNotifier<PartnerAuthState> {
         isNewUser: false,
       );
 
+      _ref.read(countryCodeProvider.notifier).state = user.countryCode;
+
+      // A number that signed up in the client app, or a pro who closed the app
+      // halfway through sign-up, is a customer with no provider row yet. The
+      // old code signed them out, which looked like a broken login; what they
+      // need is the business set-up step they never finished.
+      if (!user.isProvider) {
+        state = PartnerNeedsBusiness(session);
+        return;
+      }
+
       state = user.isVerifiedProvider
           ? PartnerReady(session)
           : PartnerPendingVerification(session, user.kycStatus ?? 'pending');
-      _ref.read(countryCodeProvider.notifier).state = user.countryCode;
       _ref.read(realtimeProvider).connect(token);
 
       // Presence is server state, not local state. A provider who was online
@@ -113,11 +126,24 @@ class PartnerAuthNotifier extends StateNotifier<PartnerAuthState> {
   }
 
   void signedIn(AuthSession session, {String kycStatus = 'verified'}) {
+    _ref.read(countryCodeProvider.notifier).state = session.countryCode;
+    if (!session.isProvider) {
+      state = PartnerNeedsBusiness(session);
+      return;
+    }
     state = kycStatus == 'verified'
         ? PartnerReady(session)
         : PartnerPendingVerification(session, kycStatus);
     _ref.read(realtimeProvider).connect(session.accessToken);
   }
+
+  /// The session the user is signed in with, whatever stage they are at.
+  AuthSession? get session => switch (state) {
+        PartnerNeedsBusiness(:final session) => session,
+        PartnerPendingVerification(:final session) => session,
+        PartnerReady(:final session) => session,
+        _ => null,
+      };
 
   void signedOut() {
     _ref.read(realtimeProvider).disconnect();
@@ -247,6 +273,16 @@ final earningsHistoryProvider =
 
 final kycStatusProvider = FutureProvider.autoDispose<Map<String, dynamic>>(
   (ref) => ref.watch(apiProvider).kycStatus(),
+);
+
+// ─── Business ────────────────────────────────────────────────────────────────
+
+final myBusinessProvider = FutureProvider.autoDispose<ProviderBusiness>(
+  (ref) => ref.watch(apiProvider).myBusiness(),
+);
+
+final workingHoursProvider = FutureProvider.autoDispose<List<WorkingHours>>(
+  (ref) => ref.watch(apiProvider).workingHours(),
 );
 
 // ─── Menu ────────────────────────────────────────────────────────────────────

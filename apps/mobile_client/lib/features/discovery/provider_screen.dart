@@ -44,12 +44,21 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
 
     return Scaffold(
       body: profile.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const _ProfileSkeleton(),
         error: (e, __) => Center(
-          child:
-              Text(e is ApiException ? e.message : 'Could not load this pro'),
+          child: EmptyState(
+            icon: FreshlyIcons.error,
+            title: 'We could not load this pro',
+            message: e is ApiException
+                ? e.message
+                : 'Check your connection and try again.',
+            actionLabel: 'Try again',
+            onAction: () =>
+                ref.invalidate(providerProfileProvider(widget.providerId)),
+          ),
         ),
         data: (data) {
+          final text = Theme.of(context).textTheme;
           final name = data['displayName'] as String;
           final rating = (data['rating'] as num).toDouble();
           final ratingCount = data['ratingCount'] as int? ?? 0;
@@ -68,8 +77,11 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
           return CustomScrollView(
             slivers: [
               SliverAppBar(
-                expandedHeight: 300,
+                expandedHeight: 320,
                 pinned: true,
+                backgroundColor: FreshlyColors.obsidian,
+                foregroundColor: Colors.white,
+                leading: const _RoundBack(),
                 // Pulling down past the top zooms the portfolio rather than
                 // showing a blank gap. On iOS that is the native feel; on
                 // Android the clamping physics simply never trigger it.
@@ -83,230 +95,181 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
                   stretchModes: still
                       ? const <StretchMode>[]
                       : const [StretchMode.zoomBackground],
-                  background: portfolio.isEmpty
-                      ? const _EmptyPortfolio()
-                      : Stack(
-                          children: [
-                            Positioned.fill(
-                              child: PageView.builder(
-                                itemCount: portfolio.length,
-                                onPageChanged: (i) =>
-                                    setState(() => _portfolioIndex = i),
-                                itemBuilder: (context, i) => InkWell(
-                                  onTap: () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute<void>(
-                                        builder: (_) => GalleryViewer(
-                                          urls: portfolio
-                                              .map((p) => p['url'] as String)
-                                              .toList(),
-                                          initialIndex: i,
-                                        ),
-                                        fullscreenDialog: true,
-                                      ),
-                                    );
-                                  },
-                                  child: Image.network(
-                                    portfolio[i]['url'] as String,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) =>
-                                        Container(color: FreshlyColors.mintSoft),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            if (portfolio.length > 1)
-                              Positioned(
-                                bottom: FreshlySpacing.md,
-                                right: FreshlySpacing.md,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black45,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    '${_portfolioIndex + 1} / ${portfolio.length}',
-                                    style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.all(FreshlySpacing.md),
-                sliver: SliverList.list(children: [
-                  Text(name,
-                      style: const TextStyle(
-                          fontSize: 24, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 6),
-                  Row(children: [
-                    const Icon(FreshlyIcons.star,
-                        size: 18, color: FreshlyColors.gold),
-                    Text(
-                        ' ${rating.toStringAsFixed(1)} ($ratingCount reviews)'),
-                    const Text('   ·   ',
-                        style: TextStyle(color: FreshlyColors.inkMuted)),
-                    Text('${data['completedJobs'] ?? 0} jobs done',
-                        style: const TextStyle(color: FreshlyColors.inkMuted)),
-                  ]),
-                  if (power.isNotEmpty) ...[
-                    const SizedBox(height: FreshlySpacing.md),
-                    Wrap(
-                      spacing: 6,
-                      children: power
-                          .map((p) => Chip(
-                                avatar: const Icon(FreshlyIcons.bolt,
-                                    size: 15, color: FreshlyColors.gold),
-                                label: Text(p.label,
-                                    style: const TextStyle(fontSize: 12)),
-                              ))
-                          .toList(),
-                    ),
-                  ],
-                  if (bio != null) ...[
-                    const SizedBox(height: FreshlySpacing.md),
-                    Text(bio,
-                        style: const TextStyle(
-                            height: 1.5, color: FreshlyColors.inkMuted)),
-                  ],
-                  const SizedBox(height: FreshlySpacing.lg),
-                  const Text('Services',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: FreshlySpacing.sm),
-                  ...services.map((s) {
-                    final chosen = _selected.any((x) => x.id == s.id);
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: FreshlySpacing.sm),
-                      child: CheckboxListTile(
-                        value: chosen,
-                        onChanged: (_) => _toggle(s),
-                        controlAffinity: ListTileControlAffinity.trailing,
-                        title: Text(s.name,
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (s.description != null) Text(s.description!),
-                            const SizedBox(height: 4),
-                            Row(children: [
-                              Text(s.price.format(),
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      color: FreshlyColors.mintDark)),
-                              const Text('  ·  ',
-                                  style:
-                                      TextStyle(color: FreshlyColors.inkMuted)),
-                              Text(formatDuration(s.durationMinutes),
-                                  style: const TextStyle(
-                                      color: FreshlyColors.inkMuted)),
-                              if (s.requiresPower) ...[
-                                const SizedBox(width: 6),
-                                const Icon(FreshlyIcons.bolt,
-                                    size: 14,
-                                    color: FreshlyColors.loadShedding),
-                              ],
-                            ]),
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
-
-                  // ── What people actually said ───────────────────────────
-                  // A score answers "is this person good"; the words answer
-                  // "good at what, and what went wrong for someone" — which is
-                  // the question somebody booking a stranger to come to their
-                  // home is really asking. The API has always returned these;
-                  // the screen showed the average and threw the rest away.
-                  if (reviews.isNotEmpty) ...[
-                    const SizedBox(height: FreshlySpacing.lg),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Recent reviews',
-                            style: TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.w700)),
-                        Text('$ratingCount total',
-                            style: const TextStyle(
-                                color: FreshlyColors.inkMuted, fontSize: 13)),
-                      ],
-                    ),
-                    const SizedBox(height: FreshlySpacing.sm),
-                    ...reviews.take(5).map((r) {
-                      final stars = (r['rating'] as num?)?.toInt() ?? 5;
-                      final tags = (r['tags'] as List? ?? []).cast<String>();
-                      final comment = r['comment'] as String?;
-                      return Card(
-                        margin:
-                            const EdgeInsets.only(bottom: FreshlySpacing.sm),
-                        child: Padding(
-                          padding: const EdgeInsets.all(FreshlySpacing.md),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                  background: _SheetLip(
+                    child: portfolio.isEmpty
+                        ? _EmptyPortfolio(name: name)
+                        : Stack(
                             children: [
-                              Row(children: [
-                                for (var i = 0; i < 5; i++)
-                                  Icon(FreshlyIcons.star,
-                                      size: 14,
-                                      color: i < stars
-                                          ? FreshlyColors.gold
-                                          : FreshlyColors.line),
-                                const SizedBox(width: 8),
-                                Text(
-                                  r['author'] as String? ?? 'A client',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13),
+                              Positioned.fill(
+                                child: PageView.builder(
+                                  itemCount: portfolio.length,
+                                  onPageChanged: (i) =>
+                                      setState(() => _portfolioIndex = i),
+                                  itemBuilder: (context, i) => InkWell(
+                                    onTap: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute<void>(
+                                          builder: (_) => GalleryViewer(
+                                            urls: portfolio
+                                                .map((p) => p['url'] as String)
+                                                .toList(),
+                                            initialIndex: i,
+                                          ),
+                                          fullscreenDialog: true,
+                                        ),
+                                      );
+                                    },
+                                    child: Image.network(
+                                      portfolio[i]['url'] as String,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) =>
+                                          MonogramArt(name: name),
+                                    ),
+                                  ),
                                 ),
-                              ]),
-                              if (comment != null && comment.isNotEmpty) ...[
-                                const SizedBox(height: 6),
-                                Text(comment,
-                                    style: const TextStyle(height: 1.45)),
-                              ],
-                              if (tags.isNotEmpty) ...[
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 6,
-                                  children: tags
-                                      .map((t) => Container(
-                                            padding:
-                                                const EdgeInsets.symmetric(
-                                                    horizontal: 10,
-                                                    vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: FreshlyColors.mintSoft,
-                                              borderRadius:
-                                                  BorderRadius.circular(999),
-                                            ),
-                                            child: Text(t,
-                                                style: const TextStyle(
-                                                    fontSize: 12,
-                                                    color: FreshlyColors
-                                                        .mintDark)),
-                                          ))
-                                      .toList(),
+                              ),
+                              // Keeps the back button legible over a bright photo.
+                              const Positioned(
+                                left: 0,
+                                right: 0,
+                                top: 0,
+                                height: 120,
+                                child: IgnorePointer(
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          Color(0x8C0B0F19),
+                                          Color(0x000B0F19)
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ],
+                              ),
+                              if (portfolio.length > 1)
+                                Positioned(
+                                  bottom: FreshlySpacing.lg + 12,
+                                  right: FreshlySpacing.md,
+                                  child: StatusPill(
+                                    label:
+                                        '${_portfolioIndex + 1} / ${portfolio.length}',
+                                    tone: FreshlyTone.dark,
+                                    icon: FreshlyIcons.gallery,
+                                    dense: true,
+                                  ),
+                                ),
                             ],
                           ),
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: Container(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  padding: const EdgeInsets.fromLTRB(FreshlySpacing.md,
+                      FreshlySpacing.xs, FreshlySpacing.md, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(name, style: text.headlineMedium),
+                          ),
+                          if (data['isOnline'] == true)
+                            const StatusPill(
+                                label: 'Available now',
+                                tone: FreshlyTone.brand),
+                        ],
+                      ),
+                      const SizedBox(height: FreshlySpacing.md),
+                      Row(
+                        children: [
+                          _Stat(
+                            value: ratingCount == 0
+                                ? 'New'
+                                : rating.toStringAsFixed(1),
+                            label: 'Rating',
+                            icon: FreshlyIcons.star,
+                          ),
+                          const SizedBox(width: FreshlySpacing.sm),
+                          _Stat(
+                              value: '$ratingCount',
+                              label: 'Reviews',
+                              icon: FreshlyIcons.message),
+                          const SizedBox(width: FreshlySpacing.sm),
+                          _Stat(
+                              value: '${data['completedJobs'] ?? 0}',
+                              label: 'Jobs done',
+                              icon: FreshlyIcons.checkCircle),
+                        ],
+                      ),
+                      if (power.isNotEmpty) ...[
+                        const SizedBox(height: FreshlySpacing.md),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            for (final p in power)
+                              StatusPill(
+                                label: p.label,
+                                icon: FreshlyIcons.bolt,
+                                tone: FreshlyTone.warning,
+                              ),
+                          ],
                         ),
-                      );
-                    }),
-                  ],
+                      ],
+                      if (bio != null) ...[
+                        const SizedBox(height: FreshlySpacing.md),
+                        Text(bio,
+                            style: text.bodyMedium?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant)),
+                      ],
+                      const SizedBox(height: FreshlySpacing.lg),
+                      const SectionHeader(
+                        title: 'Services',
+                        subtitle: 'Choose one or more',
+                        padding: EdgeInsets.only(bottom: 12),
+                      ),
+                      for (final s in services)
+                        Padding(
+                          padding:
+                              const EdgeInsets.only(bottom: FreshlySpacing.sm),
+                          child: _ServiceTile(
+                            service: s,
+                            selected: _selected.any((x) => x.id == s.id),
+                            onTap: () => _toggle(s),
+                          ),
+                        ),
 
-                  const SizedBox(height: 100),
-                ]),
+                      // ── What people actually said ───────────────────────
+                      // A score answers "is this person good"; the words answer
+                      // "good at what, and what went wrong for someone" — which
+                      // is the question somebody booking a stranger to come to
+                      // their home is really asking.
+                      if (reviews.isNotEmpty) ...[
+                        const SizedBox(height: FreshlySpacing.lg),
+                        SectionHeader(
+                          title: 'What clients say',
+                          subtitle: '$ratingCount reviews',
+                          padding: const EdgeInsets.only(bottom: 12),
+                        ),
+                        for (final r in reviews.take(5))
+                          Padding(
+                            padding: const EdgeInsets.only(
+                                bottom: FreshlySpacing.sm),
+                            child: _ReviewCard(review: r),
+                          ),
+                      ],
+                      const SizedBox(height: 120),
+                    ],
+                  ),
+                ),
               ),
             ],
           );
@@ -314,50 +277,317 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
       ),
       bottomNavigationBar: _selected.isEmpty
           ? null
-          : SafeArea(
-              child: Container(
-                padding: const EdgeInsets.all(FreshlySpacing.md),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  border:
-                      const Border(top: BorderSide(color: FreshlyColors.line)),
-                ),
-                child: Row(children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(formatMinor(_totalMinor, _currency),
-                            style: const TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.w700)),
-                        Text(
-                          '${_selected.length} service${_selected.length == 1 ? '' : 's'} · '
-                          '${formatDuration(_selected.fold(0, (s, e) => s + e.durationMinutes))}',
-                          style: const TextStyle(
-                              fontSize: 12, color: FreshlyColors.inkMuted),
-                        ),
-                      ],
-                    ),
+          : StickyActionBar(
+              leading: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(formatMinor(_totalMinor, _currency),
+                      style: Theme.of(context).textTheme.headlineSmall),
+                  Text(
+                    '${_selected.length} service${_selected.length == 1 ? '' : 's'} · '
+                    '${formatDuration(_selected.fold(0, (s, e) => s + e.durationMinutes))}',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
-                  const SizedBox(width: FreshlySpacing.md),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () {
-                        final data = profile.value!;
-                        context.push('/book/logistics',
-                            extra: BookingDraft(
-                              providerId: widget.providerId,
-                              providerName: data['displayName'] as String,
-                              services: List.of(_selected),
-                            ));
-                      },
-                      child: const Text('Continue'),
-                    ),
-                  ),
-                ]),
+                ],
+              ),
+              child: FilledButton(
+                onPressed: () {
+                  final data = profile.value!;
+                  context.push('/book/logistics',
+                      extra: BookingDraft(
+                        providerId: widget.providerId,
+                        providerName: data['displayName'] as String,
+                        services: List.of(_selected),
+                      ));
+                },
+                child: const Text('Continue'),
               ),
             ),
+    );
+  }
+}
+
+/// The page's top edge, drawn inside the header so it rides over the photo:
+/// the profile reads as one sheet sliding over the portfolio. (A sliver
+/// after a pinned app bar is painted beneath it, so an overlap has to live
+/// here rather than on the content.)
+class _SheetLip extends StatelessWidget {
+  const _SheetLip({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        child,
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: -1,
+          height: FreshlySpacing.radiusLarge,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(FreshlySpacing.radiusLarge)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RoundBack extends StatelessWidget {
+  const _RoundBack();
+
+  @override
+  Widget build(BuildContext context) {
+    if (!(ModalRoute.of(context)?.canPop ?? false) &&
+        !GoRouter.of(context).canPop()) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.all(6),
+      child: IconButton(
+        tooltip: 'Back',
+        style: IconButton.styleFrom(
+          backgroundColor: FreshlyColors.obsidian.withValues(alpha: 0.55),
+          foregroundColor: Colors.white,
+        ),
+        onPressed: () => context.pop(),
+        icon: const Icon(FreshlyIcons.chevronLeft, size: 20),
+      ),
+    );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat({required this.value, required this.label, required this.icon});
+  final String value;
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+          border: Border.all(color: Theme.of(context).colorScheme.outline),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon,
+                    size: 15,
+                    color: icon == FreshlyIcons.star
+                        ? FreshlyColors.gold
+                        : Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(value,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleLarge),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(label, style: Theme.of(context).textTheme.bodySmall),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A service as a whole tappable card: selection is shown by the border and a
+/// filled check, so it reads at a glance which services are in the basket.
+class _ServiceTile extends StatelessWidget {
+  const _ServiceTile(
+      {required this.service, required this.selected, required this.onTap});
+  final ServiceItem service;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final selectedEdge = isDark ? FreshlyColors.mint : FreshlyColors.obsidian;
+    return Semantics(
+      checked: selected,
+      button: true,
+      child: Material(
+        color: scheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+          side: BorderSide(
+              color: selected ? selectedEdge : scheme.outline,
+              width: selected ? 2 : 1),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          customBorder: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(FreshlySpacing.radius)),
+          child: Padding(
+            padding: const EdgeInsets.all(FreshlySpacing.md),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(service.name, style: text.titleMedium),
+                      if (service.description != null) ...[
+                        const SizedBox(height: 2),
+                        Text(service.description!, style: text.bodySmall),
+                      ],
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Text(service.price.format(),
+                              style: FreshlyType.style(15,
+                                  weight: FontWeight.w800,
+                                  color: scheme.primary)),
+                          const SizedBox(width: 8),
+                          StatusPill(
+                              label: formatDuration(service.durationMinutes),
+                              icon: FreshlyIcons.clock,
+                              dense: true),
+                          if (service.requiresPower) ...[
+                            const SizedBox(width: 6),
+                            const StatusPill(
+                                label: 'Needs power',
+                                icon: FreshlyIcons.bolt,
+                                tone: FreshlyTone.warning,
+                                dense: true),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selected ? selectedEdge : Colors.transparent,
+                    border: Border.all(
+                        color: selected ? selectedEdge : scheme.outline,
+                        width: 2),
+                  ),
+                  child: selected
+                      ? Icon(FreshlyIcons.check,
+                          size: 16,
+                          color: isDark
+                              ? FreshlyColors.obsidian
+                              : FreshlyColors.mint)
+                      : const Icon(FreshlyIcons.add, size: 16),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReviewCard extends StatelessWidget {
+  const _ReviewCard({required this.review});
+  final Map<String, dynamic> review;
+
+  @override
+  Widget build(BuildContext context) {
+    final stars = (review['rating'] as num?)?.toInt() ?? 5;
+    final tags = (review['tags'] as List? ?? []).cast<String>();
+    final comment = review['comment'] as String?;
+    final author = review['author'] as String? ?? 'A client';
+    final text = Theme.of(context).textTheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(FreshlySpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              FreshlyAvatar(name: author, size: 32),
+              const SizedBox(width: 10),
+              Expanded(child: Text(author, style: text.titleSmall)),
+              Semantics(
+                label: '$stars out of 5 stars',
+                child: ExcludeSemantics(
+                  child: Row(children: [
+                    for (var i = 0; i < 5; i++)
+                      Icon(FreshlyIcons.star,
+                          size: 14,
+                          color: i < stars
+                              ? FreshlyColors.gold
+                              : Theme.of(context).colorScheme.outline),
+                  ]),
+                ),
+              ),
+            ]),
+            if (comment != null && comment.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(comment, style: text.bodyMedium),
+            ],
+            if (tags.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final t in tags)
+                    StatusPill(label: t, tone: FreshlyTone.brand, dense: true),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileSkeleton extends StatelessWidget {
+  const _ProfileSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: EdgeInsets.zero,
+      physics: const NeverScrollableScrollPhysics(),
+      children: const [
+        Skeleton(height: 320, radius: 0),
+        Padding(
+          padding: EdgeInsets.all(FreshlySpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Skeleton(width: 220, height: 28),
+              SizedBox(height: 16),
+              Skeleton(height: 72, radius: FreshlySpacing.radius),
+              SizedBox(height: 24),
+              Skeleton(height: 96, radius: FreshlySpacing.radius),
+              SizedBox(height: 8),
+              Skeleton(height: 96, radius: FreshlySpacing.radius),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -365,49 +595,26 @@ class _ProviderScreenState extends ConsumerState<ProviderScreen> {
 /// A pro with no photos yet still gets a header with some depth, instead of a
 /// flat block that reads as a page that failed to load.
 class _EmptyPortfolio extends StatelessWidget {
-  const _EmptyPortfolio();
+  const _EmptyPortfolio({required this.name});
+  final String name;
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: FreshlyColors.obsidian,
-      child: Stack(
-        clipBehavior: Clip.hardEdge,
-        children: [
-          Positioned(
-            right: -60,
-            bottom: -80,
-            child: Container(
-              width: 240,
-              height: 240,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: FreshlyColors.mint, width: 34),
-              ),
-            ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        MonogramArt(name: name, fontSize: 96),
+        const Positioned(
+          left: FreshlySpacing.md,
+          bottom: FreshlySpacing.lg + 12,
+          child: StatusPill(
+            label: 'Portfolio coming soon',
+            icon: FreshlyIcons.gallery,
+            tone: FreshlyTone.dark,
+            dense: true,
           ),
-          Positioned(
-            left: -40,
-            top: 40,
-            child: Container(
-              width: 150,
-              height: 150,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: FreshlyColors.mint.withValues(alpha: 0.14),
-              ),
-            ),
-          ),
-          const Positioned(
-            left: FreshlySpacing.md,
-            bottom: FreshlySpacing.lg,
-            child: Text(
-              'No portfolio photos yet',
-              style: TextStyle(color: FreshlyColors.inkMuted, fontSize: 13),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

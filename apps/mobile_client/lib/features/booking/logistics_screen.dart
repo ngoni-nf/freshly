@@ -103,109 +103,144 @@ class _LogisticsScreenState extends ConsumerState<LogisticsScreen> {
   @override
   Widget build(BuildContext context) {
     final draft = widget.draft;
+    final text = Theme.of(context).textTheme;
+    final scheduled = draft.bookingType == 'scheduled';
 
     return Scaffold(
       appBar: AppBar(title: const Text('Where and when')),
       body: ListView(
-        padding: const EdgeInsets.all(FreshlySpacing.md),
+        padding: const EdgeInsets.fromLTRB(FreshlySpacing.md, FreshlySpacing.sm,
+            FreshlySpacing.md, FreshlySpacing.xl),
         children: [
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(
-                  value: 'instant', label: Text('As soon as possible')),
-              ButtonSegment(value: 'scheduled', label: Text('Pick a time')),
+          Text('When', style: text.titleLarge),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _ChoiceCard(
+                  icon: FreshlyIcons.bolt,
+                  title: 'As soon as possible',
+                  subtitle: 'First available pro',
+                  selected: !scheduled,
+                  onTap: () => setState(() => draft.bookingType = 'instant'),
+                ),
+              ),
+              const SizedBox(width: FreshlySpacing.sm),
+              Expanded(
+                child: _ChoiceCard(
+                  icon: FreshlyIcons.calendar,
+                  title: 'Pick a time',
+                  subtitle: scheduled && draft.scheduledStart != null
+                      ? formatSlot(draft.scheduledStart!)
+                      : 'Up to 60 days ahead',
+                  selected: scheduled,
+                  onTap: () {
+                    setState(() => draft.bookingType = 'scheduled');
+                    _pickSlot();
+                  },
+                ),
+              ),
             ],
-            selected: {draft.bookingType},
-            showSelectedIcon: false,
-            onSelectionChanged: (s) {
-              setState(() => draft.bookingType = s.first);
-              if (s.first == 'scheduled' && draft.scheduledStart == null) {
-                _pickSlot();
-              }
-            },
           ),
-          if (draft.bookingType == 'scheduled') ...[
-            const SizedBox(height: FreshlySpacing.md),
-            Card(
-              child: ListTile(
-                leading: const Icon(FreshlyIcons.calendar),
-                title: Text(draft.scheduledStart == null
-                    ? 'Choose a date and time'
-                    : formatSlot(draft.scheduledStart!)),
-                trailing: const Icon(FreshlyIcons.chevronRight),
-                onTap: _pickSlot,
+          const SizedBox(height: FreshlySpacing.lg),
+          Text('Where', style: text.titleLarge),
+          const SizedBox(height: 12),
+          Card(
+            child: InkWell(
+              onTap: _pickAddress,
+              child: Padding(
+                padding: const EdgeInsets.all(FreshlySpacing.md),
+                child: Row(
+                  children: [
+                    _resolving
+                        ? const SizedBox(
+                            width: 44,
+                            height: 44,
+                            child: Padding(
+                              padding: EdgeInsets.all(12),
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ))
+                        : const IconBadge(icon: FreshlyIcons.location),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                              draft.destinationAddress ??
+                                  (_resolving
+                                      ? 'Finding your location…'
+                                      : 'Add an address'),
+                              style: text.titleMedium),
+                          const SizedBox(height: 2),
+                          Text('Shared with your pro only after they accept.',
+                              style: text.bodySmall),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                        onPressed: _pickAddress, child: const Text('Change')),
+                  ],
+                ),
               ),
             ),
-          ],
-          const SizedBox(height: FreshlySpacing.lg),
-          const Text('Address',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-          const SizedBox(height: FreshlySpacing.sm),
-          Card(
-            child: ListTile(
-              leading: _resolving
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(FreshlyIcons.location,
-                      color: FreshlyColors.mint),
-              title: Text(draft.destinationAddress ?? 'Finding your location…'),
-              subtitle: const Text(
-                  'Your exact address is shared only after a pro accepts.'),
-              trailing: TextButton(
-                  onPressed: _pickAddress, child: const Text('Change')),
-            ),
           ),
-          const SizedBox(height: FreshlySpacing.md),
+          const SizedBox(height: 12),
           TextField(
             controller: _notes,
             maxLines: 3,
+            minLines: 2,
             decoration: const InputDecoration(
-              labelText: 'Access notes (optional)',
-              hintText: 'Complex gate code, unit number, which door to use',
+              hintText: 'Access notes: gate code, unit number, which door',
+              prefixIcon: Padding(
+                padding: EdgeInsets.only(bottom: 22),
+                child: Icon(FreshlyIcons.info),
+              ),
             ),
             onChanged: (v) => draft.destinationNotes = v,
           ),
           const SizedBox(height: FreshlySpacing.lg),
+          Text('Your booking', style: text.titleLarge),
+          const SizedBox(height: 12),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(FreshlySpacing.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(draft.providerName,
-                      style: const TextStyle(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: FreshlySpacing.sm),
-                  ...draft.services.map((s) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(child: Text(s.name)),
-                            Text(s.price.format()),
-                          ],
-                        ),
-                      )),
-                  const Divider(height: FreshlySpacing.lg),
-                  Text(
-                      'About ${formatDuration(draft.durationMinutes)} in total',
-                      style: const TextStyle(color: FreshlyColors.inkMuted)),
+                  Row(
+                    children: [
+                      FreshlyAvatar(name: draft.providerName, size: 40),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: Text(draft.providerName,
+                              style: text.titleMedium)),
+                      StatusPill(
+                          label: formatDuration(draft.durationMinutes),
+                          icon: FreshlyIcons.clock,
+                          dense: true),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Divider(),
+                  const SizedBox(height: 6),
+                  for (final s in draft.services)
+                    LineItem(label: s.name, value: s.price.format()),
+                  const SizedBox(height: 4),
+                  Text('Travel and fees are added on the next screen.',
+                      style: text.bodySmall),
                 ],
               ),
             ),
           ),
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(FreshlySpacing.md),
-          child: FilledButton(
-            onPressed: draft.isReadyForCheckout
-                ? () => context.push('/book/checkout', extra: draft)
-                : null,
-            child: const Text('Review and pay'),
-          ),
+      bottomNavigationBar: StickyActionBar(
+        child: FilledButton(
+          onPressed: draft.isReadyForCheckout
+              ? () => context.push('/book/checkout', extra: draft)
+              : null,
+          child: const Text('Review and pay'),
         ),
       ),
     );
@@ -215,5 +250,64 @@ class _LogisticsScreenState extends ConsumerState<LogisticsScreen> {
   void dispose() {
     _notes.dispose();
     super.dispose();
+  }
+}
+
+class _ChoiceCard extends StatelessWidget {
+  const _ChoiceCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final edge = isDark ? FreshlyColors.mint : FreshlyColors.obsidian;
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: Material(
+        color: scheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+          side: BorderSide(
+              color: selected ? edge : scheme.outline, width: selected ? 2 : 1),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          customBorder: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(FreshlySpacing.radius)),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                IconBadge(
+                    icon: icon,
+                    size: 40,
+                    tone: selected ? FreshlyTone.dark : FreshlyTone.neutral),
+                const SizedBox(height: 12),
+                Text(title, style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 2),
+                Text(subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

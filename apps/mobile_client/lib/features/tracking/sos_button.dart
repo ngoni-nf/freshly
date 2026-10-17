@@ -50,7 +50,7 @@ class _SosButtonState extends ConsumerState<SosButton> {
           context: context,
           builder: (_) => AlertDialog(
             icon: const Icon(FreshlyIcons.checkCircle,
-                color: FreshlyColors.mint, size: 40),
+                color: FreshlyColors.mintDark, size: 40),
             title: const Text('Help is on the way'),
             content: const Text(
               'Your location and trip details have been sent to the response team. '

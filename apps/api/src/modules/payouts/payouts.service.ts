@@ -41,6 +41,18 @@ interface AccountRow {
  * puts the funds back — rather than the tempting alternative of holding a
  * database transaction open across a network call to a bank.
  */
+const MOBILE_MONEY_METHODS = new Set(['ecocash', 'onemoney', 'innbucks']);
+
+const DIAL_PREFIX: Record<'ZA' | 'ZW', string> = { ZA: '+27', ZW: '+263' };
+
+/** "0771000001", "771000001" and "+263771000001" are one number in Zimbabwe. */
+function sameNumber(typed: string, e164: string, country: 'ZA' | 'ZW'): boolean {
+  const national = typed.replace(/\D/g, '').replace(/^0+/, '');
+  const prefix = DIAL_PREFIX[country].slice(1);
+  const typedE164 = national.startsWith(prefix) ? `+${national}` : `${DIAL_PREFIX[country]}${national}`;
+  return typedE164 === e164;
+}
+
 @Injectable()
 export class PayoutsService {
   private readonly logger = new Logger(PayoutsService.name);
@@ -122,7 +134,7 @@ export class PayoutsService {
     const account = await this.defaultAccount(providerId);
     const currency = wallet?.currency ?? provider.payout_currency;
     const availableMinor = Number(wallet?.available_minor ?? 0);
-    const minimumMinor = this.markets.setting<number>('payout.min_amount_minor', 5_000);
+    const minimumMinor = this.markets.get(provider.country_code).minPayoutMinor;
 
     return {
       currency,
@@ -208,8 +220,11 @@ export class PayoutsService {
       institutionName?: string;
     },
   ) {
-    const provider = await this.db.queryOne<{ country_code: 'ZA' | 'ZW'; payout_currency: string }>(
-      'SELECT country_code, payout_currency FROM providers WHERE id = $1',
+    const provider = await this.db.queryOne<{
+      country_code: 'ZA' | 'ZW'; payout_currency: string; phone_e164: string | null;
+    }>(
+      `SELECT p.country_code, p.payout_currency, u.phone_e164
+         FROM providers p JOIN users u ON u.id = p.user_id WHERE p.id = $1`,
       [providerId],
     );
     if (!provider) throw new NotFoundError('Provider', providerId);
@@ -226,6 +241,15 @@ export class PayoutsService {
 
     const digits = input.accountNumber.replace(/\s+/g, '');
 
+    // A mobile-money wallet is addressed by a phone number. When it is the
+    // number this provider already proved they hold at sign-in, the account
+    // is theirs by construction and needs no second check. Anything else (a
+    // bank account, somebody else's wallet) waits for ops to verify it.
+    const ownsNumber =
+      MOBILE_MONEY_METHODS.has(input.method) &&
+      provider.phone_e164 != null &&
+      sameNumber(digits, provider.phone_e164, provider.country_code);
+
     return this.db.transaction(async (tx) => {
       // One default at a time, enforced by clearing the others in the same
       // transaction rather than hoping the application always remembers.
@@ -237,7 +261,7 @@ export class PayoutsService {
         `INSERT INTO payout_accounts
            (provider_id, country_code, currency, method, institution_code, institution_name,
             account_name, account_number_enc, account_last4, is_verified, is_default)
-         VALUES ($1, $2::country_code_enum, $3::currency_code_enum, $4, $5, $6, $7, $8, $9, false, true)
+         VALUES ($1, $2::country_code_enum, $3::currency_code_enum, $4, $5, $6, $7, $8, $9, $10, true)
          RETURNING id`,
         [
           providerId,
@@ -249,10 +273,11 @@ export class PayoutsService {
           input.accountName,
           this.crypto.encrypt(digits),
           PiiCryptoService.last4(digits),
-          ],
+          ownsNumber,
+        ],
       );
 
-      return { id: row!.id, last4: PiiCryptoService.last4(digits), isVerified: false };
+      return { id: row!.id, last4: PiiCryptoService.last4(digits), isVerified: ownsNumber };
     });
   }
 
@@ -401,7 +426,7 @@ export class PayoutsService {
         hasAccount: !!account,
         kycStatus: provider.kyc_status,
         isSuspended: provider.is_suspended,
-        minimumMinor: this.markets.setting<number>('payout.min_amount_minor', 5_000),
+        minimumMinor: this.markets.get(provider.country_code).minPayoutMinor,
         instantFeeBps: this.markets.setting<number>('payout.instant_fee_bps', 150),
         instant,
       });

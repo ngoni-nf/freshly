@@ -29,8 +29,8 @@ class _LinkPhoneScreenState extends ConsumerState<LinkPhoneScreen> {
   String? _error;
 
   static const _markets = {
-    'ZW': (prefix: '+263', digits: 9, flag: '🇿🇼'),
-    'ZA': (prefix: '+27', digits: 9, flag: '🇿🇦'),
+    'ZW': (prefix: '+263', digits: 9),
+    'ZA': (prefix: '+27', digits: 9),
   };
 
   String get _country => ref.read(countryCodeProvider);
@@ -134,31 +134,36 @@ class _LinkPhoneScreenState extends ConsumerState<LinkPhoneScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: FreshlySpacing.xl),
-              Text('Add your mobile number',
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineMedium
-                      ?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: FreshlySpacing.sm),
-              const Text(
-                'Your provider needs a way to reach you, and it confirms the job '
-                'is done. We will send a code to verify it.',
-                style: TextStyle(
-                    fontSize: 16, height: 1.4, color: FreshlyColors.inkMuted),
+              const ScreenIntro(
+                eyebrow: 'One more thing',
+                title: 'Add your mobile number',
+                subtitle: 'Your pro needs a way to reach you, and it confirms '
+                    'the job is done. We will send a code to verify it.',
               ),
               const SizedBox(height: FreshlySpacing.xl),
               if (!_codeSent)
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 14),
+                      height: 56,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
                       decoration: BoxDecoration(
-                        border: Border.all(color: FreshlyColors.line),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
                         borderRadius:
-                            BorderRadius.circular(FreshlySpacing.radius),
+                            BorderRadius.circular(FreshlySpacing.buttonRadius),
                       ),
-                      child: Text('${market.flag}  ${market.prefix}'),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CountryBadge(code: _country, size: 28),
+                          const SizedBox(width: 8),
+                          Text(market.prefix,
+                              style: FreshlyType.style(16,
+                                  weight: FontWeight.w700)),
+                        ],
+                      ),
                     ),
                     const SizedBox(width: FreshlySpacing.sm),
                     Expanded(
@@ -170,8 +175,10 @@ class _LinkPhoneScreenState extends ConsumerState<LinkPhoneScreen> {
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(market.digits + 1),
                         ],
-                        decoration:
-                            const InputDecoration(hintText: '82 123 4567'),
+                        decoration: InputDecoration(
+                            hintText: _country == 'ZW'
+                                ? '77 123 4567'
+                                : '82 123 4567'),
                         onChanged: (_) => setState(() {}),
                       ),
                     ),
@@ -179,7 +186,8 @@ class _LinkPhoneScreenState extends ConsumerState<LinkPhoneScreen> {
                 )
               else ...[
                 Text('Code sent to $_e164',
-                    style: const TextStyle(color: FreshlyColors.inkMuted)),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 const SizedBox(height: FreshlySpacing.md),
                 TextField(
                   controller: _code,
@@ -200,7 +208,8 @@ class _LinkPhoneScreenState extends ConsumerState<LinkPhoneScreen> {
               if (_error != null) ...[
                 const SizedBox(height: FreshlySpacing.md),
                 Text(_error!,
-                    style: const TextStyle(color: FreshlyColors.crimson)),
+                    style: FreshlyType.style(14,
+                        weight: FontWeight.w600, color: FreshlyColors.crimson)),
               ],
               const Spacer(),
               FilledButton(
@@ -214,14 +223,14 @@ class _LinkPhoneScreenState extends ConsumerState<LinkPhoneScreen> {
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
+                            strokeWidth: 2.5, color: FreshlyColors.obsidian))
                     : Text(_codeSent ? 'Verify' : 'Send code'),
               ),
               TextButton(
-                onPressed: () =>
-                    ref.read(authStateProvider.notifier).logout(),
-                style:
-                    TextButton.styleFrom(foregroundColor: FreshlyColors.inkMuted),
+                onPressed: () => ref.read(authStateProvider.notifier).logout(),
+                style: TextButton.styleFrom(
+                    foregroundColor:
+                        Theme.of(context).colorScheme.onSurfaceVariant),
                 child: const Text('Sign out'),
               ),
             ],

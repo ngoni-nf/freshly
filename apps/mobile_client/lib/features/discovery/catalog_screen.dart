@@ -26,7 +26,7 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_selectedCategory?.label ?? 'Browse Services'),
+        title: Text(_selectedCategory?.label ?? 'Explore'),
         leading: _selectedCategory != null
             ? BackButton(
                 onPressed: () => setState(() => _selectedCategory = null))
@@ -76,51 +76,79 @@ class _SpecialityGrid extends ConsumerWidget {
     final categories = ref.watch(catalogCategoriesProvider);
 
     return categories.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, __) => Center(child: Text(err.toString())),
-      data: (list) => GridView.builder(
+      loading: () => GridView.count(
         padding: const EdgeInsets.all(FreshlySpacing.md),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          crossAxisSpacing: FreshlySpacing.md,
-          mainAxisSpacing: FreshlySpacing.md,
-          childAspectRatio: 0.8,
-        ),
-        itemCount: list.length,
-        itemBuilder: (context, i) {
-          final item = list[i];
-          return InkWell(
-            onTap: () => onSelect(item.category),
-            borderRadius: BorderRadius.circular(FreshlySpacing.radius),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: FreshlyColors.mintSoft,
-                    borderRadius: BorderRadius.circular(FreshlySpacing.radius),
-                  ),
-                  child: Icon(_icons[item.category],
-                      color: FreshlyColors.mintDark, size: 32),
-                ),
-                const SizedBox(height: FreshlySpacing.xs),
-                Text(
-                  item.category.label,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 13),
-                ),
-                Text(
-                  '${item.providerCount} pros',
-                  style: const TextStyle(
-                      color: FreshlyColors.inkMuted, fontSize: 11),
-                ),
-              ],
+        crossAxisCount: 2,
+        crossAxisSpacing: FreshlySpacing.sm,
+        mainAxisSpacing: FreshlySpacing.sm,
+        childAspectRatio: 1.35,
+        physics: const NeverScrollableScrollPhysics(),
+        children: List.generate(
+            6, (_) => const Skeleton(radius: FreshlySpacing.radius)),
+      ),
+      error: (err, __) => EmptyState(
+        icon: FreshlyIcons.error,
+        title: 'Services did not load',
+        message: err is ApiException
+            ? err.message
+            : 'Check your connection and try again.',
+        actionLabel: 'Try again',
+        onAction: () => ref.invalidate(catalogCategoriesProvider),
+      ),
+      data: (list) => CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(FreshlySpacing.md,
+                FreshlySpacing.xs, FreshlySpacing.md, FreshlySpacing.md),
+            sliver: SliverToBoxAdapter(
+              child: Text('What are you in the mood for?',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ),
-          );
-        },
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+                FreshlySpacing.md, 0, FreshlySpacing.md, FreshlySpacing.xl),
+            sliver: SliverGrid.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: FreshlySpacing.sm,
+                mainAxisSpacing: FreshlySpacing.sm,
+                childAspectRatio: 1.35,
+              ),
+              itemCount: list.length,
+              itemBuilder: (context, i) {
+                final item = list[i];
+                final text = Theme.of(context).textTheme;
+                return Card(
+                  child: InkWell(
+                    onTap: () => onSelect(item.category),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          IconBadge(icon: _icons[item.category]!, size: 44),
+                          const Spacer(),
+                          Text(item.category.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: text.titleMedium),
+                          const SizedBox(height: 2),
+                          Text(
+                              item.providerCount == 1
+                                  ? '1 pro'
+                                  : '${item.providerCount} pros',
+                              style: text.bodySmall),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -136,54 +164,88 @@ class _ServiceList extends ConsumerWidget {
     final services = ref.watch(catalogServicesProvider(category));
 
     return services.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, __) => Center(child: Text(err.toString())),
-      data: (list) => ListView.separated(
+      loading: () => ListView.separated(
         padding: const EdgeInsets.all(FreshlySpacing.md),
-        itemCount: list.length,
-        separatorBuilder: (_, __) => const Divider(height: FreshlySpacing.lg),
-        itemBuilder: (context, i) {
-          final service = list[i];
-          return ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(service.name,
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (service.description != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2, bottom: 4),
-                    child: Text(service.description!,
-                        style: const TextStyle(
-                            fontSize: 13, color: FreshlyColors.inkMuted)),
-                  ),
-                Row(
-                  children: [
-                    const Icon(FreshlyIcons.clock,
-                        size: 14, color: FreshlyColors.inkMuted),
-                    const SizedBox(width: 4),
-                    Text('${service.typicalDurationMinutes} min',
-                        style: const TextStyle(
-                            fontSize: 12, color: FreshlyColors.inkMuted)),
-                    if (service.requiresPower) ...[
-                      const SizedBox(width: FreshlySpacing.md),
-                      const Icon(FreshlyIcons.bolt,
-                          size: 14, color: FreshlyColors.mint),
-                      const SizedBox(width: 4),
-                      const Text('Power needed',
-                          style: TextStyle(
-                              fontSize: 12, color: FreshlyColors.mint)),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-            trailing: const Icon(FreshlyIcons.chevronRight),
-            onTap: () => onSelect(service),
-          );
-        },
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 5,
+        separatorBuilder: (_, __) => const SizedBox(height: FreshlySpacing.sm),
+        itemBuilder: (_, __) =>
+            const Skeleton(height: 84, radius: FreshlySpacing.radius),
       ),
+      error: (err, __) => EmptyState(
+        icon: FreshlyIcons.error,
+        title: 'Services did not load',
+        message: err is ApiException
+            ? err.message
+            : 'Check your connection and try again.',
+        actionLabel: 'Try again',
+        onAction: () => ref.invalidate(catalogServicesProvider(category)),
+      ),
+      data: (list) {
+        if (list.isEmpty) {
+          return const EmptyState(
+            icon: FreshlyIcons.category,
+            title: 'Nothing here yet',
+            message: 'No pros offer this in your area yet. Check back soon.',
+          );
+        }
+        return ListView.separated(
+          padding: const EdgeInsets.all(FreshlySpacing.md),
+          itemCount: list.length,
+          separatorBuilder: (_, __) =>
+              const SizedBox(height: FreshlySpacing.sm),
+          itemBuilder: (context, i) {
+            final service = list[i];
+            final text = Theme.of(context).textTheme;
+            return Card(
+              child: InkWell(
+                onTap: () => onSelect(service),
+                child: Padding(
+                  padding: const EdgeInsets.all(FreshlySpacing.md),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(service.name, style: text.titleMedium),
+                            if (service.description != null) ...[
+                              const SizedBox(height: 2),
+                              Text(service.description!, style: text.bodySmall),
+                            ],
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                StatusPill(
+                                  label: formatDuration(
+                                      service.typicalDurationMinutes),
+                                  icon: FreshlyIcons.clock,
+                                  dense: true,
+                                ),
+                                if (service.requiresPower)
+                                  const StatusPill(
+                                    label: 'Needs power',
+                                    icon: FreshlyIcons.bolt,
+                                    tone: FreshlyTone.warning,
+                                    dense: true,
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Icon(FreshlyIcons.chevronRight, size: 18),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

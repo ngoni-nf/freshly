@@ -27,8 +27,7 @@ class _EmailScreenState extends ConsumerState<EmailScreen> {
   bool _obscure = true;
   String? _error;
 
-  bool get _valid =>
-      _email.text.contains('@') && _password.text.length >= 6;
+  bool get _valid => _email.text.contains('@') && _password.text.length >= 6;
 
   Future<void> _submit() async {
     if (!_valid || _busy) return;
@@ -60,16 +59,11 @@ class _EmailScreenState extends ConsumerState<EmailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Continue with email',
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineMedium
-                    ?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: FreshlySpacing.sm),
-            const Text(
-              'New here? We will create your account. You will add a mobile '
-              'number next.',
-              style: TextStyle(color: FreshlyColors.inkMuted),
+            const ScreenIntro(
+              eyebrow: 'Sign in',
+              title: 'Continue with email',
+              subtitle: 'New here? We will create your account. You will add '
+                  'a mobile number next.',
             ),
             const SizedBox(height: FreshlySpacing.xl),
             TextField(
@@ -77,7 +71,9 @@ class _EmailScreenState extends ConsumerState<EmailScreen> {
               autofocus: true,
               keyboardType: TextInputType.emailAddress,
               autofillHints: const [AutofillHints.email],
-              decoration: const InputDecoration(hintText: 'you@example.com'),
+              decoration: const InputDecoration(
+                  hintText: 'you@example.com',
+                  prefixIcon: Icon(Icons.mail_outline)),
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: FreshlySpacing.md),
@@ -87,9 +83,10 @@ class _EmailScreenState extends ConsumerState<EmailScreen> {
               autofillHints: const [AutofillHints.password],
               decoration: InputDecoration(
                 hintText: 'Password (min 6 characters)',
+                prefixIcon: const Icon(FreshlyIcons.lock),
                 suffixIcon: IconButton(
-                  icon: Icon(
-                      _obscure ? Icons.visibility : Icons.visibility_off),
+                  icon:
+                      Icon(_obscure ? Icons.visibility : Icons.visibility_off),
                   onPressed: () => setState(() => _obscure = !_obscure),
                 ),
               ),
@@ -99,7 +96,8 @@ class _EmailScreenState extends ConsumerState<EmailScreen> {
             if (_error != null) ...[
               const SizedBox(height: FreshlySpacing.md),
               Text(_error!,
-                  style: const TextStyle(color: FreshlyColors.crimson)),
+                  style: FreshlyType.style(14,
+                      weight: FontWeight.w600, color: FreshlyColors.crimson)),
             ],
             const Spacer(),
             FilledButton(
@@ -109,7 +107,7 @@ class _EmailScreenState extends ConsumerState<EmailScreen> {
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
+                          strokeWidth: 2.5, color: FreshlyColors.obsidian))
                   : const Text('Continue'),
             ),
           ],

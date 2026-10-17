@@ -269,6 +269,53 @@ class FreshlyApi {
         (_) {},
       );
 
+  /// Turn the signed-in account into a provider. Returns a new session,
+  /// because the provider role and id live in the token; the caller must
+  /// replace the one it holds.
+  Future<AuthSession> becomeProvider(ProviderSignUp input) async {
+    final result = await _unwrap(
+      _dio.post('/auth/become-provider', data: input.toJson()),
+      (d) => AuthSession.fromJson(d as Map<String, dynamic>),
+    );
+    await session.save(result);
+    return result;
+  }
+
+  Future<ProviderBusiness> myBusiness() => _unwrap(_dio.get('/providers/me'),
+      (d) => ProviderBusiness.fromJson(d as Map<String, dynamic>));
+
+  /// Only the fields given change; everything else stays as it is.
+  Future<ProviderBusiness> updateBusiness(Map<String, dynamic> changes) =>
+      _unwrap(
+        _dio.patch('/providers/me', data: changes),
+        (d) => ProviderBusiness.fromJson(d as Map<String, dynamic>),
+      );
+
+  Future<List<WorkingHours>> workingHours() => _unwrap(
+      _dio.get('/providers/me/availability/rules'),
+      (d) => (d as List)
+          .map((r) => WorkingHours.fromJson(r as Map<String, dynamic>))
+          .toList());
+
+  /// Replaces the whole week.
+  Future<List<WorkingHours>> setWorkingHours(List<WorkingHours> rules) =>
+      _unwrap(
+        _dio.put('/providers/me/availability/rules',
+            data: {'rules': rules.map((r) => r.toJson()).toList()}),
+        (d) => (d as List)
+            .map((r) => WorkingHours.fromJson(r as Map<String, dynamic>))
+            .toList(),
+      );
+
+  /// Suggest one more service mid-job. The client approves it in their app
+  /// before anything is charged.
+  Future<AddonRequest> requestAddon(String bookingId, String serviceId) =>
+      _unwrap(
+        _dio.post('/bookings/$bookingId/addons',
+            data: {'serviceId': serviceId}),
+        (d) => AddonRequest.fromJson(d as Map<String, dynamic>),
+      );
+
   /// The signed-in user. Used to restore a session at launch — the stored
   /// token proves nothing about the account's current state.
   Future<CurrentUser> me() => _unwrap(_dio.get('/auth/me'),
@@ -289,12 +336,16 @@ class FreshlyApi {
   /// entitled to know whether we cover them before handing over a number.
   Future<List<Market>> markets() => _unwrap(
         _dio.get('/markets'),
-        (d) => (d as List).map((e) => Market.fromJson(e as Map<String, dynamic>)).toList(),
+        (d) => (d as List)
+            .map((e) => Market.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 
   Future<List<ServiceArea>> serviceAreas() => _unwrap(
         _dio.get('/markets/areas'),
-        (d) => (d as List).map((e) => ServiceArea.fromJson(e as Map<String, dynamic>)).toList(),
+        (d) => (d as List)
+            .map((e) => ServiceArea.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 
   /// Suburb autocomplete. Only ever suggests somewhere we actually operate, so
@@ -302,14 +353,17 @@ class FreshlyApi {
   ///
   /// An empty query returns the busiest suburbs, which makes the field useful
   /// before the first keystroke.
-  Future<List<Place>> places({String? query, String? countryCode, int limit = 8}) =>
+  Future<List<Place>> places(
+          {String? query, String? countryCode, int limit = 8}) =>
       _unwrap(
         _dio.get('/markets/places', queryParameters: {
           if (query != null && query.isNotEmpty) 'q': query,
           if (countryCode != null) 'countryCode': countryCode,
           'limit': limit,
         }),
-        (d) => (d as List).map((e) => Place.fromJson(e as Map<String, dynamic>)).toList(),
+        (d) => (d as List)
+            .map((e) => Place.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 
   // ─── Addresses ───────────────────────────────────────────────────────────
@@ -386,7 +440,9 @@ class FreshlyApi {
   ///
   /// Prefer [placeId]: a suburb is what the person recognises, and it decides
   /// the area on the server, so the two can never disagree.
-  Future<ServiceArea> setServiceArea({String? serviceAreaId, String? placeId}) => _unwrap(
+  Future<ServiceArea> setServiceArea(
+          {String? serviceAreaId, String? placeId}) =>
+      _unwrap(
         _dio.post('/auth/service-area', data: {
           if (serviceAreaId != null) 'serviceAreaId': serviceAreaId,
           if (placeId != null) 'placeId': placeId,
@@ -467,8 +523,10 @@ class FreshlyApi {
     required int priceMinor,
   }) =>
       _unwrap(
-        _dio.post('/catalog/me/menu',
-            data: {'catalogServiceId': catalogServiceId, 'priceMinor': priceMinor}),
+        _dio.post('/catalog/me/menu', data: {
+          'catalogServiceId': catalogServiceId,
+          'priceMinor': priceMinor
+        }),
         (d) => ProviderMenuItem.fromJson(d as Map<String, dynamic>),
       );
 
@@ -784,6 +842,92 @@ class FreshlyApi {
       _unwrap(_dio.post('/safety/sos/$sosId/abort'), (_) {});
 
   // ─── Storage ─────────────────────────────────────────────────────────────
+  // ─── Invoices ─────────────────────────────────────────────────────────
+
+  Future<List<Invoice>> invoices(String bookingId) => _unwrap(
+        _dio.get('/bookings/$bookingId/invoices'),
+        (d) => (d as List)
+            .map((i) => Invoice.fromJson(i as Map<String, dynamic>))
+            .toList(),
+      );
+
+  /// The PDF bytes. Fetched through the client so the auth header goes with
+  /// it; the app then shares or opens the file itself.
+  Future<List<int>> downloadInvoice(String invoiceId) async {
+    final res = await _dio.get<List<int>>('/invoices/$invoiceId.pdf',
+        options: Options(responseType: ResponseType.bytes));
+    return res.data ?? const [];
+  }
+
+  // ─── Salon staff ──────────────────────────────────────────────────────
+
+  Future<List<StaffMember>> myStaff() => _unwrap(
+        _dio.get('/providers/me/staff'),
+        (d) => (d as List)
+            .map((s) => StaffMember.fromJson(s as Map<String, dynamic>))
+            .toList(),
+      );
+
+  Future<void> inviteStaff(String phoneE164) => _unwrap(
+      _dio.post('/providers/me/staff/invites', data: {'phone': phoneE164}),
+      (_) {});
+
+  Future<void> removeStaff(String id) =>
+      _unwrap(_dio.delete('/providers/me/staff/$id'), (_) {});
+
+  /// [staffId] null hands the job back to the salon itself.
+  Future<void> assignBooking(String bookingId, String? staffId) => _unwrap(
+      _dio.post('/bookings/$bookingId/assign', data: {'staffId': staffId}),
+      (_) {});
+
+  Future<List<StaffInvite>> staffInvites() => _unwrap(
+        _dio.get('/auth/staff-invites'),
+        (d) => (d as List)
+            .map((s) => StaffInvite.fromJson(s as Map<String, dynamic>))
+            .toList(),
+      );
+
+  /// Joining a salon is a sign-up: the session that comes back is the first
+  /// one carrying the provider role, exactly as after [becomeProvider].
+  Future<AuthSession> acceptStaffInvite(String id) async {
+    final result = await _unwrap(
+      _dio.post('/auth/staff-invites/$id/accept'),
+      (d) => AuthSession.fromJson(d as Map<String, dynamic>),
+    );
+    await session.save(result);
+    return result;
+  }
+
+  // ─── Support ──────────────────────────────────────────────────────────
+
+  Future<List<SupportTicket>> myTickets() => _unwrap(
+        _dio.get('/support/tickets'),
+        (d) => (d as List)
+            .map((t) => SupportTicket.fromJson(t as Map<String, dynamic>))
+            .toList(),
+      );
+
+  /// [raisedBy] tells the ops console which queue to file it in.
+  Future<void> raiseTicket({
+    required String subject,
+    required String body,
+    required String raisedBy,
+    String? bookingId,
+  }) =>
+      _unwrap(
+        _dio.post('/support/tickets', data: {
+          'subject': subject,
+          'body': body,
+          'raisedBy': raisedBy,
+          if (bookingId != null) 'bookingId': bookingId,
+        }),
+        (_) {},
+      );
+
+  Future<void> addTicketMessage(String ticketId, String body) => _unwrap(
+      _dio.post('/support/tickets/$ticketId/messages', data: {'body': body}),
+      (_) {});
+
   Future<UploadInstruction> getUploadUrl(String contentType) => _unwrap(
         _dio.post('/storage/uploads', data: {'contentType': contentType}),
         (d) => UploadInstruction.fromJson(d as Map<String, dynamic>),
@@ -794,7 +938,8 @@ class FreshlyApi {
   /// The Authorization header is NOT sent — a signed URL carries its own proof
   /// of permission, and a service role token or a user JWT will cause most
   /// cloud providers to reject the request.
-  Future<void> uploadFile(String url, List<int> bytes, String contentType) async {
+  Future<void> uploadFile(
+      String url, List<int> bytes, String contentType) async {
     final res = await Dio().put(
       url,
       data: Stream.fromIterable([bytes]),

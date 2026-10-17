@@ -2,7 +2,7 @@ import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import {
-  CompleteProfileDto, FirebaseSignInDto, LinkPhoneDto, RefreshDto, RegisterPushTokenDto,
+  BecomeProviderDto, CompleteProfileDto, FirebaseSignInDto, LinkPhoneDto, RefreshDto, RegisterPushTokenDto,
   RequestOtpDto, SetServiceAreaDto, VerifyOtpDto,
 } from './dto/auth.dto';
 import { CurrentUser, Public } from '../../common/decorators';
@@ -59,6 +59,12 @@ export class AuthController {
   @ApiOperation({ summary: 'Complete the profile and record consent' })
   completeProfile(@CurrentUser('userId') userId: string, @Body() dto: CompleteProfileDto) {
     return this.auth.completeProfile(userId, dto);
+  }
+
+  @Post('become-provider')
+  @ApiOperation({ summary: 'Register the signed-in account as a provider; returns a new session' })
+  becomeProvider(@CurrentUser('userId') userId: string, @Body() dto: BecomeProviderDto) {
+    return this.auth.becomeProvider(userId, dto);
   }
 
   @Post('service-area')

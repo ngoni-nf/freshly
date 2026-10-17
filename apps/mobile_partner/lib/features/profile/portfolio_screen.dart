@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
@@ -42,7 +41,8 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
       ref.invalidate(myPortfolioProvider);
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       if (mounted) setState(() => _uploading = false);
@@ -56,7 +56,9 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
         title: const Text('Remove photo?'),
         content: const Text('This photo will be removed from your portfolio.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: FreshlyColors.crimson),
@@ -73,7 +75,8 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
       ref.invalidate(myPortfolioProvider);
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -84,12 +87,15 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Work'),
+        title: const Text('Portfolio'),
         actions: [
           if (_uploading)
             const Padding(
               padding: EdgeInsets.all(16),
-              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+              child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2)),
             )
           else
             IconButton(
@@ -97,35 +103,34 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
               onPressed: _pickAndUpload,
               tooltip: 'Add photo',
             ),
+          const SizedBox(width: 4),
         ],
       ),
       body: portfolio.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, __) => Center(child: Text(err.toString())),
+        loading: () => GridView.count(
+          padding: const EdgeInsets.all(FreshlySpacing.md),
+          crossAxisCount: 3,
+          crossAxisSpacing: FreshlySpacing.sm,
+          mainAxisSpacing: FreshlySpacing.sm,
+          children: List.generate(
+              6, (_) => const Skeleton(radius: FreshlySpacing.radiusSmall)),
+        ),
+        error: (err, __) => EmptyState(
+          icon: FreshlyIcons.gallery,
+          title: 'Your photos did not load',
+          message: err is ApiException ? err.message : err.toString(),
+          actionLabel: 'Try again',
+          onAction: () => ref.invalidate(myPortfolioProvider),
+        ),
         data: (items) {
           if (items.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(FreshlySpacing.xl),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(FreshlyIcons.gallery, size: 48, color: FreshlyColors.inkMuted),
-                    const SizedBox(height: FreshlySpacing.md),
-                    const Text(
-                      'Your gallery is empty. Add photos of your work to show '
-                      'clients what you can do.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: FreshlyColors.inkMuted, height: 1.4),
-                    ),
-                    const SizedBox(height: FreshlySpacing.lg),
-                    FilledButton(
-                      onPressed: _pickAndUpload,
-                      child: const Text('Add your first photo'),
-                    ),
-                  ],
-                ),
-              ),
+            return EmptyState(
+              icon: FreshlyIcons.gallery,
+              title: 'Show what you can do',
+              message: 'Clients choose with their eyes. Add photos of your '
+                  'best cuts, braids and sets.',
+              actionLabel: 'Add your first photo',
+              onAction: _uploading ? null : _pickAndUpload,
             );
           }
           return GridView.builder(
@@ -138,7 +143,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
             itemCount: items.length,
             itemBuilder: (context, i) {
               final item = items[i];
-              return InkWell(
+              return GestureDetector(
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
@@ -154,16 +159,36 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                   children: [
                     Positioned.fill(
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(FreshlySpacing.radius / 2),
-                        child: Image.network(item.url, fit: BoxFit.cover),
+                        borderRadius:
+                            BorderRadius.circular(FreshlySpacing.radiusSmall),
+                        child: Image.network(
+                          item.url,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => ColoredBox(
+                            color:
+                                Theme.of(context).colorScheme.surfaceContainer,
+                            child: const Icon(FreshlyIcons.gallery,
+                                color: FreshlyColors.inkMuted),
+                          ),
+                        ),
                       ),
                     ),
                     Positioned(
-                      top: 4,
-                      right: 4,
+                      top: 0,
+                      right: 0,
                       child: IconButton(
-                        icon: const Icon(FreshlyIcons.delete, color: Colors.white, size: 20),
-                        style: IconButton.styleFrom(backgroundColor: Colors.black38),
+                        tooltip: 'Remove photo',
+                        icon: Container(
+                          width: 30,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            color:
+                                FreshlyColors.obsidian.withValues(alpha: 0.6),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(FreshlyIcons.delete,
+                              color: Colors.white, size: 16),
+                        ),
                         onPressed: () => _delete(item.id),
                       ),
                     ),

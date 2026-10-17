@@ -44,3 +44,28 @@ class Money {
 
 String formatMinor(int minor, String currency) =>
     Money(minor: minor, currency: currency).format();
+
+/// Basis points of an amount, rounded half away from zero in integer maths —
+/// the same rule as `applyBps` on the API, so a fee the app quotes before a
+/// cash-out is the fee the server charges.
+int applyBps(int amountMinor, int bps) {
+  final scaled = amountMinor * bps;
+  final sign = scaled < 0 ? -1 : 1;
+  return sign * ((scaled.abs() + 5000) ~/ 10000);
+}
+
+/// Parses a typed price such as "12", "12.5" or "12.50" into minor units
+/// without passing through a double, so "12.35" is 1235 and never 1234.
+/// Returns null for anything that is not a non-negative amount with at most
+/// two decimals.
+int? parseMinor(String input) {
+  final match = RegExp(r'^\s*(\d+)(?:[.,](\d{0,2}))?\s*$').firstMatch(input);
+  if (match == null) return null;
+  final whole = int.parse(match.group(1)!);
+  final cents = (match.group(2) ?? '').padRight(2, '0');
+  return whole * 100 + int.parse(cents);
+}
+
+/// The inverse of [parseMinor], for pre-filling a price field: 1250 -> "12.50".
+String minorToInput(int minor) =>
+    '${minor ~/ 100}.${(minor % 100).toString().padLeft(2, '0')}';
