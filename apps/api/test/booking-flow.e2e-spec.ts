@@ -83,10 +83,13 @@ maybeDescribe('booking flow (e2e)', () => {
 
     expect(res.body.currency).toBe('ZAR');
     expect(res.body.serviceFeeMinor).toBe(1000);
-    // The quote must already reconcile before a cent is authorised.
-    expect(
-      res.body.commissionMinor + res.body.providerPayoutMinor + res.body.serviceFeeMinor,
-    ).toBe(res.body.totalMinor);
+    // The lines the customer sees must add up to what they are charged.
+    const lines = res.body.breakdown as Array<{ amountMinor: number }>;
+    expect(lines.reduce((sum, l) => sum + l.amountMinor, 0)).toBe(res.body.totalMinor);
+    // The split between provider and platform never reaches a customer's phone.
+    expect(res.body.commissionMinor).toBeUndefined();
+    expect(res.body.providerPayoutMinor).toBeUndefined();
+    expect(res.body.commissionBps).toBeUndefined();
   });
 
   it('refuses to create a booking twice for one idempotency key', async () => {
@@ -180,12 +183,28 @@ maybeDescribe('booking flow (e2e)', () => {
       .expect(200);
     expect(pinRes.body.pin).toMatch(/^\d{4}$/);
 
+    // The provider app sends one fixed key per booking for "complete". A tap
+    // before the PIN is refused, and the same key must still work afterwards:
+    // a refusal that locked the key would leave the job impossible to finish.
+    await request(app.getHttpServer())
+      .post(`/bookings/${bookingId}/complete`)
+      .set('Authorization', `Bearer ${providerToken}`)
+      .set('Idempotency-Key', `${key}-done`)
+      .expect(409);
+
     await request(app.getHttpServer())
       .post(`/bookings/${bookingId}/verify-pin`)
       .set('Authorization', `Bearer ${providerToken}`)
       .send({ pin: pinRes.body.pin })
       .expect(201);
 
+    await request(app.getHttpServer())
+      .post(`/bookings/${bookingId}/complete`)
+      .set('Authorization', `Bearer ${providerToken}`)
+      .set('Idempotency-Key', `${key}-done`)
+      .expect(201);
+
+    // And a replay of the success is the stored answer, not a second capture.
     await request(app.getHttpServer())
       .post(`/bookings/${bookingId}/complete`)
       .set('Authorization', `Bearer ${providerToken}`)

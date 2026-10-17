@@ -8,20 +8,73 @@ Each item below is written to be pasted straight into a GitHub issue.
 
 ---
 
-## Where things are
+## Launch blockers found in the QA pass of 17 October 2026
 
-**There are three apps in the plan and only two exist.**
+Found by walking the product as a new Harare barber and a new customer,
+against a local API with the real migrations and seeds. Each one was
+reproduced with curl; none is a guess.
+
+### 1. A provider cannot sign up
+
+Sign in to the provider app with a new number and the account is created
+with `roles = ['client']`. Nothing in the API or the app ever adds the
+`provider` role or inserts a `providers` row, so verification, going
+online and the wallet all answer `insufficient_role`. Today a barber can
+only be onboarded by someone running SQL. Needs: a "become a provider"
+step (POST /providers/me or a flag on sign-in from the partner app) that
+creates the row with `kyc_status = 'pending'`, plus the business details
+screen writing display name, categories, base location and travel radius.
+
+### 2. A provider can never cash out
+
+`POST /payouts/accounts` creates an account with `is_verified = false`,
+and nothing in the API or the admin console ever sets it to true. The
+only thing that does is `scripts/smoke-payouts.sh`, with SQL. Every real
+cash-out is refused with `payout_account_unverified`. Needs: a
+verification step (an admin action in the console at minimum; a
+penny-drop or vendor name check later).
+
+### 3. "Pick a time" never works for a real provider
+
+`fn_provider_is_available` requires a row in `availability_rules` for the
+weekday. Only the demo seed inserts those; there is no API call and no
+screen for a provider to set working hours. So every scheduled booking
+for a real provider fails with `slot_unavailable`. Only "As soon as
+possible" works. Needs: working-hours editing in the availability screen
+and `PUT /providers/me/availability/rules`.
+
+### Smaller findings from the same pass
+
+- Minimum cash-out is one global setting (`payout.min_amount_minor` =
+  5000). That is R50 in South Africa and $50 in Zimbabwe, five skin fades
+  for a Harare barber. Make it per market.
+- `review.reveal_window_hours` (14 days) is seeded but unused: a review
+  is published only once both sides have reviewed, so if a provider never
+  rates the client, the client's review never appears.
+- KYC submission accepts no documents at all (`documentFrontKey`,
+  `selfieKey` optional). The app always sends them; the API should insist.
+- `/docs` (Swagger) is public on the live API. Fine for staging, off for
+  production.
+- `npm run lint -w @freshly/api` has never run: there is no ESLint config
+  and CI does not call it.
+- The outbox relay can log a failed `UPDATE` once in a few e2e runs, when
+  the test closes the pool while it is draining. Harmless in production
+  (the event is retried), noisy in CI.
+- Fixed in the same pass (PR #4): a refused "Complete" locked its
+  idempotency key forever, and the quote endpoint sent the commission and
+  provider payout to customers.
+
+## Where things are
 
 | Surface | Path | State |
 |---|---|---|
 | Customer app | `apps/mobile_client` | Built, runs |
 | Provider app | `apps/mobile_partner` | Built, runs |
-| **Admin / ops portal** | `apps/admin` | **Does not exist** |
+| Admin / ops portal | `apps/admin` | Built, deployed as the Cloudflare Worker `freshly` |
 
 `command_screen.dart` in the partner app is a *provider's* dashboard — going
-online, today's jobs, earnings. It is not the ops console. The admin side has
-working API endpoints that nothing calls: KYC review, credential review,
-dispute handling, provider suspension. See issue #1.
+online, today's jobs, earnings. It is not the ops console; that is
+`apps/admin`.
 
 ### Where the API connections live
 
