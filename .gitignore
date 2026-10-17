@@ -63,3 +63,6 @@ npm-debug.log*
 
 # Screen tour renders (flutter test test_screens --update-goldens)
 apps/*/test_screens/out/
+
+# Agent worktrees are scratch checkouts, never part of the repository.
+.claude/worktrees/
