@@ -15,8 +15,18 @@ export class BookingsController {
 
   @Post('quote')
   @ApiOperation({ summary: 'Price a basket without creating anything' })
-  quote(@Body() dto: QuoteBookingDto) {
-    return this.bookings.quote(dto);
+  async quote(@Body() dto: QuoteBookingDto) {
+    // The customer sees what they pay. How that splits between the provider
+    // and the platform is the provider's business and ours, not a number to
+    // ship to every phone: the full quote stays server-side for the ledger.
+    const {
+      commissionBps: _commissionBps,
+      commissionMinor: _commissionMinor,
+      vatOnFeesMinor: _vatOnFeesMinor,
+      providerPayoutMinor: _providerPayoutMinor,
+      ...customerFacing
+    } = await this.bookings.quote(dto);
+    return customerFacing;
   }
 
   @Post()
