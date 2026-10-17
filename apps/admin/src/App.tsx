@@ -12,6 +12,7 @@ import { Pulse } from './screens/Pulse';
 import { Disputes } from './screens/Disputes';
 import { Markets } from './screens/Markets';
 import { BadgeCounts } from './api';
+import { Icon, Monogram, type IconName } from './ui';
 
 type Tab =
   | 'pulse'
@@ -25,6 +26,20 @@ type Tab =
   | 'kyc'
   | 'credentials'
   | 'markets';
+
+const TAB_META: Record<Tab, { label: string; group: string }> = {
+  pulse: { label: 'Marketplace Pulse', group: 'Live' },
+  sos: { label: 'Emergency alerts', group: 'Live' },
+  schedule: { label: 'Schedule', group: 'Live' },
+  completed: { label: 'Completed jobs', group: 'Live' },
+  disputes: { label: 'Dispute resolution', group: 'Support' },
+  clientComplaints: { label: 'Client complaints', group: 'Support' },
+  providerComplaints: { label: 'Provider complaints', group: 'Support' },
+  providers: { label: 'Providers', group: 'Trust' },
+  kyc: { label: 'Identity review', group: 'Trust' },
+  credentials: { label: 'Practitioner licences', group: 'Trust' },
+  markets: { label: 'Market settings', group: 'Admin' },
+};
 
 export function App() {
   const [me, setMe] = useState<Me | null>(null);
@@ -71,7 +86,13 @@ export function App() {
     setMe(null);
   }, []);
 
-  if (checking) return <main className="empty">Checking your session…</main>;
+  if (checking) {
+    return (
+      <div className="centered">
+        <p className="meta">Checking your session…</p>
+      </div>
+    );
+  }
   if (!me) return <SignIn onSignedIn={setMe} />;
 
   // Belt and braces. The API refuses every one of these endpoints without the
@@ -79,10 +100,10 @@ export function App() {
   const canOperate = me.roles.includes('admin') || me.roles.includes('support');
   if (!canOperate) {
     return (
-      <main className="signin">
+      <main className="centered">
         <div className="card">
           <div className="name">Not an operations account</div>
-          <p className="meta">
+          <p className="meta" style={{ margin: '8px 0 20px' }}>
             {me.phone} is signed in but has no admin or support role, so there is
             nothing here for it.
           </p>
@@ -96,20 +117,41 @@ export function App() {
 
   const isAdmin = me.roles.includes('admin');
 
+  const navItem = (
+    key: Tab,
+    icon: IconName,
+    count = 0,
+    tone: 'warn' | 'danger' = 'warn',
+    extraClass = '',
+  ) => (
+    <button
+      key={key}
+      className={`nav-item ${extraClass}`}
+      aria-current={tab === key}
+      onClick={() => setTab(key)}
+    >
+      <Icon name={icon} />
+      <span className="label">{TAB_META[key].label}</span>
+      {count > 0 && <span className={`nav-count ${tone}`}>{count}</span>}
+    </button>
+  );
+
   return (
     <div className="shell">
-      <nav>
-        <h1>Freshly Ops</h1>
-        <p className="who">
-          {me.fullName || me.phone}
-          <br />
-          {me.roles.join(', ')}
-        </p>
+      <nav className="sidebar">
+        <div className="brand">
+          <div className="brand-mark">F</div>
+          <span className="brand-word">Freshly</span>
+          <span className="brand-tag">Ops</span>
+        </div>
 
         <div className="search-container">
+          <span className="search-icon">
+            <Icon name="search" size={16} />
+          </span>
           <input
             type="search"
-            placeholder="Search (Cmd+K)"
+            placeholder="Search people, bookings"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -123,78 +165,96 @@ export function App() {
                     if (r.type === 'booking') setTab('schedule');
                 }}>
                   <div>
-                    <div className="name">{r.display_name}</div>
+                    <div className="name" style={{ fontSize: 14 }}>{r.display_name}</div>
                     <div className="meta">{r.phone}</div>
                   </div>
-                  <div className="type">{r.type}</div>
+                  <span className="pill">{r.type}</span>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        <button aria-current={tab === 'pulse'} onClick={() => setTab('pulse')}>
-          Marketplace Pulse
-        </button>
-        <button
-          className="danger-nav"
-          aria-current={tab === 'sos'}
-          onClick={() => setTab('sos')}
-        >
-          Emergency alerts {badges.sos > 0 && <span className="tag bad">{badges.sos}</span>}
-        </button>
-        <button aria-current={tab === 'schedule'} onClick={() => setTab('schedule')}>
-          Schedule
-        </button>
-        <button aria-current={tab === 'completed'} onClick={() => setTab('completed')}>
-          Completed jobs
-        </button>
-        <button aria-current={tab === 'disputes'} onClick={() => setTab('disputes')}>
-          Dispute resolution {badges.disputes > 0 && <span className="tag warn">{badges.disputes}</span>}
-        </button>
-        <button
-          aria-current={tab === 'clientComplaints'}
-          onClick={() => setTab('clientComplaints')}
-        >
-          Client complaints
-        </button>
-        <button
-          aria-current={tab === 'providerComplaints'}
-          onClick={() => setTab('providerComplaints')}
-        >
-          Provider complaints
-        </button>
-        <button aria-current={tab === 'providers'} onClick={() => setTab('providers')}>
-          Providers
-        </button>
-        <button aria-current={tab === 'kyc'} onClick={() => setTab('kyc')}>
-          Identity review {badges.kyc > 0 && <span className="tag warn">{badges.kyc}</span>}
-        </button>
-        <button aria-current={tab === 'credentials'} onClick={() => setTab('credentials')}>
-          Practitioner licences {badges.credentials > 0 && <span className="tag warn">{badges.credentials}</span>}
-        </button>
+        <div className="nav-group">Live</div>
+        {navItem('pulse', 'pulse')}
+        {navItem('sos', 'siren', badges.sos, 'danger', 'sos-nav')}
+        {navItem('schedule', 'calendar')}
+        {navItem('completed', 'check')}
+
+        <div className="nav-group">Support</div>
+        {navItem('disputes', 'scale', badges.disputes)}
+        {navItem('clientComplaints', 'message')}
+        {navItem('providerComplaints', 'briefcase')}
+
+        <div className="nav-group">Trust</div>
+        {navItem('providers', 'users')}
+        {navItem('kyc', 'idcard', badges.kyc)}
+        {navItem('credentials', 'award', badges.credentials)}
+
         {isAdmin && (
-          <button aria-current={tab === 'markets'} onClick={() => setTab('markets')}>
-            Market settings
-          </button>
+          <>
+            <div className="nav-group">Admin</div>
+            {navItem('markets', 'sliders')}
+          </>
         )}
+
         <div className="spacer" />
-        <button onClick={signOut}>Sign out</button>
+        <div className="who-card">
+          <Monogram name={me.fullName || me.phone} />
+          <div className="who-text">
+            <div className="who-name">{me.fullName || me.phone}</div>
+            <div className="who-roles">{me.roles.join(', ')}</div>
+          </div>
+          <button className="icon-btn" onClick={signOut} title="Sign out" aria-label="Sign out">
+            <Icon name="logout" />
+          </button>
+        </div>
       </nav>
 
-      <main>
-        {tab === 'pulse' && <Pulse />}
-        {tab === 'sos' && <Sos />}
-        {tab === 'schedule' && <Schedule />}
-        {tab === 'completed' && <Completed />}
-        {tab === 'disputes' && <Disputes />}
-        {tab === 'clientComplaints' && <Complaints side="clients" />}
-        {tab === 'providerComplaints' && <Complaints side="providers" />}
-        {tab === 'providers' && <Providers canSuspend={isAdmin} />}
-        {tab === 'kyc' && <KycQueue />}
-        {tab === 'credentials' && <CredentialQueue />}
-        {tab === 'markets' && <Markets />}
-      </main>
+      <div className="workspace">
+        <header className="topbar">
+          <div className="crumbs">
+            <span>{TAB_META[tab].group}</span>
+            <span className="sep">/</span>
+            <strong>{TAB_META[tab].label}</strong>
+          </div>
+          <span className="live-dot" aria-hidden="true" />
+          <span className="today">
+            {new Date().toLocaleDateString(undefined, {
+              weekday: 'short',
+              day: 'numeric',
+              month: 'short',
+            })}
+          </span>
+        </header>
+
+        <main className="page">
+          {badges.sos > 0 && tab !== 'sos' && (
+            <div className="sos-banner" role="alert">
+              <span className="sos-beacon" aria-hidden="true" />
+              <span className="sos-text">
+                <strong>
+                  {badges.sos} open emergency alert{badges.sos === 1 ? '' : 's'}.
+                </strong>{' '}
+                Someone has pressed SOS and is waiting for a response.
+              </span>
+              <button onClick={() => setTab('sos')}>Open alerts</button>
+            </div>
+          )}
+
+          {tab === 'pulse' && <Pulse />}
+          {tab === 'sos' && <Sos />}
+          {tab === 'schedule' && <Schedule />}
+          {tab === 'completed' && <Completed />}
+          {tab === 'disputes' && <Disputes />}
+          {tab === 'clientComplaints' && <Complaints side="clients" />}
+          {tab === 'providerComplaints' && <Complaints side="providers" />}
+          {tab === 'providers' && <Providers canSuspend={isAdmin} />}
+          {tab === 'kyc' && <KycQueue />}
+          {tab === 'credentials' && <CredentialQueue />}
+          {tab === 'markets' && <Markets />}
+        </main>
+      </div>
     </div>
   );
 }

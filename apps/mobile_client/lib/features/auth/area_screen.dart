@@ -93,7 +93,8 @@ class _AreaScreenState extends ConsumerState<AreaScreen> {
   Future<void> _choose(Place place) async {
     setState(() => _busy = true);
     try {
-      final saved = await ref.read(apiProvider).setServiceArea(placeId: place.id);
+      final saved =
+          await ref.read(apiProvider).setServiceArea(placeId: place.id);
       final auth = ref.read(authStateProvider);
       final session = switch (auth) {
         AuthNeedsArea(:final session) => session,
@@ -111,7 +112,8 @@ class _AreaScreenState extends ConsumerState<AreaScreen> {
       }
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -133,19 +135,12 @@ class _AreaScreenState extends ConsumerState<AreaScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (widget.isOnboarding) ...[
-                const SizedBox(height: FreshlySpacing.xl),
-                Text(
-                  'Where are you?',
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineMedium
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: FreshlySpacing.sm),
-                const Text(
-                  'Start typing your suburb. We will use your exact location '
-                  'instead whenever you allow it.',
-                  style: TextStyle(color: FreshlyColors.inkMuted, height: 1.4),
+                const SizedBox(height: FreshlySpacing.lg),
+                const ScreenIntro(
+                  eyebrow: 'Your area',
+                  title: 'Which suburb?',
+                  subtitle: 'Start typing. We will use your exact location '
+                      'instead whenever you allow it.',
                 ),
                 const SizedBox(height: FreshlySpacing.lg),
               ],
@@ -173,9 +168,10 @@ class _AreaScreenState extends ConsumerState<AreaScreen> {
               ),
               if (current != null && !widget.isOnboarding) ...[
                 const SizedBox(height: FreshlySpacing.md),
-                Text(
-                  'Currently set to ${current.displayName}',
-                  style: const TextStyle(color: FreshlyColors.inkMuted),
+                StatusPill(
+                  label: 'Currently ${current.displayName}',
+                  icon: FreshlyIcons.location,
+                  tone: FreshlyTone.brand,
                 ),
               ],
               const SizedBox(height: FreshlySpacing.md),
@@ -189,57 +185,50 @@ class _AreaScreenState extends ConsumerState<AreaScreen> {
 
   Widget _buildResults() {
     if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              _error!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: FreshlyColors.inkMuted),
-            ),
-            const SizedBox(height: FreshlySpacing.md),
-            OutlinedButton(
-              onPressed: () => _search(_controller.text),
-              child: const Text('Try again'),
-            ),
-          ],
-        ),
+      return EmptyState(
+        compact: true,
+        icon: FreshlyIcons.error,
+        title: 'Search did not load',
+        message: _error,
+        actionLabel: 'Try again',
+        onAction: () => _search(_controller.text),
       );
     }
 
     if (_loading && _results.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return Column(
+        children: [
+          for (var i = 0; i < 4; i++)
+            const Padding(
+              padding: EdgeInsets.only(bottom: FreshlySpacing.sm),
+              child: Skeleton(height: 64, radius: FreshlySpacing.radius),
+            ),
+        ],
+      );
     }
 
     if (_results.isEmpty) {
       final typed = _controller.text.trim();
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: FreshlySpacing.lg),
-          child: Text(
-            typed.isEmpty
-                ? 'We are not open in your country yet. We will let you know the '
-                    'moment that changes.'
-                : 'We are not in $typed yet. Try a nearby suburb — we are adding '
-                    'areas all the time.',
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: FreshlyColors.inkMuted, height: 1.4),
-          ),
-        ),
+      return EmptyState(
+        compact: true,
+        icon: FreshlyIcons.searchOff,
+        title: typed.isEmpty ? 'Not open here yet' : 'Not in $typed yet',
+        message: typed.isEmpty
+            ? 'We are not open in your country yet. We will let you know the '
+                'moment that changes.'
+            : 'Try a nearby suburb. We are adding areas all the time.',
       );
     }
 
     return ListView.separated(
       itemCount: _results.length,
-      separatorBuilder: (_, __) => const SizedBox(height: FreshlySpacing.xs),
+      separatorBuilder: (_, __) => const SizedBox(height: FreshlySpacing.sm),
       itemBuilder: (context, i) {
         final place = _results[i];
         return Card(
-          margin: EdgeInsets.zero,
           child: ListTile(
-            leading: const Icon(FreshlyIcons.location),
-            title: Text(place.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+            leading: const IconBadge(icon: FreshlyIcons.location, size: 40),
+            title: Text(place.name),
             // The metro is the reassurance that we cover this, without making
             // the customer choose it.
             subtitle: Text(
@@ -247,7 +236,7 @@ class _AreaScreenState extends ConsumerState<AreaScreen> {
                   ? place.serviceAreaName
                   : '${place.serviceAreaName} · ${place.postalCode}',
             ),
-            trailing: const Icon(FreshlyIcons.chevronRight),
+            trailing: const Icon(FreshlyIcons.chevronRight, size: 18),
             onTap: _busy ? null : () => _choose(place),
           ),
         );

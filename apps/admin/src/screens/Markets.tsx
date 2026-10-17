@@ -31,19 +31,28 @@ export function Markets() {
 
   return (
     <div className="markets">
-      <header>
-        <h2>Market Configuration</h2>
-        <p className="meta">Adjust VAT, Commission, and Service Fees per country.</p>
+      <header className="page-head">
+        <div>
+          <h2>Market Configuration</h2>
+          <p className="sub">Adjust VAT, Commission, and Service Fees per country.</p>
+        </div>
       </header>
 
       {list.map((m) => (
-        <div key={m.code} className="card">
-          <div className="row">
-             <h3>{m.name} ({m.code})</h3>
-             <div className="tag good">{m.is_live ? 'LIVE' : 'OFFLINE'}</div>
+        <div key={m.code} className="card market-card">
+          <div className="market-head">
+            <div className="market-code">{m.code}</div>
+            <div className="grow">
+              <h3 style={{ fontSize: 18, fontWeight: 800 }}>{m.name}</h3>
+              <div className="meta">Changes save when you leave a field.</div>
+            </div>
+            <span className={`pill ${m.is_live ? 'success' : ''}`}>
+              {m.is_live && <span className="dot" />}
+              {m.is_live ? 'LIVE' : 'OFFLINE'}
+            </span>
           </div>
 
-          <div className="grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginTop: '20px' }}>
+          <div className="market-fields">
             <div className="field">
               <label>Commission (BPS)</label>
               <input

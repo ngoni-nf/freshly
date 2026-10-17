@@ -40,45 +40,51 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   Widget build(BuildContext context) {
     // Opaque, so nothing underneath shows through while locked.
     return Scaffold(
-      backgroundColor: FreshlyColors.mint,
+      backgroundColor: FreshlyColors.obsidian,
       body: SafeArea(
-        child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(FreshlySpacing.lg),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(FreshlyIcons.lock, size: 48, color: Colors.white),
+              const Spacer(),
+              const Center(
+                child: IconBadge(
+                    icon: FreshlyIcons.lock, size: 80, tone: FreshlyTone.brand),
+              ),
               const SizedBox(height: FreshlySpacing.lg),
-              const Text(
-                'Freshly is locked',
-                style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white),
+              Text('Freshly is locked',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineMedium
+                      ?.copyWith(color: Colors.white)),
+              const SizedBox(height: FreshlySpacing.sm),
+              Text('Unlock with your face or fingerprint.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyLarge
+                      ?.copyWith(color: FreshlyColors.inkMuted)),
+              const Spacer(),
+              FilledButton(
+                onPressed: _busy ? null : _unlock,
+                child: _busy
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2.5, color: FreshlyColors.obsidian))
+                    : const Text('Unlock'),
               ),
               const SizedBox(height: FreshlySpacing.sm),
-              const Text(
-                'Unlock with your face or fingerprint.',
-                style: TextStyle(color: Colors.white70),
-              ),
-              const SizedBox(height: FreshlySpacing.xl),
-              if (_busy)
-                const CircularProgressIndicator(color: Colors.white)
-              else
-                FilledButton(
-                  onPressed: _unlock,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: FreshlyColors.mintDark,
-                  ),
-                  child: const Text('Unlock'),
-                ),
-              const SizedBox(height: FreshlySpacing.md),
               TextButton(
                 onPressed: () {
                   ref.read(appLockedProvider.notifier).state = false;
                   ref.read(authStateProvider.notifier).logout();
                 },
-                style: TextButton.styleFrom(foregroundColor: Colors.white70),
+                style: TextButton.styleFrom(
+                    foregroundColor: FreshlyColors.inkMuted),
                 child: const Text('Sign out instead'),
               ),
             ],

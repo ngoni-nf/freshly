@@ -41,8 +41,10 @@ class _SosButtonState extends ConsumerState<SosButton> {
         unawaited(showDialog<void>(
           context: context,
           builder: (_) => AlertDialog(
-            icon: const Icon(FreshlyIcons.checkCircle,
-                color: FreshlyColors.mint, size: 40),
+            icon: const IconBadge(
+                icon: FreshlyIcons.checkCircle,
+                tone: FreshlyTone.success,
+                size: 64),
             title: const Text('Help is on the way'),
             content: const Text(
               'Your location and trip details have been sent to the response team. '
@@ -76,9 +78,11 @@ class _SosButtonState extends ConsumerState<SosButton> {
       backgroundColor: FreshlyColors.crimson,
       foregroundColor: Colors.white,
       onPressed: _arm,
+      tooltip: 'Emergency: send your location to the response team',
       icon: const Icon(FreshlyIcons.sos),
-      label: const Text('SOS',
-          style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1)),
+      label: Text('SOS',
+          style: FreshlyType.style(16, weight: FontWeight.w800)
+              .copyWith(letterSpacing: 1.5)),
     );
   }
 }
@@ -114,25 +118,49 @@ class _SosCountdownState extends State<_SosCountdown> {
       color: Colors.transparent,
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(FreshlySpacing.xl),
+          padding: const EdgeInsets.all(FreshlySpacing.lg),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('$_seconds',
-                  style: const TextStyle(
-                      fontSize: 120,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white)),
+              const SizedBox(height: FreshlySpacing.xl),
+              const Icon(FreshlyIcons.sos, size: 40, color: Colors.white),
               const SizedBox(height: FreshlySpacing.md),
-              const Text(
-                'Sending your location to emergency response',
+              Text('Emergency alert',
+                  textAlign: TextAlign.center,
+                  style: FreshlyType.style(24,
+                      weight: FontWeight.w800, color: Colors.white)),
+              const Spacer(),
+              Center(
+                child: Container(
+                  width: 180,
+                  height: 180,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.35), width: 6),
+                  ),
+                  child: Semantics(
+                    liveRegion: true,
+                    label: 'Sending in $_seconds',
+                    excludeSemantics: true,
+                    child: Text('$_seconds',
+                        style: FreshlyType.style(96,
+                            weight: FontWeight.w800,
+                            height: 1,
+                            color: Colors.white)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: FreshlySpacing.lg),
+              Text(
+                'Sending your location and trip details to emergency response',
                 textAlign: TextAlign.center,
-                style:
-                    TextStyle(fontSize: 18, color: Colors.white, height: 1.4),
+                style: FreshlyType.style(18,
+                    weight: FontWeight.w600, height: 1.4, color: Colors.white),
               ),
               const Spacer(),
               SizedBox(
-                width: double.infinity,
                 height: 72,
                 child: FilledButton(
                   style: FilledButton.styleFrom(
@@ -143,9 +171,8 @@ class _SosCountdownState extends State<_SosCountdown> {
                     _timer?.cancel();
                     Navigator.of(context).pop(false);
                   },
-                  child: const Text('CANCEL',
-                      style:
-                          TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+                  child: Text('Cancel',
+                      style: FreshlyType.style(22, weight: FontWeight.w800)),
                 ),
               ),
             ],

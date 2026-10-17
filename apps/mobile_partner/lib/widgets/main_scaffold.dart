@@ -10,36 +10,25 @@ class MainScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: navigationShell,
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: navigationShell.currentIndex,
-        onTap: (index) => navigationShell.goBranch(index),
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: FreshlyColors.mint,
-        unselectedItemColor: FreshlyColors.inkMuted,
-        selectedLabelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-        unselectedLabelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(FreshlyIcons.nearMe),
-            activeIcon: Icon(FreshlyIcons.nearMe),
-            label: 'Command',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(FreshlyIcons.calendar),
-            activeIcon: Icon(FreshlyIcons.calendar),
-            label: 'Schedule',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(FreshlyIcons.wallet),
-            activeIcon: Icon(FreshlyIcons.wallet),
-            label: 'Earnings',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(FreshlyIcons.category),
-            activeIcon: Icon(FreshlyIcons.category),
-            label: 'Business',
-          ),
-        ],
+      bottomNavigationBar: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+              top: BorderSide(color: Theme.of(context).colorScheme.outline)),
+        ),
+        child: NavigationBar(
+          selectedIndex: navigationShell.currentIndex,
+          onDestinationSelected: (index) => navigationShell.goBranch(index),
+          destinations: const [
+            NavigationDestination(
+                icon: Icon(FreshlyIcons.nearMe), label: 'Today'),
+            NavigationDestination(
+                icon: Icon(FreshlyIcons.calendar), label: 'Schedule'),
+            NavigationDestination(
+                icon: Icon(FreshlyIcons.wallet), label: 'Earnings'),
+            NavigationDestination(
+                icon: Icon(FreshlyIcons.storefront), label: 'Business'),
+          ],
+        ),
       ),
     );
   }

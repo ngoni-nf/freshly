@@ -64,58 +64,123 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final hasError = _error != null;
     return Scaffold(
       appBar: AppBar(title: const Text('Client code')),
       body: SafeArea(
         child: Column(
           children: [
             const Padding(
-              padding: EdgeInsets.fromLTRB(FreshlySpacing.lg, FreshlySpacing.lg,
-                  FreshlySpacing.lg, FreshlySpacing.sm),
-              child: Text(
-                'Ask the client for their 4-digit code once you are ready to start.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontSize: 15, height: 1.5, color: FreshlyColors.inkMuted),
+              padding: EdgeInsets.fromLTRB(FreshlySpacing.lg, FreshlySpacing.sm,
+                  FreshlySpacing.lg, 0),
+              child: ScreenIntro(
+                eyebrow: 'Start the job',
+                title: 'Enter the client\'s code',
+                subtitle: 'Ask your client for the 4-digit code in their app '
+                    'once you are ready to start.',
               ),
             ),
-            const SizedBox(height: FreshlySpacing.lg),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(4, (i) {
-                final filled = i < _pin.length;
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    color: filled ? FreshlyColors.mint : Colors.transparent,
-                    border: Border.all(
-                      color: _error != null
-                          ? FreshlyColors.crimson
-                          : FreshlyColors.line,
-                      width: 2,
+            const Spacer(),
+            Semantics(
+              label: '${_pin.length} of 4 digits entered',
+              liveRegion: true,
+              excludeSemantics: true,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(4, (i) {
+                  final filled = i < _pin.length;
+                  final active = i == _pin.length && !_busy;
+                  return Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 6),
+                    width: 60,
+                    height: 72,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: hasError
+                          ? FreshlyColors.crimsonSoft
+                          : filled
+                              ? scheme.surface
+                              : scheme.surfaceContainer,
+                      borderRadius:
+                          BorderRadius.circular(FreshlySpacing.buttonRadius),
+                      border: Border.all(
+                        color: hasError
+                            ? FreshlyColors.crimson
+                            : active
+                                ? FreshlyColors.mintDark
+                                : filled
+                                    ? scheme.outline
+                                    : Colors.transparent,
+                        width: 2,
+                      ),
                     ),
-                    shape: BoxShape.circle,
-                  ),
-                );
-              }),
+                    child: filled
+                        ? Container(
+                            width: 16,
+                            height: 16,
+                            decoration: const BoxDecoration(
+                              color: FreshlyColors.obsidian,
+                              shape: BoxShape.circle,
+                            ),
+                          )
+                        : null,
+                  );
+                }),
+              ),
             ),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.only(top: FreshlySpacing.md),
-                child: Text(_error!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: FreshlyColors.crimson)),
+            SizedBox(
+              height: 56,
+              child: Center(
+                child: _busy
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2)),
+                          const SizedBox(width: 10),
+                          Text('Checking code',
+                              style: Theme.of(context).textTheme.labelMedium),
+                        ],
+                      )
+                    : hasError
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: FreshlySpacing.lg),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: FreshlyColors.crimsonSoft,
+                                borderRadius: BorderRadius.circular(
+                                    FreshlySpacing.radiusSmall),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(FreshlyIcons.error,
+                                      size: 16, color: Color(0xFFB4232A)),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(_error!,
+                                        textAlign: TextAlign.center,
+                                        style: FreshlyType.style(14,
+                                            weight: FontWeight.w600,
+                                            color: const Color(0xFFB4232A))),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : null,
               ),
-            if (_busy)
-              const Padding(
-                padding: EdgeInsets.only(top: FreshlySpacing.md),
-                child: CircularProgressIndicator(),
-              ),
+            ),
             const Spacer(),
             _Keypad(onDigit: _press, onBackspace: _backspace),
-            const SizedBox(height: FreshlySpacing.lg),
+            const SizedBox(height: FreshlySpacing.md),
           ],
         ),
       ),
@@ -130,33 +195,39 @@ class _Keypad extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     Widget key(String label, {VoidCallback? onTap, IconData? icon}) => Expanded(
           child: Padding(
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(5),
             child: SizedBox(
-              height: 68,
+              height: 72,
               child: TextButton(
                 onPressed: onTap ?? () => onDigit(label),
                 style: TextButton.styleFrom(
-                  backgroundColor: FreshlyColors.canvas,
+                  backgroundColor: icon != null
+                      ? Colors.transparent
+                      : scheme.surface,
+                  foregroundColor: scheme.onSurface,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+                    side: icon != null
+                        ? BorderSide.none
+                        : BorderSide(color: scheme.outline),
                   ),
                 ),
                 child: icon != null
-                    ? Icon(icon, size: 24, color: FreshlyColors.ink)
+                    ? Icon(icon, size: 28, semanticLabel: 'Delete')
                     : Text(label,
-                        style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w600,
-                            color: FreshlyColors.ink)),
+                        style: FreshlyType.style(30,
+                            weight: FontWeight.w700,
+                            color: scheme.onSurface)),
               ),
             ),
           ),
         );
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: FreshlySpacing.lg),
+      padding: const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
       child: Column(
         children: [
           Row(children: [key('1'), key('2'), key('3')]),

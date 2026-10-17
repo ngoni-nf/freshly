@@ -5,6 +5,7 @@ import 'package:freshly_core/freshly_core.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/providers.dart';
+import '../../widgets/job_tile.dart' show JobTileSkeleton;
 
 class ClientListScreen extends ConsumerWidget {
   const ClientListScreen({super.key});
@@ -14,58 +15,83 @@ class ClientListScreen extends ConsumerWidget {
     final clients = ref.watch(myClientsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Clients'),
-      ),
+      appBar: AppBar(title: const Text('My clients')),
       body: clients.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, __) => Center(
-          child: Text(err is ApiException ? err.message : 'Could not load clients'),
+        loading: () => ListView(
+          padding: const EdgeInsets.all(FreshlySpacing.md),
+          children: const [JobTileSkeleton(count: 5)],
+        ),
+        error: (err, __) => EmptyState(
+          icon: FreshlyIcons.people,
+          title: 'Clients did not load',
+          message: err is ApiException
+              ? err.message
+              : 'Check your connection and try again.',
+          actionLabel: 'Try again',
+          onAction: () => ref.invalidate(myClientsProvider),
         ),
         data: (list) {
           if (list.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(FreshlySpacing.xl),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(FreshlyIcons.people, size: 48, color: FreshlyColors.inkMuted),
-                    SizedBox(height: FreshlySpacing.md),
-                    Text(
-                      'No clients yet. Your customer database grows automatically '
-                      'as you complete bookings.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: FreshlyColors.inkMuted, height: 1.4),
-                    ),
-                  ],
-                ),
-              ),
+            return const EmptyState(
+              icon: FreshlyIcons.people,
+              title: 'No clients yet',
+              message: 'Everyone you serve is added here automatically, with '
+                  'their history and your private notes.',
             );
           }
           return ListView.separated(
             padding: const EdgeInsets.all(FreshlySpacing.md),
             itemCount: list.length,
-            separatorBuilder: (_, __) => const SizedBox(height: FreshlySpacing.sm),
+            separatorBuilder: (_, __) =>
+                const SizedBox(height: FreshlySpacing.sm),
             itemBuilder: (context, i) {
               final client = list[i];
+              final text = Theme.of(context).textTheme;
               return Card(
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundImage: client.avatarUrl != null
-                        ? CachedNetworkImageProvider(client.avatarUrl!)
-                        : null,
-                    backgroundColor: FreshlyColors.mintSoft,
-                    child: client.avatarUrl == null
-                        ? Text(client.fullName.characters.first.toUpperCase(),
-                            style: const TextStyle(color: FreshlyColors.mintDark))
-                        : null,
-                  ),
-                  title: Text(client.fullName, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: Text(
-                      '${client.bookingCount} job${client.bookingCount == 1 ? '' : 's'} · Last ${formatDate(client.lastBookingAt)}'),
-                  trailing: const Icon(FreshlyIcons.chevronRight),
+                child: InkWell(
                   onTap: () => context.push('/clients/${client.id}'),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        FreshlyAvatar(
+                          name: client.fullName,
+                          size: 48,
+                          image: client.avatarUrl == null
+                              ? null
+                              : CachedNetworkImage(
+                                  imageUrl: client.avatarUrl!,
+                                  fit: BoxFit.cover),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(client.fullName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: text.titleMedium),
+                              const SizedBox(height: 2),
+                              Text(
+                                  'Last visit ${formatDate(client.lastBookingAt)}',
+                                  style: text.bodySmall),
+                            ],
+                          ),
+                        ),
+                        StatusPill(
+                          label:
+                              '${client.bookingCount} job${client.bookingCount == 1 ? '' : 's'}',
+                          dense: true,
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(FreshlyIcons.chevronRight,
+                            size: 16,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant),
+                      ],
+                    ),
+                  ),
                 ),
               );
             },

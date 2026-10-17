@@ -42,3 +42,19 @@ flutter:
   # resolve one copy rather than drifting versions of the logo.
   assets:
     - assets/branding/
+  # Plus Jakarta Sans, Open Font License (assets/fonts/OFL.txt). Declared on
+  # the shared package so both apps resolve it as
+  # packages/freshly_core/PlusJakartaSans and cannot ship different cuts.
+  fonts:
+    - family: PlusJakartaSans
+      fonts:
+        - asset: assets/fonts/PlusJakartaSans_400Regular.ttf
+          weight: 400
+        - asset: assets/fonts/PlusJakartaSans_500Medium.ttf
+          weight: 500
+        - asset: assets/fonts/PlusJakartaSans_600SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/PlusJakartaSans_700Bold.ttf
+          weight: 700
+        - asset: assets/fonts/PlusJakartaSans_800ExtraBold.ttf
+          weight: 800

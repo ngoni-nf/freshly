@@ -69,97 +69,169 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
   @override
   Widget build(BuildContext context) {
     final grid = ref.watch(partnerGridProvider);
+    final text = Theme.of(context).textTheme;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Availability')),
       body: ListView(
         padding: const EdgeInsets.all(FreshlySpacing.md),
         children: [
+          const ScreenIntro(
+            title: 'When can you work?',
+            subtitle: 'Block out time you cannot take jobs, so you never '
+                'have to cancel on a client.',
+          ),
+          const SizedBox(height: FreshlySpacing.lg),
           grid.when(
-            loading: () => const SizedBox.shrink(),
+            loading: () =>
+                const Skeleton(height: 150, radius: FreshlySpacing.radius),
             error: (_, __) => const SizedBox.shrink(),
             data: (status) {
               if (!status.isActive || status.nextWindowStart == null) {
-                return const Card(
-                  child: ListTile(
-                    leading: Icon(FreshlyIcons.bolt, color: FreshlyColors.mint),
-                    title: Text('Grid stable'),
-                    subtitle:
-                        Text('No outage scheduled in your area right now.'),
+                return Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(FreshlySpacing.md),
+                    child: Row(
+                      children: [
+                        const IconBadge(icon: FreshlyIcons.bolt),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Grid stable', style: text.titleMedium),
+                              const SizedBox(height: 2),
+                              Text(
+                                  'No outage scheduled in your area right now.',
+                                  style: text.bodySmall),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               }
               final start = status.nextWindowStart!;
               final end =
                   status.nextWindowEnd ?? start.add(const Duration(hours: 2));
-              return Card(
-                color: FreshlyColors.loadShedding.withValues(alpha: 0.08),
-                child: Padding(
-                  padding: const EdgeInsets.all(FreshlySpacing.md),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+              return Container(
+                padding: const EdgeInsets.all(FreshlySpacing.md),
+                decoration: BoxDecoration(
+                  color: FreshlyColors.loadSheddingSoft,
+                  borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+                  border: Border.all(
+                      color: FreshlyColors.loadShedding.withValues(alpha: 0.35)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        const IconBadge(
+                            icon: FreshlyIcons.bolt,
+                            tone: FreshlyTone.warning,
+                            size: 44),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('LOAD-SHEDDING',
+                                  style: FreshlyType.style(11,
+                                          weight: FontWeight.w800,
+                                          color: FreshlyColors.loadSheddingInk)
+                                      .copyWith(letterSpacing: 1.2)),
+                              Text(status.label,
+                                  style: text.titleLarge?.copyWith(
+                                      color: FreshlyColors.ink)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius:
+                            BorderRadius.circular(FreshlySpacing.radiusSmall),
+                      ),
+                      child: Row(
                         children: [
-                          const Icon(FreshlyIcons.bolt,
-                              color: FreshlyColors.loadShedding),
+                          const Icon(FreshlyIcons.clock,
+                              size: 18, color: FreshlyColors.loadSheddingInk),
                           const SizedBox(width: 8),
-                          Text(status.label,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w700, fontSize: 16)),
+                          Text('Next outage',
+                              style: text.bodySmall
+                                  ?.copyWith(color: FreshlyColors.inkSubtle)),
+                          const Spacer(),
+                          Text(
+                            // Both ends in the same 24-hour clock; the
+                            // locale's TimeOfDay format gave "18:00 – 8:00 PM".
+                            '${formatSlot(start)} – '
+                            '${formatSlot(end).split(', ').last}',
+                            style: text.titleSmall
+                                ?.copyWith(color: FreshlyColors.ink),
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Next outage: ${formatSlot(start)} – '
-                        '${TimeOfDay.fromDateTime(end).format(context)}',
-                        style: const TextStyle(color: FreshlyColors.inkMuted),
-                      ),
-                      const SizedBox(height: FreshlySpacing.md),
-                      FilledButton.icon(
-                        onPressed: _busy
-                            ? null
-                            : () => _block(
-                                start, end, 'load_shedding', 'Outage window'),
-                        icon: const Icon(FreshlyIcons.block),
-                        label: const Text('Block out this window'),
-                      ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: _busy
+                          ? null
+                          : () => _block(
+                              start, end, 'load_shedding', 'Outage window'),
+                      icon: const Icon(FreshlyIcons.block, size: 20),
+                      label: const Text('Block out this window'),
+                    ),
+                  ],
                 ),
               );
             },
           ),
           const SizedBox(height: FreshlySpacing.lg),
-          const Text('Block time off',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-          const SizedBox(height: FreshlySpacing.sm),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(FreshlyIcons.calendarToday),
-                  title: const Text('Rest of today'),
-                  onTap: _busy
-                      ? null
-                      : () {
-                          final now = DateTime.now();
-                          _block(
-                              now,
-                              DateTime(now.year, now.month, now.day, 23, 59),
-                              'manual',
-                              'Rest of today');
-                        },
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(FreshlyIcons.dateRange),
-                  title: const Text('Choose a date and time'),
-                  onTap: _busy ? null : _pickCustom,
-                ),
-              ],
-            ),
+          GroupedList(
+            title: 'Block time off',
+            children: [
+              ListTile(
+                leading: const IconBadge(
+                    icon: FreshlyIcons.calendarToday,
+                    tone: FreshlyTone.neutral,
+                    size: 40),
+                title: const Text('Rest of today'),
+                subtitle: const Text('Stop new bookings until midnight'),
+                trailing: const Icon(FreshlyIcons.chevronRight, size: 16),
+                onTap: _busy
+                    ? null
+                    : () {
+                        final now = DateTime.now();
+                        _block(
+                            now,
+                            DateTime(now.year, now.month, now.day, 23, 59),
+                            'manual',
+                            'Rest of today');
+                      },
+              ),
+              ListTile(
+                leading: const IconBadge(
+                    icon: FreshlyIcons.dateRange,
+                    tone: FreshlyTone.neutral,
+                    size: 40),
+                title: const Text('Choose a date and time'),
+                subtitle: const Text('Up to 90 days ahead'),
+                trailing: const Icon(FreshlyIcons.chevronRight, size: 16),
+                onTap: _busy ? null : _pickCustom,
+              ),
+            ],
           ),
+          if (_busy) ...[
+            const SizedBox(height: FreshlySpacing.md),
+            const LinearProgressIndicator(),
+          ],
         ],
       ),
     );

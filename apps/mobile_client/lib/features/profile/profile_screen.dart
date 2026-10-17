@@ -14,71 +14,85 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authStateProvider);
     final user = auth is AuthSignedIn ? auth.user : null;
+    final text = Theme.of(context).textTheme;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
       body: ListView(
-        padding: const EdgeInsets.all(FreshlySpacing.md),
+        padding: const EdgeInsets.fromLTRB(FreshlySpacing.md, FreshlySpacing.xs,
+            FreshlySpacing.md, FreshlySpacing.xl),
         children: [
           if (user != null) ...[
-            Center(
-              child: Column(
+            Container(
+              padding: const EdgeInsets.all(FreshlySpacing.md),
+              decoration: BoxDecoration(
+                color: FreshlyColors.obsidian,
+                borderRadius: BorderRadius.circular(FreshlySpacing.radiusLarge),
+              ),
+              child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: FreshlyColors.mintSoft,
-                    child: Text(
-                      user.fullName.characters.first.toUpperCase(),
-                      style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: FreshlyColors.mintDark),
+                  FreshlyAvatar(name: user.fullName, size: 60),
+                  const SizedBox(width: FreshlySpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(user.fullName,
+                            style: text.headlineSmall
+                                ?.copyWith(color: Colors.white)),
+                        const SizedBox(height: 2),
+                        Text(user.phone ?? 'No number linked',
+                            style: text.bodyMedium
+                                ?.copyWith(color: FreshlyColors.inkMuted)),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: FreshlySpacing.md),
-                  Text(user.fullName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-                  Text(user.phone ?? 'No number linked',
-                      style: const TextStyle(color: FreshlyColors.inkMuted)),
                 ],
               ),
             ),
-            const SizedBox(height: FreshlySpacing.xl),
+            const SizedBox(height: FreshlySpacing.lg),
           ],
-          _ProfileTile(
-            icon: FreshlyIcons.location,
-            title: 'Saved addresses',
-            onTap: () => context.push('/profile/addresses'),
-          ),
-          _ProfileTile(
-            icon: FreshlyIcons.storefront,
-            title: 'Where you want service',
-            subtitle: ref.watch(serviceAreaProvider)?.displayName,
-            onTap: () => context.push('/location'),
-          ),
-          _ProfileTile(
-            icon: FreshlyIcons.card,
-            title: 'Payment Methods',
-            onTap: () {},
-          ),
-          _ProfileTile(
-            icon: FreshlyIcons.notifications,
-            title: 'Notifications',
-            onTap: () {},
-          ),
-          const Divider(height: FreshlySpacing.xl),
-          const _BiometricLockTile(),
-          _ProfileTile(
-            icon: FreshlyIcons.info,
-            title: 'Help & Support',
-            onTap: () {},
-          ),
-          _ProfileTile(
-            icon: FreshlyIcons.shield,
-            title: 'Privacy Policy',
-            onTap: () {},
+          GroupedList(
+            title: 'Your places',
+            children: [
+              _ProfileTile(
+                icon: FreshlyIcons.location,
+                title: 'Saved addresses',
+                onTap: () => context.push('/profile/addresses'),
+              ),
+              _ProfileTile(
+                icon: FreshlyIcons.storefront,
+                title: 'Where you want service',
+                subtitle: ref.watch(serviceAreaProvider)?.displayName,
+                onTap: () => context.push('/location'),
+              ),
+            ],
           ),
           const SizedBox(height: FreshlySpacing.lg),
-          TextButton(
+          const GroupedList(
+            title: 'Security',
+            children: [_BiometricLockTile()],
+          ),
+          const SizedBox(height: FreshlySpacing.lg),
+          // Not built yet. Shown, so people know they are coming, but not
+          // tappable: a row that does nothing when pressed reads as broken.
+          const GroupedList(
+            title: 'Coming soon',
+            children: [
+              _ProfileTile(icon: FreshlyIcons.card, title: 'Payment methods'),
+              _ProfileTile(
+                  icon: FreshlyIcons.notifications, title: 'Notifications'),
+              _ProfileTile(icon: FreshlyIcons.info, title: 'Help and support'),
+              _ProfileTile(icon: FreshlyIcons.shield, title: 'Privacy policy'),
+            ],
+          ),
+          const SizedBox(height: FreshlySpacing.lg),
+          OutlinedButton.icon(
             onPressed: () => ref.read(authStateProvider.notifier).logout(),
-            style: TextButton.styleFrom(foregroundColor: FreshlyColors.crimson),
-            child: const Text('Sign Out'),
+            style: OutlinedButton.styleFrom(
+                foregroundColor: FreshlyColors.crimson),
+            icon: const Icon(Icons.logout, size: 20),
+            label: const Text('Sign out'),
           ),
         ],
       ),
@@ -118,12 +132,20 @@ class _BiometricLockTileState extends ConsumerState<_BiometricLockTile> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_available) return const SizedBox.shrink();
+    if (!_available) {
+      return const ListTile(
+        leading: IconBadge(
+            icon: FreshlyIcons.lock, size: 36, tone: FreshlyTone.neutral),
+        title: Text('Biometric lock'),
+        subtitle: Text('Set up a fingerprint or face unlock on this phone '
+            'to use it'),
+      );
+    }
     final enabled = ref.watch(lockEnabledProvider);
     return SwitchListTile(
-      secondary: const Icon(FreshlyIcons.lock, color: FreshlyColors.ink),
-      title: const Text('Biometric lock',
-          style: TextStyle(fontWeight: FontWeight.w600)),
+      secondary: const IconBadge(
+          icon: FreshlyIcons.lock, size: 36, tone: FreshlyTone.neutral),
+      title: const Text('Biometric lock'),
       subtitle: const Text('Require Face ID or a fingerprint to open Freshly'),
       value: enabled,
       onChanged: _toggle,
@@ -135,21 +157,28 @@ class _ProfileTile extends StatelessWidget {
   const _ProfileTile({
     required this.icon,
     required this.title,
-    required this.onTap,
+    this.onTap,
     this.subtitle,
   });
   final IconData icon;
   final String title;
   final String? subtitle;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final enabled = onTap != null;
     return ListTile(
-      leading: Icon(icon, color: FreshlyColors.ink),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      enabled: enabled,
+      leading: IconBadge(
+          icon: icon,
+          size: 36,
+          tone: enabled ? FreshlyTone.brand : FreshlyTone.neutral),
+      title: Text(title),
       subtitle: subtitle == null ? null : Text(subtitle!),
-      trailing: const Icon(FreshlyIcons.chevronRight, size: 16),
+      trailing: enabled
+          ? const Icon(FreshlyIcons.chevronRight, size: 16)
+          : const StatusPill(label: 'Soon', dense: true),
       onTap: onTap,
     );
   }

@@ -55,44 +55,63 @@ export function Complaints({ side }: { side: 'clients' | 'providers' }) {
 
   return (
     <>
-      <h2>{side === 'clients' ? 'Client complaints' : 'Provider complaints'}</h2>
-      <p className="sub">
-        {side === 'clients'
-          ? 'Raised by customers. Replies are pushed to their phone.'
-          : 'Raised by professionals — pay, access, difficult clients.'}
-      </p>
+      <header className="page-head">
+        <div>
+          <h2>{side === 'clients' ? 'Client complaints' : 'Provider complaints'}</h2>
+          <p className="sub">
+            {side === 'clients'
+              ? 'Raised by customers. Replies are pushed to their phone.'
+              : 'Raised by professionals — pay, access, difficult clients.'}
+          </p>
+        </div>
+      </header>
 
-      <div className="card">
-        <div className="row">
-          <div className="meta">
-            {rows === null ? 'Loading…' : `${rows.length} ticket${rows.length === 1 ? '' : 's'}`}
-            {waiting > 0 && <> · <span className="tag bad">{waiting} never answered</span></>}
-          </div>
-          <div className="actions">
-            {(['open', 'closed', 'all'] as const).map((s) => (
-              <button key={s} className={`chip ${status === s ? 'on' : ''}`} onClick={() => setStatus(s)}>
-                {s}
-              </button>
-            ))}
-          </div>
+      <div className="toolbar">
+        <div className="summary">
+          {rows === null ? 'Loading…' : (
+            <strong>{`${rows.length} ticket${rows.length === 1 ? '' : 's'}`}</strong>
+          )}
+          {waiting > 0 && <span className="pill danger"><span className="dot" />{waiting} never answered</span>}
+        </div>
+        <div className="filters">
+          {(['open', 'closed', 'all'] as const).map((s) => (
+            <button
+              key={s}
+              className={`chip ${status === s ? 'on' : ''}`}
+              onClick={() => setStatus(s)}
+              style={{ textTransform: 'capitalize' }}
+            >
+              {s}
+            </button>
+          ))}
         </div>
       </div>
 
       {error && <p className="error">{error}</p>}
-      {rows !== null && rows.length === 0 && <p className="empty">Nothing here. Good.</p>}
+      {rows !== null && rows.length === 0 && (
+        <div className="empty">
+          <div className="empty-title">Nothing here. Good.</div>
+        </div>
+      )}
 
       {rows?.map((t) => (
-        <div className="card" key={t.id}>
-          <div className="name">{t.subject}</div>
-          <div className="meta">
-            <span className={`tag ${t.status === 'open' ? 'warn' : 'good'}`}>{t.status}</span>
-            {!t.lastStaffReplyAt && t.status === 'open' && (
-              <span className="tag bad">never answered</span>
-            )}
-            {t.bookingReference && <span className="tag">{t.bookingReference}</span>}
-            <br />
-            {t.raisedByName} · {t.raisedByPhone} ·{' '}
-            {new Date(t.createdAt).toLocaleString()}
+        <article className="card" key={t.id} style={{ padding: 24 }}>
+          <div className="row">
+            <div className="grow">
+              <div className="name" style={{ fontSize: 17 }}>{t.subject}</div>
+              <div className="meta-line">
+                <span><strong style={{ color: 'var(--ink)' }}>{t.raisedByName}</strong></span>
+                <span>{t.raisedByPhone}</span>
+                <span>{new Date(t.createdAt).toLocaleString()}</span>
+              </div>
+            </div>
+            <div className="pills" style={{ marginTop: 0 }}>
+              {!t.lastStaffReplyAt && t.status === 'open' && (
+                <span className="pill danger"><span className="dot" />never answered</span>
+              )}
+              {t.bookingReference && <span className="pill mono">{t.bookingReference}</span>}
+              <span className={`pill ${t.status === 'open' ? 'warning' : 'success'}`}>{t.status}</span>
+            </div>
           </div>
 
           <p className="body">{t.body}</p>
@@ -107,7 +126,7 @@ export function Complaints({ side }: { side: 'clients' | 'providers' }) {
             </div>
           ))}
 
-          <div className="row">
+          <div className="reply-bar">
             <input
               placeholder={t.status === 'closed' ? 'Reopen with a reply…' : 'Write a reply…'}
               value={drafts[t.id] ?? ''}
@@ -134,7 +153,7 @@ export function Complaints({ side }: { side: 'clients' | 'providers' }) {
               )}
             </div>
           </div>
-        </div>
+        </article>
       ))}
     </>
   );

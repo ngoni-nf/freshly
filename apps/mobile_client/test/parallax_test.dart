@@ -21,8 +21,10 @@ Widget _harness({
               height: 300,
               child: Parallax(
                 factor: factor,
+                // Centred, so it is still on screen after the tap test's
+                // scroll. At the top-left it was pushed above the viewport
+                // and the tap could never land, whatever the widget did.
                 child: Align(
-                  alignment: Alignment.topLeft,
                   child: TextButton(
                     key: const Key('target'),
                     onPressed: onPressed,
