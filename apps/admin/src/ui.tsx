@@ -27,6 +27,7 @@ const PATHS = {
   bolt: 'M13 2 3 14h9l-1 8 10-12h-9l1-8Z',
   globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20',
   cash: 'M2 6h20v12H2zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM6 12h.01M18 12h.01',
+  wallet: 'M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2ZM4 7V5a2 2 0 0 1 2-2h11v4M16 14h.01M22 12h-5a2 2 0 0 0 0 4h5',
 } as const;
 
 export type IconName = keyof typeof PATHS;
@@ -82,10 +83,45 @@ export function Monogram({
   );
 }
 
+/**
+ * How each market writes its own money. A bare "$" is ambiguous in Harare,
+ * where ZiG and US dollars both use it, and Intl spells rand as "ZAR".
+ */
+const CURRENCY_SYMBOL: Record<string, string> = {
+  USD: 'US$',
+  ZAR: 'R',
+  ZWG: 'ZiG',
+};
+
 /** Money already in minor units from the server, shown in its own currency. */
 export function formatMoney(money: { minor: number; currency: string }): string {
-  return (money.minor / 100).toLocaleString(undefined, {
-    style: 'currency',
-    currency: money.currency,
+  const symbol = CURRENCY_SYMBOL[money.currency];
+  if (!symbol) {
+    return (money.minor / 100).toLocaleString(undefined, {
+      style: 'currency',
+      currency: money.currency,
+    });
+  }
+  const amount = (money.minor / 100).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   });
+  return `${symbol} ${amount}`;
+}
+
+/** "3 minutes ago", "2 days ago": for queues, how long someone has waited. */
+export function timeAgo(iso: string): string {
+  const seconds = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+  const units: Array<[string, number]> = [
+    ['day', 86_400],
+    ['hour', 3_600],
+    ['minute', 60],
+  ];
+  for (const [name, size] of units) {
+    if (seconds >= size) {
+      const n = Math.floor(seconds / size);
+      return `${n} ${name}${n === 1 ? '' : 's'} ago`;
+    }
+  }
+  return 'just now';
 }

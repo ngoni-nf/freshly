@@ -379,7 +379,12 @@ export class BookingsService {
       throw new IllegalTransitionError(booking.status, 'completed');
     }
 
-    await this.escrow.capture(bookingId);
+    // `escrow.capture_delay_minutes` is the client's window to dispute before
+    // the provider is paid. At zero the capture happens here, as it always
+    // has; above zero the booking completes now and CaptureDueJob captures it
+    // once the window has passed with no open dispute.
+    const delayMinutes = this.markets.setting<number>('escrow.capture_delay_minutes', 0);
+    if (delayMinutes <= 0) await this.escrow.capture(bookingId);
     await this.db.transaction(async (tx) => {
       await tx.query(`UPDATE bookings SET status = 'completed' WHERE id = $1`, [bookingId]);
       await tx.emitEvent('booking', bookingId, 'booking.completed', { providerId });

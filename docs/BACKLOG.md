@@ -8,61 +8,54 @@ Each item below is written to be pasted straight into a GitHub issue.
 
 ---
 
-## Launch blockers found in the QA pass of 17 October 2026
+## QA pass of 17 October 2026
 
 Found by walking the product as a new Harare barber and a new customer,
-against a local API with the real migrations and seeds. Each one was
-reproduced with curl; none is a guess.
+against a local API with the real migrations and seeds. All three launch
+blockers and the smaller findings are fixed on `fix/launch-blockers`
+(`test/provider-onboarding.e2e-spec.ts` walks the whole journey). Kept here
+as the record of what was wrong, and for the two items that are decisions
+rather than bugs.
 
-### 1. A provider cannot sign up
+### Fixed
 
-Sign in to the provider app with a new number and the account is created
-with `roles = ['client']`. Nothing in the API or the app ever adds the
-`provider` role or inserts a `providers` row, so verification, going
-online and the wallet all answer `insufficient_role`. Today a barber can
-only be onboarded by someone running SQL. Needs: a "become a provider"
-step (POST /providers/me or a flag on sign-in from the partner app) that
-creates the row with `kyc_status = 'pending'`, plus the business details
-screen writing display name, categories, base location and travel radius.
+- A provider could not sign up: nothing created a `providers` row. Now
+  `POST /auth/become-provider` plus the "Set up your business" screen.
+- A provider could never cash out: nothing verified a payout account. A
+  mobile-money wallet on the provider's own number is verified at
+  creation; the rest go to the ops console's payout queue.
+- "Pick a time" never worked: nothing wrote working hours. Defaults at
+  sign-up, editable in the availability screen, `PUT
+  /providers/me/availability/rules`.
+- A refused "Complete" locked its idempotency key forever (PR #4).
+- The quote sent the commission and provider payout to customers (PR #4).
+- The outbox relay sent every booking event as a status, so "started"
+  showed as Draft in the apps.
+- `review.reveal_window_hours` was never read; an hourly job publishes
+  overdue reviews now.
+- Minimum cash-out was one global 5000 (US$50 in Harare); it is per
+  market, US$20 and R50.
+- KYC accepted a submission with no documents.
+- Admin badges queried `sos_alerts`, which does not exist, so the SOS
+  banner could never show; market edits took column names from the body
+  straight into SQL; GMV added rand and dollars together.
+- ESLint had no config and never ran; it runs in CI now.
+- "Suggest an extra service" pushed a route that did not exist; the
+  add-on screen and `POST /bookings/:id/addons` exist now.
 
-### 2. A provider can never cash out
+### Decisions still open
 
-`POST /payouts/accounts` creates an account with `is_verified = false`,
-and nothing in the API or the admin console ever sets it to true. The
-only thing that does is `scripts/smoke-payouts.sh`, with SQL. Every real
-cash-out is refused with `payout_account_unverified`. Needs: a
-verification step (an admin action in the console at minimum; a
-penny-drop or vendor name check later).
-
-### 3. "Pick a time" never works for a real provider
-
-`fn_provider_is_available` requires a row in `availability_rules` for the
-weekday. Only the demo seed inserts those; there is no API call and no
-screen for a provider to set working hours. So every scheduled booking
-for a real provider fails with `slot_unavailable`. Only "As soon as
-possible" works. Needs: working-hours editing in the availability screen
-and `PUT /providers/me/availability/rules`.
-
-### Smaller findings from the same pass
-
-- Minimum cash-out is one global setting (`payout.min_amount_minor` =
-  5000). That is R50 in South Africa and $50 in Zimbabwe, five skin fades
-  for a Harare barber. Make it per market.
-- `review.reveal_window_hours` (14 days) is seeded but unused: a review
-  is published only once both sides have reviewed, so if a provider never
-  rates the client, the client's review never appears.
-- KYC submission accepts no documents at all (`documentFrontKey`,
-  `selfieKey` optional). The app always sends them; the API should insist.
-- `/docs` (Swagger) is public on the live API. Fine for staging, off for
-  production.
-- `npm run lint -w @freshly/api` has never run: there is no ESLint config
-  and CI does not call it.
-- The outbox relay can log a failed `UPDATE` once in a few e2e runs, when
-  the test closes the pool while it is draining. Harmless in production
-  (the event is retried), noisy in CI.
-- Fixed in the same pass (PR #4): a refused "Complete" locked its
-  idempotency key forever, and the quote endpoint sent the commission and
-  provider payout to customers.
+- **Who confirms completion.** Today the client's code starts the job and
+  the provider's "complete" captures the money (after
+  `escrow.capture_delay_minutes`, default 0). The original plan had the
+  client's code release the money. Both are workable; pick one before
+  real money. If the client should confirm, add a second code or an
+  in-app "confirm" with a timeout, and move capture behind it.
+- **Capture delay.** `escrow.capture_delay_minutes` is wired now (it was
+  seeded and never read): above zero, a completed booking is captured by
+  `CaptureDueJob` once the window passes with no open dispute. It is 0 for
+  the pilot. With real money, set it to something (an hour?) so a client
+  has a window to dispute before the provider is paid.
 
 ## Where things are
 

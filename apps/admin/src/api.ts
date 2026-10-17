@@ -189,7 +189,11 @@ export interface SosAlert {
 }
 
 export interface PulseStats {
-  gmvTodayMinor: number;
+  /**
+   * One entry per currency, never summed: a Harare booking in USD and a
+   * Sandton one in ZAR do not add up to anything an operator can act on.
+   */
+  gmvToday: Array<{ currency: string; minor: number }>;
   bookingsToday: number;
   completionRate: number;
   onlineProviders: number;
@@ -201,8 +205,35 @@ export interface PulseStats {
 export interface BadgeCounts {
   kyc: number;
   credentials: number;
+  /** Every open alert, not only the ones nobody has picked up yet. */
   sos: number;
+  payoutAccounts: number;
   disputes: number;
+}
+
+export type PayoutMethod = 'bank_transfer' | 'ecocash' | 'onemoney' | 'innbucks';
+
+/**
+ * A payout destination waiting for a human. The account number itself never
+ * crosses the wire: ops compare the holder's name with the identity document
+ * and the last four digits with what the provider says they typed.
+ */
+export interface PendingPayoutAccount {
+  id: string;
+  method: PayoutMethod;
+  institutionName: string;
+  accountName: string;
+  last4: string;
+  currency: string;
+  createdAt: string;
+  provider: {
+    id: string;
+    displayName: string;
+    kycStatus: string;
+    phone: string;
+  };
+  /** What the provider could cash out the moment this is verified. */
+  availableMinor: number;
 }
 
 export interface SearchResult {
@@ -283,6 +314,15 @@ export const api = {
     request<{ ok: true }>(`/admin/bookings/${id}/resolve-dispute`, {
       method: 'POST',
       body: JSON.stringify({ decision }),
+    }),
+
+  payoutAccountsPending: () =>
+    request<PendingPayoutAccount[]>('/admin/payout-accounts/pending'),
+
+  reviewPayoutAccount: (id: string, decision: 'verified' | 'rejected', reason?: string) =>
+    request<{ id: string; decision: string }>(`/admin/payout-accounts/${id}/review`, {
+      method: 'POST',
+      body: JSON.stringify({ decision, reason }),
     }),
 
   markets: () => request<MarketSettings[]>('/admin/markets'),

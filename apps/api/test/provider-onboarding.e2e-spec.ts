@@ -4,6 +4,8 @@ import request from 'supertest';
 import { Client } from 'pg';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/http-exception.filter';
+import { MarketsService } from '../src/modules/markets/markets.service';
+import { CaptureDueJob } from '../src/modules/payments/capture-due.job';
 
 /**
  * A barber in Harare, from a phone number to being paid.
@@ -309,6 +311,79 @@ maybeDescribe('provider onboarding (e2e)', () => {
     expect(wallet.body.blockedReason).toBe('payout_account_missing');
   });
 
+  it('holds the money for the dispute window when the market asks for one', async () => {
+    const markets = app.get(MarketsService);
+    await db.query(`UPDATE platform_settings SET value = '60' WHERE key = 'escrow.capture_delay_minutes'`);
+    await markets.refresh();
+
+    const key = `e2e-zw-delay-${Date.now()}`;
+    const booking = await request(app.getHttpServer())
+      .post('/bookings')
+      .set('Authorization', `Bearer ${clientToken}`)
+      .set('Idempotency-Key', key)
+      .send({
+        providerId,
+        serviceIds: [serviceId],
+        destination: { lat: -17.81, lng: 31.05 },
+        bookingType: 'instant',
+        destinationAddress: '14 King George Rd, Avondale',
+      })
+      .expect(201);
+    const bookingId = booking.body.id as string;
+    await request(app.getHttpServer())
+      .post(`/bookings/${bookingId}/checkout`)
+      .set('Authorization', `Bearer ${clientToken}`)
+      .set('Idempotency-Key', `${key}-pay`)
+      .send({ method: 'ecocash' })
+      .expect(201);
+    await db.query(`UPDATE bookings SET status = 'accepted' WHERE id = $1`, [bookingId]);
+    for (const status of ['en_route', 'arrived']) {
+      await request(app.getHttpServer())
+        .post(`/bookings/${bookingId}/status`)
+        .set('Authorization', `Bearer ${proToken}`)
+        .send({ status })
+        .expect(201);
+    }
+    const pin = await request(app.getHttpServer())
+      .get(`/bookings/${bookingId}/pin`)
+      .set('Authorization', `Bearer ${clientToken}`)
+      .expect(200);
+    await request(app.getHttpServer())
+      .post(`/bookings/${bookingId}/verify-pin`)
+      .set('Authorization', `Bearer ${proToken}`)
+      .send({ pin: pin.body.pin })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post(`/bookings/${bookingId}/complete`)
+      .set('Authorization', `Bearer ${proToken}`)
+      .set('Idempotency-Key', `complete-${bookingId}`)
+      .expect(201);
+
+    // Completed, but the hold is still a hold.
+    const held = await db.query(
+      `SELECT escrow_status FROM payment_intents WHERE booking_id = $1`,
+      [bookingId],
+    );
+    expect(held.rows[0].escrow_status).toBe('authorized');
+
+    const job = app.get(CaptureDueJob);
+    expect(await job.run()).toBe(0); // window not over
+
+    await db.query(
+      `UPDATE bookings SET completed_at = now() - INTERVAL '2 hours' WHERE id = $1`,
+      [bookingId],
+    );
+    expect(await job.run()).toBe(1);
+    const captured = await db.query(
+      `SELECT escrow_status FROM payment_intents WHERE booking_id = $1`,
+      [bookingId],
+    );
+    expect(captured.rows[0].escrow_status).toBe('captured');
+
+    await db.query(`UPDATE platform_settings SET value = '0' WHERE key = 'escrow.capture_delay_minutes'`);
+    await markets.refresh();
+  });
+
   it("verifies an EcoCash wallet on the provider's own number automatically", async () => {
     const someoneElse = await request(app.getHttpServer())
       .post('/payouts/accounts')
@@ -335,7 +410,10 @@ maybeDescribe('provider onboarding (e2e)', () => {
       .set('Authorization', `Bearer ${proToken}`)
       .expect(200);
     expect(wallet.body.account.isVerified).toBe(true);
-    expect(wallet.body.blockedReason).toBe('below_minimum');
+    // Two fades minus commission is just over the US$20 minimum: nothing
+    // stands between this provider and their money any more.
+    expect(wallet.body.blockedReason).toBeNull();
+    expect(wallet.body.canCashOut).toBe(true);
   });
 
   it('lets ops verify a bank account by hand', async () => {

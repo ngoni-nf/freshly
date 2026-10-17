@@ -11,6 +11,7 @@ import { Sos } from './screens/Sos';
 import { Pulse } from './screens/Pulse';
 import { Disputes } from './screens/Disputes';
 import { Markets } from './screens/Markets';
+import { PayoutAccounts } from './screens/PayoutAccounts';
 import { BadgeCounts } from './api';
 import { Icon, Monogram, type IconName } from './ui';
 
@@ -25,6 +26,7 @@ type Tab =
   | 'providers'
   | 'kyc'
   | 'credentials'
+  | 'payoutAccounts'
   | 'markets';
 
 const TAB_META: Record<Tab, { label: string; group: string }> = {
@@ -38,6 +40,7 @@ const TAB_META: Record<Tab, { label: string; group: string }> = {
   providers: { label: 'Providers', group: 'Trust' },
   kyc: { label: 'Identity review', group: 'Trust' },
   credentials: { label: 'Practitioner licences', group: 'Trust' },
+  payoutAccounts: { label: 'Payout accounts', group: 'Trust' },
   markets: { label: 'Market settings', group: 'Admin' },
 };
 
@@ -47,7 +50,13 @@ export function App() {
   const [tab, setTab] = useState<Tab>('pulse');
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [badges, setBadges] = useState<BadgeCounts>({ kyc: 0, credentials: 0, sos: 0, disputes: 0 });
+  const [badges, setBadges] = useState<BadgeCounts>({
+    kyc: 0,
+    credentials: 0,
+    sos: 0,
+    payoutAccounts: 0,
+    disputes: 0,
+  });
 
   // Restore a session on reload. A stored token proves nothing about the
   // account's current state, so the server is asked rather than trusted.
@@ -190,6 +199,7 @@ export function App() {
         {navItem('providers', 'users')}
         {navItem('kyc', 'idcard', badges.kyc)}
         {navItem('credentials', 'award', badges.credentials)}
+        {navItem('payoutAccounts', 'wallet', badges.payoutAccounts)}
 
         {isAdmin && (
           <>
@@ -252,6 +262,7 @@ export function App() {
           {tab === 'providers' && <Providers canSuspend={isAdmin} />}
           {tab === 'kyc' && <KycQueue />}
           {tab === 'credentials' && <CredentialQueue />}
+          {tab === 'payoutAccounts' && <PayoutAccounts canReview={isAdmin} />}
           {tab === 'markets' && <Markets />}
         </main>
       </div>

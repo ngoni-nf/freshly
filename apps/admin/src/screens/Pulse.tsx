@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, type PulseStats } from '../api';
 import { messageFor } from '../App';
-import { Icon } from '../ui';
+import { Icon, formatMoney } from '../ui';
 
 export function Pulse() {
   const [stats, setStats] = useState<PulseStats | null>(null);
@@ -45,8 +45,22 @@ export function Pulse() {
             <div className="label">GMV Today</div>
             <span className="stat-icon"><Icon name="cash" size={16} /></span>
           </div>
-          <div className="value">R {(stats.gmvTodayMinor / 100).toLocaleString()}</div>
-          <p className="meta">Gross value of today's bookings</p>
+          {stats.gmvToday.length === 0 ? (
+            <div className="value none">No completed bookings yet today</div>
+          ) : (
+            <div className={`gmv ${stats.gmvToday.length > 1 ? 'many' : ''}`}>
+              {stats.gmvToday.map((g) => (
+                <div className="value" key={g.currency}>
+                  {formatMoney(g)}
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="meta">
+            {stats.gmvToday.length > 1
+              ? 'Gross value of today\'s bookings, per currency'
+              : 'Gross value of today\'s bookings'}
+          </p>
         </div>
         <div className="card stat">
           <div className="stat-top">

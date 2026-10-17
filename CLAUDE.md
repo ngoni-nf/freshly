@@ -60,10 +60,22 @@ result the vendor mapping does not recognise becomes `in_review`, never
 `verified` — the failure that matters is an unvetted person reaching a
 customer's door, not a delayed approval.
 
-**Capture is gated on the client's PIN.** The customer holds a four-digit code;
-the provider types it; only then does escrow capture. "The job is done" is
-asserted by the person who paid, not the person being paid. A provider can
-never self-declare `in_progress` — `advanceStatus` refuses it explicitly.
+**Starting the job is gated on the client's PIN.** The customer holds a
+four-digit code; the provider types it at the door; only then does the booking
+move to `in_progress` (`verifyPin`). It proves the person at the door is the
+pro who was booked. Capture happens when the provider marks the job complete,
+after a cooling-off delay the market can set (`escrow.capture_delay_minutes`),
+and the client has the dispute path after that. A provider can never
+self-declare `in_progress` — `advanceStatus` refuses it explicitly. The app
+copy says exactly this; an earlier version told clients not to share the code
+until the job was done, which meant the job could never start. Whether the
+client should also confirm completion before capture is an open product
+decision recorded in `docs/BACKLOG.md`; do not change the mechanics without it.
+
+**Only a successful request is replayed under an Idempotency-Key.** A claim is
+released when the handler throws, and taken over after two minutes if the
+process died mid-request. The provider app sends one fixed key per booking for
+"complete"; before this, one refused tap stranded the job forever.
 
 **Providers see the suburb, not the street, until they accept.** `maskAddress`
 in `dispatch.service.ts`. No reason to hand a client's address to eight people
@@ -83,11 +95,23 @@ Turning Zimbabwe on is an UPDATE plus a payment adapter. Do not add
 
 ## Current state
 
-Working and verified: 85 unit tests and 6 end-to-end tests green, `tsc`
+Working and verified: 85 unit tests and 16 end-to-end tests green (the
+booking flow, and a provider's whole journey from a +263 number to a verified
+EcoCash wallet in `test/provider-onboarding.e2e-spec.ts`), `tsc` and ESLint
 clean, both smoke suites pass against a running API, and both Flutter apps
-analyze clean and build and run on an Android 16 emulator. Pricing reconciles
+analyze clean and build and run on an Android 16 emulator. Each app has a
+screen tour (`flutter test test_screens --update-goldens`) that renders real
+screens with real fonts against a fake API, and the client app has a
+router-level test of the booking journey. Pricing reconciles
 across a swept range of prices and distances; payout gross always splits into
 exactly fee plus net across the same kind of sweep.
+
+A provider signs up in the partner app (`POST /auth/become-provider`), which
+creates the row with `kyc_status = 'pending'`, resolves the service area from
+their base location, writes Monday-Saturday hours, and issues a session that
+carries the role. A mobile-money payout account on their own verified number
+is verified at creation; anything else waits in the ops console's payout
+queue. The minimum cash-out is per market (`countries.min_payout_minor`).
 
 Modules: `payouts` (wallet, cash-out, accounts, settlement webhooks), `kyc`
 (submission, manual review, signed callbacks), `safety` (SOS and emergency
