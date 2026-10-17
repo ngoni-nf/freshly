@@ -14,15 +14,13 @@ import 'package:freshly_client/features/auth/country_screen.dart';
 import 'package:freshly_client/features/auth/otp_screen.dart';
 import 'package:freshly_client/features/auth/permissions_screen.dart';
 import 'package:freshly_client/features/auth/phone_screen.dart';
-import 'package:freshly_client/features/auth/profile_screen.dart'
-    as onboarding;
+import 'package:freshly_client/features/auth/profile_screen.dart' as onboarding;
 import 'package:freshly_client/features/auth/splash_screen.dart';
 
 import 'package:freshly_client/features/discovery/catalog_screen.dart';
 import 'package:freshly_client/features/discovery/feed_screen.dart';
 import 'package:freshly_client/features/history/bookings_screen.dart';
-import 'package:freshly_client/features/profile/profile_screen.dart'
-    as account;
+import 'package:freshly_client/features/profile/profile_screen.dart' as account;
 
 import 'harness.dart';
 
@@ -30,19 +28,21 @@ void main() {
   setUpAll(loadFonts);
 
   testWidgets('home', (tester) async {
-    await shoot(tester, 'home', (_) => const DashboardScreen(), height: 1640, withNav: true);
+    await shoot(tester, 'home', (_) => const DashboardScreen(),
+        height: 1640, withNav: true);
   });
 
   testWidgets('provider', (tester) async {
-    await shoot(tester, 'provider',
-        (_) => const ProviderScreen(providerId: 'p1'),
+    await shoot(
+        tester, 'provider', (_) => const ProviderScreen(providerId: 'p1'),
         height: 1500, act: (t) async {
       await t.tap(find.text('Skin fade'));
     });
   });
 
   testWidgets('logistics', (tester) async {
-    await shoot(tester, 'logistics', (_) => LogisticsScreen(draft: sampleDraft()),
+    await shoot(
+        tester, 'logistics', (_) => LogisticsScreen(draft: sampleDraft()),
         height: 1000);
   });
 
@@ -72,8 +72,7 @@ void main() {
   testWidgets('a4-otp', (tester) async {
     await shoot(tester, 'a4-otp',
         (_) => const OtpScreen(phone: '+263771234567', countryCode: 'ZW'),
-        act: (t) async =>
-            t.enterText(find.byType(EditableText).first, '4827'));
+        act: (t) async => t.enterText(find.byType(EditableText).first, '4827'));
   });
   testWidgets('a5-profile', (tester) async {
     await shoot(tester, 'a5-profile', (_) => const onboarding.ProfileScreen());

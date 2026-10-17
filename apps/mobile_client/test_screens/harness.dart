@@ -25,9 +25,9 @@ import 'package:freshly_client/features/discovery/feed_screen.dart'
     show currentPositionProvider;
 
 Future<void> loadFonts() async {
-  final config = jsonDecode(
-          File('.dart_tool/package_config.json').readAsStringSync())
-      as Map<String, dynamic>;
+  final config =
+      jsonDecode(File('.dart_tool/package_config.json').readAsStringSync())
+          as Map<String, dynamic>;
   String root(String name) {
     final pkg = (config['packages'] as List)
         .cast<Map<String, dynamic>>()
@@ -65,7 +65,8 @@ Future<void> loadFonts() async {
   await load('packages/cupertino_icons/CupertinoIcons',
       ['$cupertino/assets/CupertinoIcons.ttf']);
 
-  final flutterRoot = Platform.environment['FLUTTER_ROOT'] ?? '/opt/sdk/flutter';
+  final flutterRoot =
+      Platform.environment['FLUTTER_ROOT'] ?? '/opt/sdk/flutter';
   final material = '$flutterRoot/bin/cache/artifacts/material_fonts';
   await load('MaterialIcons', ['$material/MaterialIcons-Regular.otf']);
   await load('Roboto', [
@@ -113,13 +114,22 @@ ProviderSummary sampleProvider(
 final sampleProviders = [
   sampleProvider('p1', 'Tendai Moyo'),
   sampleProvider('p2', 'Rudo Kanengoni',
-      rating: 4.8, count: 64, fromMinor: 1500, backup: false,
-      categories: ['braiding', 'hair'], km: 3.1, eta: 24),
+      rating: 4.8,
+      count: 64,
+      fromMinor: 1500,
+      backup: false,
+      categories: ['braiding', 'hair'],
+      km: 3.1,
+      eta: 24),
   sampleProvider('p3', 'Farai Chikore',
       rating: 4.9, count: 211, fromMinor: 600, online: false, km: 1.2),
   sampleProvider('p4', 'Nyasha Nails',
-      rating: 4.7, count: 38, fromMinor: 1200,
-      categories: ['nails'], km: 4.6, eta: 31),
+      rating: 4.7,
+      count: 38,
+      fromMinor: 1200,
+      categories: ['nails'],
+      km: 4.6,
+      eta: 31),
 ];
 
 final sampleServices = [
@@ -247,7 +257,14 @@ class FakeApi extends FreshlyApi {
 
   @override
   Future<List<CategorySummary>> catalogCategories() async => [
-        for (final c in ['barber', 'braiding', 'hair', 'nails', 'beard', 'locs'])
+        for (final c in [
+          'barber',
+          'braiding',
+          'hair',
+          'nails',
+          'beard',
+          'locs'
+        ])
           CategorySummary.fromJson(
               {'category': c, 'providerCount': c.length + 3}),
       ];
@@ -273,20 +290,21 @@ class FakeApi extends FreshlyApi {
 
   @override
   Future<List<Booking>> myBookings({String? status}) async => [
-        Booking.fromJson(sampleBookingJson('en_route', id: 'b0', ref: 'FR-9LMA')),
+        Booking.fromJson(
+            sampleBookingJson('en_route', id: 'b0', ref: 'FR-9LMA')),
         Booking.fromJson(sampleBookingJson('completed')),
-        Booking.fromJson(sampleBookingJson('cancelled', id: 'b3', ref: 'FR-1ZZT')),
-        Booking.fromJson(sampleBookingJson('completed',
-            id: 'b2', ref: 'FR-3XHD')),
+        Booking.fromJson(
+            sampleBookingJson('cancelled', id: 'b3', ref: 'FR-1ZZT')),
+        Booking.fromJson(
+            sampleBookingJson('completed', id: 'b2', ref: 'FR-3XHD')),
       ];
 
   @override
   Future<Map<String, dynamic>> providerProfile(String providerId) async => {
         'providerId': providerId,
         'displayName': 'Tendai Moyo',
-        'bio':
-            'Clean fades and sharp line-ups, at your place or my chair in '
-                'Avondale. Ten years cutting in Harare.',
+        'bio': 'Clean fades and sharp line-ups, at your place or my chair in '
+            'Avondale. Ten years cutting in Harare.',
         'rating': 4.9,
         'ratingCount': 127,
         'completedJobs': 342,
@@ -298,7 +316,8 @@ class FakeApi extends FreshlyApi {
           {
             'rating': 5,
             'author': 'Kuda',
-            'comment': 'On time even with the power off. Best fade in Avondale.',
+            'comment':
+                'On time even with the power off. Best fade in Avondale.',
             'tags': ['On time', 'Great cut'],
           },
           {
@@ -352,8 +371,7 @@ class FakeSecureStorage implements FlutterSecureStorage {
 }
 
 List<Override> baseOverrides() => [
-      sessionStoreProvider
-          .overrideWithValue(SessionStore(FakeSecureStorage())),
+      sessionStoreProvider.overrideWithValue(SessionStore(FakeSecureStorage())),
       phoneAuthProvider.overrideWithValue(FakePhoneAuth()),
       apiProvider.overrideWithValue(FakeApi()),
       currentPositionProvider
