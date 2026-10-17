@@ -7,7 +7,7 @@ import {
   NestInterceptor,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Observable, from, of, switchMap, tap } from 'rxjs';
+import { Observable, catchError, from, of, switchMap, tap, throwError } from 'rxjs';
 import { createHash } from 'node:crypto';
 import { DatabaseService } from '../database/database.service';
 import { IDEMPOTENT_KEY } from '../decorators';
@@ -19,7 +19,16 @@ import { IDEMPOTENT_KEY } from '../decorators';
  * to POST /bookings/:id/checkout means the client retries and the customer is
  * authorised twice. The key is claimed atomically; a replay with an identical
  * body returns the stored response, a replay with a different body is rejected.
+ *
+ * A claim is released when the handler throws. Only a success is worth
+ * replaying: a refused transition or a gateway error must be retryable with
+ * the same key, because the provider app sends one fixed key per booking for
+ * "complete" and a key stuck "in flight" meant that job could never be
+ * finished or paid. A claim left behind by a crash mid-request expires on its
+ * own after STALE_CLAIM_SECONDS, for the same reason.
  */
+const STALE_CLAIM_SECONDS = 120;
+
 @Injectable()
 export class IdempotencyInterceptor implements NestInterceptor {
   constructor(
@@ -70,6 +79,9 @@ export class IdempotencyInterceptor implements NestInterceptor {
           tap((body) => {
             void this.complete(key, body);
           }),
+          catchError((err) =>
+            from(this.release(key)).pipe(switchMap(() => throwError(() => err))),
+          ),
         );
       }),
     );
@@ -88,14 +100,25 @@ export class IdempotencyInterceptor implements NestInterceptor {
     }>(
       `INSERT INTO idempotency_keys (key, user_id, endpoint, request_hash, locked_at)
        VALUES ($1, $2, $3, $4, now())
-       ON CONFLICT (key) DO NOTHING
+       ON CONFLICT (key) DO UPDATE
+         SET user_id = EXCLUDED.user_id, endpoint = EXCLUDED.endpoint,
+             request_hash = EXCLUDED.request_hash, locked_at = now()
+         WHERE idempotency_keys.completed_at IS NULL
+           AND idempotency_keys.locked_at < now() - ($5 || ' seconds')::INTERVAL
        RETURNING request_hash, response_body, completed_at`,
-      [key, userId, endpoint, requestHash],
+      [key, userId, endpoint, requestHash, String(STALE_CLAIM_SECONDS)],
     );
     if (rows.length) return null; // freshly claimed, proceed
 
     return this.db.queryOne(
       `SELECT request_hash, response_body, completed_at FROM idempotency_keys WHERE key = $1`,
+      [key],
+    );
+  }
+
+  private async release(key: string): Promise<void> {
+    await this.db.query(
+      'DELETE FROM idempotency_keys WHERE key = $1 AND completed_at IS NULL',
       [key],
     );
   }
