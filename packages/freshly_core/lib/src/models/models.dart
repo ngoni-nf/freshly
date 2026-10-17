@@ -120,6 +120,12 @@ enum PowerBackup {
         PowerBackup.solar => 'Solar',
       };
 
+  String get wire => switch (this) {
+        PowerBackup.batteryClippers => 'battery_clippers',
+        PowerBackup.portableLights => 'portable_lights',
+        _ => name,
+      };
+
   static PowerBackup fromWire(String v) => switch (v) {
         'battery_clippers' => PowerBackup.batteryClippers,
         'portable_lights' => PowerBackup.portableLights,
@@ -235,7 +241,8 @@ class ProviderSummary {
 
   /// A salon is a place you travel to; a solo provider comes to you. The
   /// distinction changes what the card should say, not just what it shows.
-  bool get isShop => venueMode == VenueMode.inShop || businessMode == BusinessMode.salon;
+  bool get isShop =>
+      venueMode == VenueMode.inShop || businessMode == BusinessMode.salon;
 
   factory ProviderSummary.fromJson(Map<String, dynamic> j) => ProviderSummary(
         id: j['providerId'] as String,
@@ -269,8 +276,8 @@ enum VenueMode {
   /// Defaults to mobile rather than throwing. An unrecognised venue is a
   /// deployment skew, and refusing to render the whole feed over one is worse
   /// than showing a provider slightly wrong.
-  static VenueMode fromWire(String? wire) =>
-      VenueMode.values.firstWhere((v) => v.wire == wire, orElse: () => VenueMode.mobile);
+  static VenueMode fromWire(String? wire) => VenueMode.values
+      .firstWhere((v) => v.wire == wire, orElse: () => VenueMode.mobile);
 }
 
 enum BusinessMode {
@@ -281,8 +288,8 @@ enum BusinessMode {
   const BusinessMode(this.wire);
   final String wire;
 
-  static BusinessMode fromWire(String? wire) =>
-      BusinessMode.values.firstWhere((b) => b.wire == wire, orElse: () => BusinessMode.solo);
+  static BusinessMode fromWire(String? wire) => BusinessMode.values
+      .firstWhere((b) => b.wire == wire, orElse: () => BusinessMode.solo);
 }
 
 /// One movement in a provider's earnings history.
@@ -316,8 +323,8 @@ class EarningsTransaction {
   /// What actually reached the wallet. Service plus travel, less commission —
   /// the same arithmetic the ledger performed at capture, shown back so a
   /// provider can check it rather than trust it.
-  Money get netEarnings =>
-      Money(minor: serviceMinor + travelMinor - commissionMinor, currency: currency);
+  Money get netEarnings => Money(
+      minor: serviceMinor + travelMinor - commissionMinor, currency: currency);
 
   factory EarningsTransaction.fromJson(Map<String, dynamic> j) =>
       EarningsTransaction(
@@ -349,7 +356,8 @@ class AddressSuggestion {
   /// "Sandton, Johannesburg"
   final String secondary;
 
-  factory AddressSuggestion.fromJson(Map<String, dynamic> j) => AddressSuggestion(
+  factory AddressSuggestion.fromJson(Map<String, dynamic> j) =>
+      AddressSuggestion(
         placeId: j['placeId'] as String,
         primary: j['primary'] as String,
         secondary: j['secondary'] as String? ?? '',
@@ -825,7 +833,8 @@ class ProviderMenuItem {
         catalogServiceId: j['catalogServiceId'] as String,
         name: j['name'] as String,
         category: ServiceCategory.fromWire(j['category'] as String),
-        price: Money(minor: j['priceMinor'] as int, currency: j['currency'] as String),
+        price: Money(
+            minor: j['priceMinor'] as int, currency: j['currency'] as String),
         durationMinutes: j['durationMinutes'] as int,
         requiresPower: j['requiresPower'] as bool? ?? false,
         requiresLicence: j['requiresLicence'] as bool? ?? false,
@@ -1019,7 +1028,8 @@ class UploadInstruction {
   final int maxSize;
   final List<String> contentTypes;
 
-  factory UploadInstruction.fromJson(Map<String, dynamic> j) => UploadInstruction(
+  factory UploadInstruction.fromJson(Map<String, dynamic> j) =>
+      UploadInstruction(
         url: j['url'] as String,
         key: j['key'] as String,
         maxSize: j['maxSize'] as int,
@@ -1084,4 +1094,167 @@ class CurrentUser {
       serviceArea: area == null ? null : ServiceArea.fromJson(area),
     );
   }
+}
+
+/// What a new provider tells us about their business at sign-up.
+class ProviderSignUp {
+  const ProviderSignUp({
+    required this.displayName,
+    required this.businessMode,
+    required this.categories,
+    required this.venueMode,
+    required this.lat,
+    required this.lng,
+    this.shopAddress,
+    this.travelRadiusKm,
+    this.powerBackup = const [],
+    this.bio,
+  });
+
+  final String displayName;
+  final String businessMode; // solo | salon
+  final List<ServiceCategory> categories;
+  final String venueMode; // mobile | in_shop | both
+  final double lat;
+  final double lng;
+  final String? shopAddress;
+  final double? travelRadiusKm;
+  final List<PowerBackup> powerBackup;
+  final String? bio;
+
+  Map<String, dynamic> toJson() => {
+        'displayName': displayName,
+        'businessMode': businessMode,
+        'categories': categories.map((c) => c.wire).toList(),
+        'venueMode': venueMode,
+        'lat': lat,
+        'lng': lng,
+        if (shopAddress != null) 'shopAddress': shopAddress,
+        if (travelRadiusKm != null) 'travelRadiusKm': travelRadiusKm,
+        if (powerBackup.isNotEmpty)
+          'powerBackup': powerBackup.map((p) => p.wire).toList(),
+        if (bio != null && bio!.isNotEmpty) 'bio': bio,
+      };
+}
+
+/// The provider's own business as the server holds it.
+class ProviderBusiness {
+  const ProviderBusiness({
+    required this.id,
+    required this.displayName,
+    required this.bio,
+    required this.businessMode,
+    required this.categories,
+    required this.venueMode,
+    required this.powerBackup,
+    required this.shopAddress,
+    required this.travelRadiusKm,
+    required this.acceptsInstant,
+    required this.acceptsScheduled,
+    required this.kycStatus,
+    required this.isOnline,
+    required this.rating,
+    required this.ratingCount,
+    required this.completedJobs,
+    required this.currency,
+    required this.baseLocation,
+    required this.serviceAreaName,
+  });
+
+  final String id;
+  final String displayName;
+  final String? bio;
+  final String businessMode;
+  final List<ServiceCategory> categories;
+  final String venueMode;
+  final List<PowerBackup> powerBackup;
+  final String? shopAddress;
+  final double travelRadiusKm;
+  final bool acceptsInstant;
+  final bool acceptsScheduled;
+  final String kycStatus;
+  final bool isOnline;
+  final double rating;
+  final int ratingCount;
+  final int completedJobs;
+  final String currency;
+  final GeoPoint? baseLocation;
+  final String? serviceAreaName;
+
+  factory ProviderBusiness.fromJson(Map<String, dynamic> j) {
+    final base = j['baseLocation'] as Map<String, dynamic>?;
+    final area = j['serviceArea'] as Map<String, dynamic>?;
+    return ProviderBusiness(
+      id: j['id'] as String,
+      displayName: j['displayName'] as String,
+      bio: j['bio'] as String?,
+      businessMode: j['businessMode'] as String? ?? 'solo',
+      categories: (j['categories'] as List? ?? [])
+          .map((c) => ServiceCategory.fromWire(c as String))
+          .toList(),
+      venueMode: j['venueMode'] as String? ?? 'mobile',
+      powerBackup: (j['powerBackup'] as List? ?? [])
+          .map((p) => PowerBackup.fromWire(p as String))
+          .toList(),
+      shopAddress: j['shopAddress'] as String?,
+      travelRadiusKm: (j['travelRadiusKm'] as num?)?.toDouble() ?? 10,
+      acceptsInstant: j['acceptsInstant'] as bool? ?? true,
+      acceptsScheduled: j['acceptsScheduled'] as bool? ?? true,
+      kycStatus: j['kycStatus'] as String? ?? 'pending',
+      isOnline: j['isOnline'] as bool? ?? false,
+      rating: (j['rating'] as num?)?.toDouble() ?? 5,
+      ratingCount: j['ratingCount'] as int? ?? 0,
+      completedJobs: j['completedJobs'] as int? ?? 0,
+      currency: j['currency'] as String? ?? 'USD',
+      baseLocation: base == null
+          ? null
+          : GeoPoint(
+              (base['lat'] as num).toDouble(), (base['lng'] as num).toDouble()),
+      serviceAreaName: area?['name'] as String?,
+    );
+  }
+}
+
+/// One working window on one weekday. Weekday 0 is Sunday, as in the database.
+class WorkingHours {
+  const WorkingHours({
+    required this.weekday,
+    required this.startsAt,
+    required this.endsAt,
+  });
+
+  final int weekday;
+
+  /// "HH:mm", 24-hour.
+  final String startsAt;
+  final String endsAt;
+
+  factory WorkingHours.fromJson(Map<String, dynamic> j) => WorkingHours(
+        weekday: j['weekday'] as int,
+        startsAt: j['startsAt'] as String,
+        endsAt: j['endsAt'] as String,
+      );
+
+  Map<String, dynamic> toJson() =>
+      {'weekday': weekday, 'startsAt': startsAt, 'endsAt': endsAt};
+}
+
+/// An extra the provider has suggested mid-job, waiting on the client.
+class AddonRequest {
+  const AddonRequest({
+    required this.itemId,
+    required this.name,
+    required this.price,
+  });
+
+  final String itemId;
+  final String name;
+  final Money price;
+
+  factory AddonRequest.fromJson(Map<String, dynamic> j) => AddonRequest(
+        itemId: j['itemId'] as String,
+        name: j['name'] as String,
+        price: Money(
+            minor: j['priceMinor'] as int, currency: j['currency'] as String),
+      );
 }
