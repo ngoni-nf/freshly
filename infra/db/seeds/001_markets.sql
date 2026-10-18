@@ -9,14 +9,14 @@ INSERT INTO countries (
   vat_bps, vat_label, tax_authority, payment_provider, kyc_provider, sos_provider,
   grid_status_provider, cancellation_window_minutes, cancellation_fee_bps,
   no_show_grace_minutes, dispatch_offer_seconds, max_search_radius_km, is_live,
-  min_payout_minor
+  min_payout_minor, emergency_number
 ) VALUES
 -- South Africa: 12.5% commission, R10 service fee, R7/km beyond 3km, 15% VAT.
 ('ZA', 'South Africa', 'ZAR', ARRAY['ZAR']::currency_code_enum[], '+27', 9,
  'Africa/Johannesburg', 1250, 1000, 700, 3.00,
  1500, 'VAT', 'SARS', 'stitch', 'smileid', 'aura',
  'eskom_se_push', 120, 5000, 10, 60, 25.00, true,
- 5000),
+ 5000, '10111'),
 
 -- Zimbabwe: USD-first (the functional retail currency), 12.5% commission,
 -- $0.50 service fee, $0.40/km. 15.5% VAT administered by ZIMRA, from
@@ -28,7 +28,7 @@ INSERT INTO countries (
  1550, 'VAT', 'ZIMRA', 'paynow', 'smileid', 'mock',
  'zesa', 120, 5000, 10, 75, 20.00, true,
  -- US$20: two fades, not five. The ZA figure is R50 for the same reason.
- 2000);
+ 2000, '999');
 
 -- --------------------------------------------------------------------------
 -- Launch service areas. Boundaries here are deliberately coarse bounding

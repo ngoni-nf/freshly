@@ -81,7 +81,8 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     const allowed = await this.db.queryOne<{ id: string }>(
       `SELECT b.id FROM bookings b
          LEFT JOIN providers p ON p.id = b.provider_id
-        WHERE b.id = $1 AND (b.client_id = $2 OR p.user_id = $2)`,
+         LEFT JOIN providers s ON s.id = b.assigned_staff_id
+        WHERE b.id = $1 AND (b.client_id = $2 OR p.user_id = $2 OR s.user_id = $2)`,
       [body.bookingId, user.userId],
     );
     if (!allowed) return { ok: false };
@@ -118,9 +119,14 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     const ttl = this.markets.setting<number>('tracking.retention_minutes', 60) * 60;
     await this.redis.recordLocation(user.providerId, body, ttl);
 
+    // The person travelling is the one whose dot the client should see: the
+    // staff member when the salon has assigned one, otherwise the provider
+    // on the booking. A salon owner at the till must not overwrite the
+    // position of the stylist actually on the road.
     const active = await this.db.query<{ id: string }>(
       `SELECT id FROM bookings
-        WHERE provider_id = $1 AND status IN ('accepted','en_route','arrived','in_progress')`,
+        WHERE status IN ('accepted','en_route','arrived','in_progress')
+          AND (assigned_staff_id = $1 OR (assigned_staff_id IS NULL AND provider_id = $1))`,
       [user.providerId],
     );
 

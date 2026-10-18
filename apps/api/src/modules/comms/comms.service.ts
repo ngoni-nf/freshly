@@ -59,6 +59,17 @@ export class CommsService {
     this.logger.log(`otp dispatched to ${mask(phoneE164)} (${countryCode})`);
   }
 
+  /**
+   * SMS, not WhatsApp: the person invited may never have installed anything,
+   * and the point of inviting by number is to reach exactly those people.
+   */
+  async notifyStaffInvite(phoneE164: string, salonName: string): Promise<void> {
+    await this.adapter.sendSms(
+      phoneE164,
+      `${salonName} has invited you to join their team on Freshly. Sign in with this number in the Freshly Partner app to accept.`,
+    );
+  }
+
   async notifyBookingAccepted(phoneE164: string, providerName: string, etaMinutes: number): Promise<void> {
     await this.adapter.sendWhatsApp(phoneE164, 'booking_accepted', {
       provider: providerName,

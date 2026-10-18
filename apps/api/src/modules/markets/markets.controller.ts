@@ -80,6 +80,7 @@ export class MarketsController {
       cancellationWindowMinutes: m.cancellationWindowMinutes,
       cancellationFeeBps: m.cancellationFeeBps,
       noShowGraceMinutes: m.noShowGraceMinutes,
+      emergencyNumber: m.emergencyNumber,
     }));
   }
 }

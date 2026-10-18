@@ -188,3 +188,43 @@ export class PricingService {
     };
   }
 }
+
+export interface FrozenBookingFigures {
+  /** Booked services and client-approved extras, in display order. */
+  items: Array<{ label: string; amountMinor: number; isAddon: boolean }>;
+  travelFeeMinor: number;
+  serviceFeeMinor: number;
+  discountMinor: number;
+  totalMinor: number;
+  travelDistanceKm: number;
+}
+
+/**
+ * The breakdown of a booking that already exists, in the same shape as a
+ * quote's, so the app renders "what you agreed to" with the widget it used
+ * for "what you will pay".
+ *
+ * Built from the booking row and its item snapshots, never from today's
+ * menu prices: the figures were frozen at checkout and have only grown by
+ * extras the client approved. Surge is kept as a rate, not an amount, so it
+ * is recovered as whatever the itemised lines, travel, fee and discount do
+ * not account for; that way the lines always sum to the stored total even
+ * if a snapshot and the subtotal ever disagreed.
+ */
+export function bookingBreakdown(src: FrozenBookingFigures): QuoteLine[] {
+  const breakdown: QuoteLine[] = src.items.map<QuoteLine>((i) => ({
+    label: i.isAddon ? `${i.label} (extra)` : i.label,
+    amountMinor: i.amountMinor,
+    kind: 'charge',
+  }));
+  const itemsMinor = breakdown.reduce((acc, l) => acc + l.amountMinor, 0);
+  const surgeMinor = src.totalMinor + src.discountMinor - src.serviceFeeMinor - src.travelFeeMinor - itemsMinor;
+  if (surgeMinor > 0) breakdown.push({ label: 'Busy period', amountMinor: surgeMinor, kind: 'charge' });
+  if (surgeMinor < 0) breakdown.push({ label: 'Adjustment', amountMinor: surgeMinor, kind: 'discount' });
+  if (src.travelFeeMinor > 0) {
+    breakdown.push({ label: `Travel (${src.travelDistanceKm.toFixed(1)} km)`, amountMinor: src.travelFeeMinor, kind: 'charge' });
+  }
+  breakdown.push({ label: 'Platform fee', amountMinor: src.serviceFeeMinor, kind: 'charge' });
+  if (src.discountMinor > 0) breakdown.push({ label: 'Promo discount', amountMinor: -src.discountMinor, kind: 'discount' });
+  return breakdown;
+}
