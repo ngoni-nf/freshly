@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../app/providers.dart';
 import '../../widgets/job_tile.dart' show JobTileSkeleton;
@@ -485,6 +486,17 @@ class _TransactionCard extends StatelessWidget {
                       label: 'You received',
                       value: transaction.netEarnings.format(),
                       emphasis: true,
+                    ),
+                    const SizedBox(height: 4),
+                    // The invoices for this money live on the job.
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: () =>
+                            context.push('/job/${transaction.bookingId}'),
+                        icon: const Icon(FreshlyIcons.receipt, size: 16),
+                        label: const Text('Job and invoices'),
+                      ),
                     ),
                   ],
                 ),

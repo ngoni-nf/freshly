@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/providers.dart';
@@ -212,37 +213,40 @@ class _HistoryCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: FreshlySpacing.sm),
       child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        child: InkWell(
+          onTap: () => context.push('/job/${item.id}'),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(item.services.join(', '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: text.titleMedium),
+                      const SizedBox(height: 4),
+                      Text('${item.reference} · ${formatDate(item.createdAt)}',
+                          style: text.bodySmall),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(item.services.join(', '),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: text.titleMedium),
+                    Text(item.total.format(), style: text.titleMedium),
                     const SizedBox(height: 4),
-                    Text('${item.reference} · ${formatDate(item.createdAt)}',
-                        style: text.bodySmall),
+                    StatusPill(
+                        label: item.status.partnerLabel,
+                        tone: item.status.tone,
+                        dense: true),
                   ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(item.total.format(), style: text.titleMedium),
-                  const SizedBox(height: 4),
-                  StatusPill(
-                      label: item.status.partnerLabel,
-                      tone: item.status.tone,
-                      dense: true),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

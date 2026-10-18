@@ -518,20 +518,29 @@ class FreshlyApi {
             .toList(),
       );
 
+  /// Puts a catalogue service on the menu at the provider's own price.
+  ///
+  /// [templateId] is the catalogue template, which is what the API's
+  /// `AddToMenuDto` is keyed on; the name and category come from the
+  /// template, never from the app.
   Future<ProviderMenuItem> updateMenuItem({
-    required String catalogServiceId,
+    required String templateId,
     required int priceMinor,
+    int? durationMinutes,
   }) =>
       _unwrap(
         _dio.post('/catalog/me/menu', data: {
-          'catalogServiceId': catalogServiceId,
-          'priceMinor': priceMinor
+          'templateId': templateId,
+          'priceMinor': priceMinor,
+          if (durationMinutes != null) 'durationMinutes': durationMinutes,
         }),
         (d) => ProviderMenuItem.fromJson(d as Map<String, dynamic>),
       );
 
-  Future<void> removeMenuItem(String catalogServiceId) => _unwrap(
-        _dio.delete('/catalog/me/menu/$catalogServiceId'),
+  /// [menuItemId] is the provider's own service row ([ProviderMenuItem.id]),
+  /// not the catalogue template it came from.
+  Future<void> removeMenuItem(String menuItemId) => _unwrap(
+        _dio.delete('/catalog/me/menu/$menuItemId'),
         (_) {},
       );
 

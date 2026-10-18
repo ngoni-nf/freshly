@@ -14,6 +14,13 @@ class BusinessScreen extends ConsumerWidget {
     final user = auth is PartnerReady
         ? auth.session
         : (auth is PartnerPendingVerification ? auth.session : null);
+    final isSalon = ref.watch(isSalonProvider);
+    final isStaff = ref.watch(isSalonStaffProvider);
+    // A solo pro a salon wants to take on. Salons and existing staff are
+    // never invited, so the list is only fetched for someone it can apply to.
+    final invites = !isSalon && !isStaff
+        ? ref.watch(staffInvitesProvider).valueOrNull ?? const <StaffInvite>[]
+        : const <StaffInvite>[];
 
     return Scaffold(
       appBar: AppBar(title: const Text('My business')),
@@ -22,7 +29,14 @@ class BusinessScreen extends ConsumerWidget {
             FreshlySpacing.md, FreshlySpacing.xl),
         children: [
           if (user != null) ...[
-            _BusinessHeader(user: user, verified: auth is PartnerReady),
+            _BusinessHeader(
+                user: user,
+                verified: auth is PartnerReady,
+                role: isSalon
+                    ? 'Salon'
+                    : isStaff
+                        ? 'Salon team member'
+                        : null),
             const SizedBox(height: FreshlySpacing.lg),
           ],
           GroupedList(
@@ -64,6 +78,26 @@ class BusinessScreen extends ConsumerWidget {
                 subtitle: 'Block time off and load-shedding',
                 onTap: () => context.push('/availability'),
               ),
+              // Only a salon has a team to run. A solo provider never sees
+              // the row, so the screen cannot offer something the API would
+              // refuse with salon_only.
+              if (isSalon)
+                _BusinessTile(
+                  icon: FreshlyIcons.storefront,
+                  title: 'Your team',
+                  subtitle: 'Invite staff and hand them jobs',
+                  onTap: () => context.push('/staff'),
+                ),
+              if (invites.isNotEmpty)
+                _BusinessTile(
+                  icon: FreshlyIcons.people,
+                  tone: FreshlyTone.warning,
+                  title: invites.length == 1
+                      ? '${invites.first.salonName} invited you'
+                      : '${invites.length} salons invited you',
+                  subtitle: 'Join a team instead of working solo',
+                  onTap: () => context.push('/staff/invites'),
+                ),
               if (auth is PartnerPendingVerification)
                 _BusinessTile(
                   icon: FreshlyIcons.verifiedOutline,
@@ -95,9 +129,13 @@ class BusinessScreen extends ConsumerWidget {
 }
 
 class _BusinessHeader extends StatelessWidget {
-  const _BusinessHeader({required this.user, required this.verified});
+  const _BusinessHeader(
+      {required this.user, required this.verified, this.role});
   final AuthSession user;
   final bool verified;
+
+  /// 'Salon' or 'Salon team member'; null for a solo pro, who needs no label.
+  final String? role;
 
   @override
   Widget build(BuildContext context) {
@@ -124,15 +162,26 @@ class _BusinessHeader extends StatelessWidget {
                     Text(user.phone!, style: text.bodySmall),
                   ],
                   const SizedBox(height: 8),
-                  verified
-                      ? const StatusPill(
-                          label: 'Verified pro',
-                          icon: FreshlyIcons.verified,
-                          tone: FreshlyTone.success)
-                      : const StatusPill(
-                          label: 'Verification pending',
-                          icon: FreshlyIcons.hourglass,
-                          tone: FreshlyTone.warning),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      verified
+                          ? const StatusPill(
+                              label: 'Verified pro',
+                              icon: FreshlyIcons.verified,
+                              tone: FreshlyTone.success)
+                          : const StatusPill(
+                              label: 'Verification pending',
+                              icon: FreshlyIcons.hourglass,
+                              tone: FreshlyTone.warning),
+                      if (role != null)
+                        StatusPill(
+                            label: role!,
+                            icon: FreshlyIcons.storefront,
+                            tone: FreshlyTone.dark),
+                    ],
+                  ),
                 ],
               ),
             ),

@@ -841,7 +841,11 @@ class ProviderMenuItem {
   });
 
   final String id;
-  final String catalogServiceId;
+
+  /// The catalogue template this was built from. Null for a legacy service
+  /// that predates the canonical catalogue, which can be removed but not
+  /// repriced from the app.
+  final String? catalogServiceId;
   final String name;
   final ServiceCategory category;
   final Money price;
@@ -850,18 +854,28 @@ class ProviderMenuItem {
   final bool requiresLicence;
   final String? description;
 
-  factory ProviderMenuItem.fromJson(Map<String, dynamic> j) => ProviderMenuItem(
-        id: j['id'] as String,
-        catalogServiceId: j['catalogServiceId'] as String,
-        name: j['name'] as String,
-        category: ServiceCategory.fromWire(j['category'] as String),
-        price: Money(
-            minor: j['priceMinor'] as int, currency: j['currency'] as String),
-        durationMinutes: j['durationMinutes'] as int,
-        requiresPower: j['requiresPower'] as bool? ?? false,
-        requiresLicence: j['requiresLicence'] as bool? ?? false,
-        description: j['description'] as String?,
-      );
+  factory ProviderMenuItem.fromJson(Map<String, dynamic> j) {
+    // The menu endpoint nests the price as `{minor, currency}`; the add
+    // endpoint and older fixtures carry `priceMinor` and `currency` flat.
+    final nested = j['price'] as Map<String, dynamic>?;
+    final price = nested != null
+        ? Money.fromJson(nested)
+        : Money(
+            minor: (j['priceMinor'] as num?)?.toInt() ?? 0,
+            currency: j['currency'] as String? ?? 'USD');
+    return ProviderMenuItem(
+      id: j['id'] as String,
+      catalogServiceId: (j['catalogServiceId'] ?? j['templateId']) as String?,
+      name: j['name'] as String,
+      category: ServiceCategory.fromWire(j['category'] as String),
+      price: price,
+      durationMinutes: (j['durationMinutes'] as num?)?.toInt() ?? 0,
+      requiresPower: j['requiresPower'] as bool? ?? false,
+      requiresLicence:
+          (j['requiresLicence'] ?? j['requiresCredential']) as bool? ?? false,
+      description: j['description'] as String?,
+    );
+  }
 }
 
 class PortfolioItem {
