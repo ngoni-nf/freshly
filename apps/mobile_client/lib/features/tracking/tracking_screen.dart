@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../app/providers.dart';
+import '../history/booking_detail_screen.dart' show refreshBookingLists;
+import '../support/support_screen.dart';
 import 'sos_button.dart';
 
 /// Screen A.13 — live tracking.
@@ -28,6 +30,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
   TrackingUpdate? _latest;
   Booking? _booking;
   bool _degraded = false;
+  bool _finished = false;
 
   @override
   void initState() {
@@ -65,10 +68,32 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
     } catch (_) {/* retried on the next tick */}
   }
 
+  /// The socket and the poll can both report the end; whichever is first
+  /// moves the screen on, once. A completed job goes straight to the review,
+  /// while the pro is still a face and not a line in a list.
   void _onFinished(BookingStatus status) {
     _poll?.cancel();
-    if (status == BookingStatus.completed && mounted) {
-      context.go('/bookings');
+    if (_finished || !mounted) return;
+    _finished = true;
+    refreshBookingLists(ref, widget.bookingId);
+    if (status == BookingStatus.completed) {
+      context.go('/bookings/${widget.bookingId}/review');
+    } else {
+      context.go('/bookings/${widget.bookingId}');
+    }
+  }
+
+  Future<void> _reportProblem() async {
+    final booking = _booking;
+    if (booking == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Still loading your booking. Try again in a moment.')));
+      return;
+    }
+    final sent = await NewTicketSheet.show(context, booking: booking);
+    if (sent && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Sent. Replies arrive under Help and support.')));
     }
   }
 
@@ -114,8 +139,11 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                             style: Theme.of(context).textTheme.titleMedium),
                       ),
                       Text(
-                        formatMinor(payload['priceMinor'] as int? ?? 0,
-                            payload['currency'] as String? ?? 'ZAR'),
+                        formatMinor(
+                            payload['priceMinor'] as int? ?? 0,
+                            payload['currency'] as String? ??
+                                _booking?.total.currency ??
+                                'USD'),
                         style: Theme.of(context).textTheme.headlineSmall,
                       ),
                     ],
@@ -318,23 +346,20 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                                         .textTheme
                                         .titleMedium),
                                 const SizedBox(height: 2),
-                                Text('Calls and messages are private',
+                                Text('Messages stay in the app',
                                     style:
                                         Theme.of(context).textTheme.bodySmall),
                               ],
                             ),
                           ),
+                          // Message only. A call button needs a masked-number
+                          // vendor so neither side learns the other's real
+                          // number; until one is wired, there is no call.
                           _RoundAction(
                             icon: FreshlyIcons.chat,
                             tooltip: 'Message',
                             onPressed: () =>
                                 context.push('/track/${widget.bookingId}/chat'),
-                          ),
-                          const SizedBox(width: 8),
-                          _RoundAction(
-                            icon: FreshlyIcons.call,
-                            tooltip: 'Call',
-                            onPressed: () {},
                           ),
                         ],
                       ),
@@ -354,7 +379,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                     style: TextButton.styleFrom(
                         foregroundColor:
                             Theme.of(context).colorScheme.onSurfaceVariant),
-                    onPressed: () {},
+                    onPressed: _reportProblem,
                     icon: const Icon(FreshlyIcons.warning, size: 18),
                     label: const Text('Report a problem'),
                   ),

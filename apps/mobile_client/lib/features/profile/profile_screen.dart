@@ -74,17 +74,50 @@ class ProfileScreen extends ConsumerWidget {
             children: [_BiometricLockTile()],
           ),
           const SizedBox(height: FreshlySpacing.lg),
-          // Not built yet. Shown, so people know they are coming, but not
-          // tappable: a row that does nothing when pressed reads as broken.
-          const GroupedList(
-            title: 'Coming soon',
+          GroupedList(
+            title: 'App',
             children: [
-              _ProfileTile(icon: FreshlyIcons.card, title: 'Payment methods'),
               _ProfileTile(
-                  icon: FreshlyIcons.notifications, title: 'Notifications'),
-              _ProfileTile(icon: FreshlyIcons.info, title: 'Help and support'),
-              _ProfileTile(icon: FreshlyIcons.shield, title: 'Privacy policy'),
+                icon: FreshlyIcons.notifications,
+                title: 'Notifications',
+                onTap: () => context.push('/profile/notifications'),
+              ),
+              _ProfileTile(
+                icon: FreshlyIcons.info,
+                title: 'Help and support',
+                onTap: () => context.push('/support'),
+              ),
             ],
+          ),
+          const SizedBox(height: FreshlySpacing.lg),
+          GroupedList(
+            title: 'Legal',
+            children: [
+              _ProfileTile(
+                icon: FreshlyIcons.shield,
+                title: 'Privacy policy',
+                onTap: () => context.push('/profile/legal/privacy'),
+              ),
+              _ProfileTile(
+                icon: FreshlyIcons.receipt,
+                title: 'Terms of service',
+                onTap: () => context.push('/profile/legal/terms'),
+              ),
+            ],
+          ),
+          const SizedBox(height: FreshlySpacing.sm),
+          // There is no "payment methods" page because there is nothing to
+          // manage: every booking is paid at checkout and nothing is stored.
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              ref.watch(countryCodeProvider) == 'ZA'
+                  ? 'You pay per booking with Capitec Pay, Instant EFT or '
+                      'card; nothing is stored on your phone.'
+                  : 'You pay per booking with EcoCash, card or InnBucks; '
+                      'nothing is stored on your phone.',
+              style: text.bodySmall,
+            ),
           ),
           const SizedBox(height: FreshlySpacing.lg),
           OutlinedButton.icon(
@@ -157,28 +190,21 @@ class _ProfileTile extends StatelessWidget {
   const _ProfileTile({
     required this.icon,
     required this.title,
-    this.onTap,
+    required this.onTap,
     this.subtitle,
   });
   final IconData icon;
   final String title;
   final String? subtitle;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final enabled = onTap != null;
     return ListTile(
-      enabled: enabled,
-      leading: IconBadge(
-          icon: icon,
-          size: 36,
-          tone: enabled ? FreshlyTone.brand : FreshlyTone.neutral),
+      leading: IconBadge(icon: icon, size: 36, tone: FreshlyTone.brand),
       title: Text(title),
       subtitle: subtitle == null ? null : Text(subtitle!),
-      trailing: enabled
-          ? const Icon(FreshlyIcons.chevronRight, size: 16)
-          : const StatusPill(label: 'Soon', dense: true),
+      trailing: const Icon(FreshlyIcons.chevronRight, size: 16),
       onTap: onTap,
     );
   }

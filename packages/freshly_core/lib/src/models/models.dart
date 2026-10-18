@@ -556,6 +556,7 @@ class Booking {
     this.assignedStaffId,
     this.assignedStaffName,
     this.reviewedByMe = false,
+    this.breakdown = const [],
   });
 
   final String id;
@@ -563,6 +564,11 @@ class Booking {
   final BookingStatus status;
   final String destinationAddress;
   final Money total;
+
+  /// The lines behind [total] as the server itemised them: services, add-ons,
+  /// travel, platform fee. Rendered verbatim; the app never sums them. Empty
+  /// when the endpoint sends only the total.
+  final List<QuoteLine> breakdown;
   final String? providerId;
   final String? providerName;
   final List<String> serviceIds;
@@ -604,6 +610,9 @@ class Booking {
         assignedStaffId: j['assignedStaffId'] as String?,
         assignedStaffName: j['assignedStaffName'] as String?,
         reviewedByMe: j['reviewedByMe'] as bool? ?? false,
+        breakdown: (j['breakdown'] as List? ?? [])
+            .map((b) => QuoteLine.fromJson(b as Map<String, dynamic>))
+            .toList(),
       );
 }
 

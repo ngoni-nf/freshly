@@ -50,6 +50,7 @@ class _FreshlyClientAppState extends ConsumerState<FreshlyClientApp>
       theme: FreshlyTheme.light(),
       darkTheme: FreshlyTheme.dark(),
       themeMode: ThemeMode.system,
+      scaffoldMessengerKey: scaffoldMessengerKey,
       routerConfig: ref.watch(routerProvider),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
