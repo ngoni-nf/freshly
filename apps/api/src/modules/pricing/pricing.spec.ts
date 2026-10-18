@@ -8,13 +8,14 @@ const ZA: MarketConfig = {
   vatBps: 1500, vatLabel: 'VAT', taxAuthority: 'SARS', paymentProvider: 'stitch',
   kycProvider: 'smileid', sosProvider: 'aura', gridStatusProvider: 'eskom_se_push',
   cancellationWindowMinutes: 120, cancellationFeeBps: 5000, noShowGraceMinutes: 10, minPayoutMinor: 5000,
+  emergencyNumber: '10111',
   referralRefereeDiscountMinor: 5000, referralReferrerCreditMinor: 5000, referralCreditTtlDays: 90,
   dispatchOfferSeconds: 60, maxSearchRadiusKm: 25, isLive: true,
 };
 
 const ZW: MarketConfig = {
   ...ZA, code: 'ZW', name: 'Zimbabwe', defaultCurrency: 'USD', supportedCurrencies: ['USD', 'ZWG'],
-  dialPrefix: '+263', serviceFeeMinor: 50, travelFeePerKmMinor: 40,
+  dialPrefix: '+263', serviceFeeMinor: 50, travelFeePerKmMinor: 40, emergencyNumber: '999',
   taxAuthority: 'ZIMRA', paymentProvider: 'paynow', sosProvider: 'mock', isLive: false,
 };
 
