@@ -1,7 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional,
-  IsString, IsUUID, Length, Matches, Max, Min, ValidateNested,
+  IsString, IsUUID, Length, Matches, Max, Min, ValidateIf, ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -14,9 +14,23 @@ export class ChatMessageDto {
   @IsString() @Length(1, 2000) body!: string;
 }
 
+export class AddonRequestDto {
+  @ApiProperty({ description: 'One of your own active services' })
+  @IsUUID() serviceId!: string;
+}
+
 export class AddonResponseDto {
   @ApiProperty({ description: 'The client accepting or refusing the extra work' })
   @IsBoolean() approve!: boolean;
+}
+
+export class AssignBookingDto {
+  /// Null hands the job back to the salon itself. ValidateIf rather than
+  /// IsOptional, because IsOptional would also wave through `undefined`, and
+  /// a missing key should be a 400, not an un-assignment by accident.
+  @ApiProperty({ description: 'An active staff member of your salon, or null to un-assign', nullable: true })
+  @ValidateIf((_, v) => v !== null) @IsUUID()
+  staffId!: string | null;
 }
 
 export class DestinationDto {

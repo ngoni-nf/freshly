@@ -183,19 +183,22 @@ class _ElsewhereBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(FreshlySpacing.md),
       decoration: BoxDecoration(
-        color: FreshlyColors.mintSoft,
+        color: Theme.of(context).colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(FreshlySpacing.radius),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(FreshlyIcons.info, color: FreshlyColors.mintDark),
+          Icon(FreshlyIcons.info,
+              color: Theme.of(context).colorScheme.onPrimaryContainer),
           const SizedBox(width: FreshlySpacing.sm),
           Expanded(
             child: Text(
               'Showing $areaName. We could not place you inside one of our '
               'areas, so travel times below are measured from there.',
-              style: const TextStyle(fontSize: 13, height: 1.4),
+              style: FreshlyType.style(13,
+                  height: 1.45,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer),
             ),
           ),
         ],
@@ -248,26 +251,29 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
       body: Column(
         children: [
           SizedBox(
-            height: 52,
+            height: 56,
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding:
                   const EdgeInsets.symmetric(horizontal: FreshlySpacing.md),
               children: [
                 _Chip(
+                  icon: FreshlyIcons.clock,
                   label: 'Available now',
                   selected: filters.instantOnly,
                   onTap: () => ref.read(filtersProvider.notifier).state =
                       filters.copyWith(instantOnly: !filters.instantOnly),
                 ),
                 _Chip(
-                  label: '🔋 Power backup',
+                  icon: FreshlyIcons.bolt,
+                  label: 'Backup power',
                   selected: filters.requirePower,
                   onTap: () => ref.read(filtersProvider.notifier).state =
                       filters.copyWith(requirePower: !filters.requirePower),
                 ),
                 _Chip(
-                  label: '4.5★ and up',
+                  icon: FreshlyIcons.star,
+                  label: '4.5 and up',
                   selected: filters.minRating >= 4.5,
                   onTap: () => ref.read(filtersProvider.notifier).state =
                       filters.copyWith(
@@ -278,7 +284,15 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           ),
           Expanded(
             child: results.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => ListView.separated(
+                padding: const EdgeInsets.all(FreshlySpacing.md),
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: 4,
+                separatorBuilder: (_, __) =>
+                    const SizedBox(height: FreshlySpacing.sm),
+                itemBuilder: (_, __) =>
+                    const Skeleton(height: 110, radius: FreshlySpacing.radius),
+              ),
               error: (err, __) => _ErrorState(
                 message: err is ApiException
                     ? err.message
@@ -341,32 +355,58 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
       builder: (_) => Consumer(
         builder: (context, ref, __) {
           final filters = ref.watch(filtersProvider);
-          return Padding(
-            padding: const EdgeInsets.all(FreshlySpacing.lg),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Filters',
-                    style:
-                        TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-                const SizedBox(height: FreshlySpacing.lg),
-                Text('Distance: ${filters.radiusKm.round()} km'),
-                Slider(
-                  value: filters.radiusKm,
-                  min: 1,
-                  max: 25,
-                  divisions: 24,
-                  label: '${filters.radiusKm.round()} km',
-                  onChanged: (v) => ref.read(filtersProvider.notifier).state =
-                      filters.copyWith(radiusKm: v),
-                ),
-                const SizedBox(height: FreshlySpacing.md),
-                FilledButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Show results'),
-                ),
-              ],
+          final text = Theme.of(context).textTheme;
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  FreshlySpacing.lg, 0, FreshlySpacing.lg, FreshlySpacing.md),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('Filters', style: text.headlineSmall),
+                  const SizedBox(height: FreshlySpacing.lg),
+                  Row(
+                    children: [
+                      Expanded(child: Text('How far', style: text.titleMedium)),
+                      StatusPill(
+                          label: '${filters.radiusKm.round()} km',
+                          tone: FreshlyTone.dark),
+                    ],
+                  ),
+                  Slider(
+                    value: filters.radiusKm,
+                    min: 1,
+                    max: 25,
+                    divisions: 24,
+                    label: '${filters.radiusKm.round()} km',
+                    onChanged: (v) => ref.read(filtersProvider.notifier).state =
+                        filters.copyWith(radiusKm: v),
+                  ),
+                  const SizedBox(height: FreshlySpacing.sm),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Available now'),
+                    value: filters.instantOnly,
+                    onChanged: (v) => ref.read(filtersProvider.notifier).state =
+                        filters.copyWith(instantOnly: v),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Backup power only'),
+                    subtitle: const Text('Pros who can work through '
+                        'load-shedding'),
+                    value: filters.requirePower,
+                    onChanged: (v) => ref.read(filtersProvider.notifier).state =
+                        filters.copyWith(requirePower: v),
+                  ),
+                  const SizedBox(height: FreshlySpacing.md),
+                  FilledButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Show results'),
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -376,18 +416,66 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 }
 
 class _Chip extends StatelessWidget {
-  const _Chip(
-      {required this.label, required this.selected, required this.onTap});
+  const _Chip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.icon,
+  });
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final IconData? icon;
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(right: FreshlySpacing.sm),
-        child: FilterChip(
-            label: Text(label), selected: selected, onSelected: (_) => onTap()),
-      );
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fill = selected
+        ? (isDark ? Colors.white : FreshlyColors.obsidian)
+        : scheme.surface;
+    final ink = selected
+        ? (isDark ? FreshlyColors.obsidian : Colors.white)
+        : scheme.onSurface;
+    return Padding(
+      padding: const EdgeInsets.only(right: FreshlySpacing.sm),
+      child: Semantics(
+        selected: selected,
+        button: true,
+        child: Material(
+          color: fill,
+          shape: StadiumBorder(
+              side: BorderSide(
+                  color: selected ? Colors.transparent : scheme.outline)),
+          child: InkWell(
+            customBorder: const StadiumBorder(),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (icon != null) ...[
+                    Icon(icon,
+                        size: 15,
+                        color: selected
+                            ? (icon == FreshlyIcons.star
+                                ? FreshlyColors.gold
+                                : FreshlyColors.mint)
+                            : scheme.onSurfaceVariant),
+                    const SizedBox(width: 6),
+                  ],
+                  Text(label,
+                      style: FreshlyType.style(13,
+                          weight: FontWeight.w700, color: ink)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _ErrorState extends StatelessWidget {
@@ -400,23 +488,11 @@ class _ErrorState extends StatelessWidget {
   final String retryLabel;
 
   @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(FreshlySpacing.xl),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(FreshlyIcons.searchOff,
-                  size: 44, color: FreshlyColors.inkMuted),
-              const SizedBox(height: FreshlySpacing.md),
-              Text(message,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      color: FreshlyColors.inkMuted, height: 1.4)),
-              const SizedBox(height: FreshlySpacing.lg),
-              OutlinedButton(onPressed: onRetry, child: Text(retryLabel)),
-            ],
-          ),
-        ),
+  Widget build(BuildContext context) => EmptyState(
+        icon: FreshlyIcons.searchOff,
+        title: 'No pros to show',
+        message: message,
+        actionLabel: retryLabel,
+        onAction: onRetry,
       );
 }

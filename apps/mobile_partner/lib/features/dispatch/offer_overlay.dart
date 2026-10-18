@@ -96,199 +96,241 @@ class _OfferOverlayState extends ConsumerState<OfferOverlay> {
     final progress =
         (_remaining.inMilliseconds / (totalSeconds * 1000)).clamp(0.0, 1.0);
     final urgent = _remaining.inSeconds <= 15;
+    final text = Theme.of(context).textTheme;
 
-    return Material(
-      color: FreshlyColors.ink,
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(FreshlySpacing.lg),
-          child: Column(
-            children: [
-              // ── Countdown ────────────────────────────────────────────────
-              SizedBox(
-                height: 96,
-                child: Stack(
-                  alignment: Alignment.center,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Material(
+        color: FreshlyColors.obsidian,
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(FreshlySpacing.lg,
+                FreshlySpacing.md, FreshlySpacing.lg, FreshlySpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ── Countdown ──────────────────────────────────────────────
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    SizedBox(
-                      width: 92,
-                      height: 92,
-                      child: CircularProgressIndicator(
-                        value: progress,
-                        strokeWidth: 6,
-                        backgroundColor: Colors.white24,
-                        valueColor: AlwaysStoppedAnimation(
-                          urgent ? FreshlyColors.crimson : FreshlyColors.mint,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      '${_remaining.inSeconds}',
-                      style: const TextStyle(
-                        fontSize: 34,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: FreshlySpacing.lg),
-
-              // ── What the job actually is ─────────────────────────────────
-              // Above the money on purpose. The amount cannot be judged
-              // without it: the same R78 is generous for a line-up and an
-              // insult for a two-hour braid, and a provider deciding whether
-              // to drive across town is really asking what the work is.
-              if (offer.serviceNames.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: FreshlySpacing.sm),
-                  child: Text(
-                    offer.serviceNames.join(' · '),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-
-              // ── Payout, the number that decides it ───────────────────────
-              Text(
-                offer.payout.format(),
-                style: const TextStyle(
-                  fontSize: 52,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                  height: 1,
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text('You earn',
-                  style: TextStyle(color: Colors.white70, fontSize: 15)),
-
-              const SizedBox(height: FreshlySpacing.lg),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _Stat(
-                      icon: FreshlyIcons.nearMe,
-                      value: formatDistance(offer.distanceKm),
-                      label: 'away'),
-                  _Stat(
-                      icon: FreshlyIcons.schedule,
-                      value: formatEta(offer.etaMinutes),
-                      label: 'drive'),
-                  // How long they are committing the chair for, which is the
-                  // other half of "is this worth it".
-                  if (offer.durationMinutes > 0)
-                    _Stat(
-                      icon: FreshlyIcons.timelapse,
-                      value: formatDuration(offer.durationMinutes),
-                      label: 'work',
-                    ),
-                  _Stat(
-                    icon: FreshlyIcons.star,
-                    value: offer.clientRating.toStringAsFixed(1),
-                    label: 'client',
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: FreshlySpacing.lg),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(FreshlySpacing.md),
-                decoration: BoxDecoration(
-                  color: Colors.white10,
-                  borderRadius: BorderRadius.circular(FreshlySpacing.radius),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (offer.serviceNames.isNotEmpty) ...[
-                      Text(offer.serviceNames.join(' · '),
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 15)),
-                      const SizedBox(height: 6),
-                    ],
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(FreshlyIcons.location,
-                            size: 16, color: Colors.white54),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            // Suburb only until acceptance — the exact address
-                            // is the client's to give, not ours to broadcast.
-                            offer.destinationAddress,
-                            style: const TextStyle(
-                                color: Colors.white70, fontSize: 13),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (offer.scheduledStart != null) ...[
-                      const SizedBox(height: 6),
-                      Row(
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(FreshlyIcons.calendar,
-                              size: 16, color: Colors.white54),
-                          const SizedBox(width: 6),
-                          Text(formatSlot(offer.scheduledStart!),
-                              style: const TextStyle(
-                                  color: Colors.white70, fontSize: 13)),
+                          Text('NEW JOB REQUEST',
+                              style: FreshlyType.style(12,
+                                      weight: FontWeight.w800,
+                                      color: FreshlyColors.mint)
+                                  .copyWith(letterSpacing: 1.4)),
+                          const SizedBox(height: 8),
+                          StatusPill(
+                            label: offer.scheduledStart == null
+                                ? 'Leave now'
+                                : formatSlot(offer.scheduledStart!),
+                            icon: offer.scheduledStart == null
+                                ? FreshlyIcons.bolt
+                                : FreshlyIcons.calendar,
+                            tone: FreshlyTone.neutral,
+                          ),
                         ],
                       ),
-                    ],
+                    ),
+                    Semantics(
+                      label: '${_remaining.inSeconds} seconds left to accept',
+                      excludeSemantics: true,
+                      child: SizedBox(
+                        width: 84,
+                        height: 84,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            SizedBox.expand(
+                              child: CircularProgressIndicator(
+                                value: progress,
+                                strokeWidth: 6,
+                                strokeCap: StrokeCap.round,
+                                backgroundColor:
+                                    Colors.white.withValues(alpha: 0.12),
+                                valueColor: AlwaysStoppedAnimation(
+                                  urgent
+                                      ? FreshlyColors.crimson
+                                      : FreshlyColors.mint,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '${_remaining.inSeconds}',
+                              style: FreshlyType.style(30,
+                                  weight: FontWeight.w800,
+                                  color: urgent
+                                      ? const Color(0xFFFF8A8D)
+                                      : Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-              ),
 
-              const Spacer(),
+                const Spacer(flex: 3),
 
-              Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 64,
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: const BorderSide(color: Colors.white38),
+                // ── What the job actually is ───────────────────────────────
+                // Above the money on purpose. The amount cannot be judged
+                // without it: the same R78 is generous for a line-up and an
+                // insult for a two-hour braid, and a provider deciding whether
+                // to drive across town is really asking what the work is.
+                if (offer.serviceNames.isNotEmpty)
+                  Text(
+                    offer.serviceNames.join(' · '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: text.headlineSmall?.copyWith(color: Colors.white),
+                  ),
+                const SizedBox(height: FreshlySpacing.lg),
+
+                // ── Payout, the number that decides it ─────────────────────
+                Text('You earn',
+                    style: text.bodyLarge
+                        ?.copyWith(color: FreshlyColors.inkMuted)),
+                const SizedBox(height: 4),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    offer.payout.format(),
+                    style: FreshlyType.style(60,
+                        weight: FontWeight.w800,
+                        height: 1,
+                        color: FreshlyColors.mint),
+                  ),
+                ),
+
+                const SizedBox(height: FreshlySpacing.lg),
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: FreshlyColors.obsidianRaised,
+                    borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _Stat(
+                            icon: FreshlyIcons.nearMe,
+                            value: formatDistance(offer.distanceKm),
+                            label: 'away'),
+                      ),
+                      Expanded(
+                        child: _Stat(
+                            icon: FreshlyIcons.car,
+                            value: formatEta(offer.etaMinutes),
+                            label: 'drive'),
+                      ),
+                      // How long they are committing the chair for, which is
+                      // the other half of "is this worth it".
+                      if (offer.durationMinutes > 0)
+                        Expanded(
+                          child: _Stat(
+                            icon: FreshlyIcons.timelapse,
+                            value: formatDuration(offer.durationMinutes),
+                            label: 'work',
+                          ),
                         ),
-                        onPressed: _responding ? null : () => _respond(false),
-                        child: const Text('Decline',
-                            style: TextStyle(fontSize: 17)),
+                      Expanded(
+                        child: _Stat(
+                          icon: FreshlyIcons.star,
+                          iconColor: FreshlyColors.gold,
+                          value: offer.clientRating.toStringAsFixed(1),
+                          label: 'client',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: FreshlySpacing.sm),
+                Container(
+                  padding: const EdgeInsets.all(FreshlySpacing.md),
+                  decoration: BoxDecoration(
+                    color: FreshlyColors.obsidianRaised,
+                    borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(FreshlyIcons.location,
+                          size: 20, color: FreshlyColors.mint),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          // Suburb only until acceptance — the exact address
+                          // is the client's to give, not ours to broadcast.
+                          offer.destinationAddress,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: FreshlyType.style(16,
+                              weight: FontWeight.w600, color: Colors.white),
+                        ),
+                      ),
+                      Text(offer.reference,
+                          style: FreshlyType.style(12,
+                              weight: FontWeight.w600,
+                              color: FreshlyColors.inkMuted)),
+                    ],
+                  ),
+                ),
+
+                const Spacer(flex: 2),
+
+                // Accept is the big target at the bottom, where the thumb
+                // already is; decline is deliberately quieter beside it.
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 72,
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            foregroundColor: FreshlyColors.inkMuted,
+                            disabledForegroundColor: FreshlyColors.inkSubtle,
+                            side: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.16),
+                                width: 1.5),
+                            padding: EdgeInsets.zero,
+                          ),
+                          onPressed: _responding ? null : () => _respond(false),
+                          child: const Text('Decline'),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: FreshlySpacing.md),
-                  Expanded(
-                    flex: 2,
-                    child: SizedBox(
-                      height: 64,
-                      child: FilledButton(
-                        onPressed: _responding ? null : () => _respond(true),
-                        child: _responding
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white))
-                            : const Text('Accept',
-                                style: TextStyle(
-                                    fontSize: 20, fontWeight: FontWeight.w800)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: SizedBox(
+                        height: 72,
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            disabledBackgroundColor:
+                                FreshlyColors.mint.withValues(alpha: 0.6),
+                          ),
+                          onPressed: _responding ? null : () => _respond(true),
+                          child: _responding
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      color: FreshlyColors.obsidian))
+                              : Text('Accept',
+                                  style: FreshlyType.style(22,
+                                      weight: FontWeight.w800)),
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -303,23 +345,32 @@ class _OfferOverlayState extends ConsumerState<OfferOverlay> {
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.icon, required this.value, required this.label});
+  const _Stat({
+    required this.icon,
+    required this.value,
+    required this.label,
+    this.iconColor = FreshlyColors.inkMuted,
+  });
   final IconData icon;
   final String value;
   final String label;
+  final Color iconColor;
 
   @override
   Widget build(BuildContext context) => Column(
         children: [
-          Icon(icon, color: Colors.white54, size: 20),
-          const SizedBox(height: 4),
-          Text(value,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w700)),
+          Icon(icon, color: iconColor, size: 18),
+          const SizedBox(height: 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(value,
+                style: FreshlyType.style(18,
+                    weight: FontWeight.w800, color: Colors.white)),
+          ),
+          const SizedBox(height: 2),
           Text(label,
-              style: const TextStyle(color: Colors.white54, fontSize: 12)),
+              style: FreshlyType.style(12,
+                  weight: FontWeight.w500, color: FreshlyColors.inkMuted)),
         ],
       );
 }

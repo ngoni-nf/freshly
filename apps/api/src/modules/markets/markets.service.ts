@@ -24,6 +24,10 @@ export interface MarketConfig {
   cancellationWindowMinutes: number;
   cancellationFeeBps: number;
   noShowGraceMinutes: number;
+  /** Smallest cash-out, in the market's minor units. R50 is not US$50. */
+  minPayoutMinor: number;
+  /** What to dial from the SOS screen: 10111 in ZA, 999 in ZW. */
+  emergencyNumber: string;
   /** Referral rewards are market data: turning them up must not be a deploy. */
   referralRefereeDiscountMinor: number;
   referralReferrerCreditMinor: number;
@@ -259,6 +263,8 @@ function mapMarket(r: Record<string, any>): MarketConfig {
     cancellationWindowMinutes: r.cancellation_window_minutes,
     cancellationFeeBps: r.cancellation_fee_bps,
     noShowGraceMinutes: r.no_show_grace_minutes,
+    minPayoutMinor: Number(r.min_payout_minor ?? 5000),
+    emergencyNumber: r.emergency_number ?? '112',
     referralRefereeDiscountMinor: Number(r.referral_referee_discount_minor ?? 0),
     referralReferrerCreditMinor: Number(r.referral_referrer_credit_minor ?? 0),
     referralCreditTtlDays: Number(r.referral_credit_ttl_days ?? 90),

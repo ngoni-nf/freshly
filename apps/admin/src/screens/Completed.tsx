@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api, type CompletedJob } from '../api';
+import { api, type CompletedJob, type Invoice } from '../api';
 import { messageFor } from '../App';
+import { formatMoney } from '../ui';
 
 /**
  * Work done, and what the client thought of it.
@@ -44,32 +45,36 @@ export function Completed() {
 
   return (
     <>
-      <h2>Completed jobs</h2>
-      <p className="sub">
-        Who attended, what was done, and whether the client was happy. Anything
-        rated three or below is pulled to the top.
-      </p>
+      <header className="page-head">
+        <div>
+          <h2>Completed jobs</h2>
+          <p className="sub">
+            Who attended, what was done, and whether the client was happy. Anything
+            rated three or below is pulled to the top.
+          </p>
+        </div>
+      </header>
 
-      <div className="card">
-        <div className="row">
-          <div className="meta">
-            {rows === null ? 'Loading…' : `${rows.length} job${rows.length === 1 ? '' : 's'}`}
-            {unhappy > 0 && <> · <span className="tag bad">{unhappy} unhappy</span></>}
-            {unreviewed > 0 && <> · <span className="tag">{unreviewed} not reviewed</span></>}
-          </div>
-          <div className="actions">
-            <button
-              className={`chip ${unhappyOnly ? 'on' : ''}`}
-              onClick={() => setUnhappyOnly((v) => !v)}
-            >
-              Only unhappy
+      <div className="toolbar">
+        <div className="summary">
+          {rows === null ? 'Loading…' : (
+            <strong>{`${rows.length} job${rows.length === 1 ? '' : 's'}`}</strong>
+          )}
+          {unhappy > 0 && <span className="pill danger"><span className="dot" />{unhappy} unhappy</span>}
+          {unreviewed > 0 && <span className="pill">{unreviewed} not reviewed</span>}
+        </div>
+        <div className="filters">
+          <button
+            className={`chip ${unhappyOnly ? 'on' : ''}`}
+            onClick={() => setUnhappyOnly((v) => !v)}
+          >
+            Only unhappy
+          </button>
+          {[7, 30, 90].map((d) => (
+            <button key={d} className={`chip ${days === d ? 'on' : ''}`} onClick={() => setDays(d)}>
+              {d} days
             </button>
-            {[7, 30, 90].map((d) => (
-              <button key={d} className={`chip ${days === d ? 'on' : ''}`} onClick={() => setDays(d)}>
-                {d} days
-              </button>
-            ))}
-          </div>
+          ))}
         </div>
       </div>
 
@@ -81,62 +86,114 @@ export function Completed() {
       {visible.map((job) => {
         const poor = job.review !== null && job.review.rating <= 3;
         return (
-          <div className="card" key={job.id}>
+          <article
+            className="card"
+            key={job.id}
+            style={poor ? { boxShadow: 'inset 4px 0 0 var(--crimson)' } : undefined}
+          >
             <div className="row">
-              <div>
-                <div className="name">
-                  {job.services.length ? job.services.join(' · ') : job.reference}
+              <div className="grow">
+                <div className="row center" style={{ justifyContent: 'flex-start', gap: 10 }}>
+                  <div className="name">
+                    {job.services.length ? job.services.join(' · ') : job.reference}
+                  </div>
+                  <span className="pill mono">{job.reference}</span>
                 </div>
-                <div className="meta">
-                  {job.review ? (
-                    <span className={`tag ${poor ? 'bad' : 'good'}`}>
-                      {'★'.repeat(job.review.rating)}
-                      {'☆'.repeat(5 - job.review.rating)} {job.review.rating}/5
-                    </span>
-                  ) : (
-                    <span className="tag warn">no review left</span>
-                  )}
-                  <span className="tag">{job.reference}</span>
-                  <br />
-                  <strong>{job.providerName ?? 'unassigned'}</strong>
+                <div className="meta" style={{ marginTop: 6 }}>
+                  <strong style={{ color: 'var(--ink)' }}>{job.providerName ?? 'unassigned'}</strong>
                   {job.providerRating !== null && (
                     <> ({job.providerRating.toFixed(1)} avg over {job.providerRatingCount})</>
                   )}
                   {' attended '}
-                  <strong>{job.clientName}</strong>
+                  <strong style={{ color: 'var(--ink)' }}>{job.clientName}</strong>
                   {job.completedAt && (
                     <> on {new Date(job.completedAt).toLocaleString()}</>
                   )}
                   <br />
                   {job.destinationAddress}
-                  {job.review?.tags.length ? (
-                    <>
-                      <br />
-                      {job.review.tags.map((t) => (
-                        <span className="tag" key={t}>{t}</span>
-                      ))}
-                    </>
-                  ) : null}
-                  {job.review?.comment && (
-                    <>
-                      <br />
-                      <em>“{job.review.comment}”</em>
-                    </>
-                  )}
                 </div>
+                {job.review?.tags.length ? (
+                  <div className="pills">
+                    {job.review.tags.map((t) => (
+                      <span className="pill" key={t}>{t}</span>
+                    ))}
+                  </div>
+                ) : null}
+                {job.review?.comment && (
+                  <div className="quote">“{job.review.comment}”</div>
+                )}
               </div>
-              <div className="actions">
-                <div className="amount">
-                  {(job.total.minor / 100).toLocaleString(undefined, {
-                    style: 'currency',
-                    currency: job.total.currency,
-                  })}
-                </div>
+              <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+                <div className="amount">{formatMoney(job.total)}</div>
+                {job.review ? (
+                  <span className={`pill ${poor ? 'danger' : 'success'}`}>
+                    <span className="stars" style={poor ? { color: 'var(--crimson)' } : undefined}>
+                      {'★'.repeat(job.review.rating)}
+                      {'☆'.repeat(5 - job.review.rating)}
+                    </span>
+                    {job.review.rating}/5
+                  </span>
+                ) : (
+                  <span className="pill warning">no review left</span>
+                )}
+                <Invoices bookingId={job.id} />
               </div>
             </div>
-          </div>
+          </article>
         );
       })}
     </>
+  );
+}
+
+/**
+ * The two invoices a completed job produced, opened on demand. Fetched only
+ * when the operator asks: the list is long and most rows never need them.
+ */
+function Invoices({ bookingId }: { bookingId: string }) {
+  const [rows, setRows] = useState<Invoice[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    setBusy(true);
+    setError(null);
+    try {
+      setRows(await api.invoices(bookingId));
+    } catch (e) {
+      setError(messageFor(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function open(invoice: Invoice) {
+    try {
+      const blob = await api.invoicePdf(invoice.id);
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e) {
+      setError(messageFor(e));
+    }
+  }
+
+  if (rows === null) {
+    return (
+      <button className="action" type="button" onClick={load} disabled={busy}>
+        {busy ? 'Loading…' : 'Invoices'}
+      </button>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
+      {rows.length === 0 && <span className="meta">No invoices</span>}
+      {rows.map((inv) => (
+        <button className="action mono" type="button" key={inv.id} onClick={() => open(inv)}>
+          {inv.kind === 'provider_to_client' ? 'Client' : 'Fee'} · {inv.number}
+        </button>
+      ))}
+      {error && <span className="meta" style={{ color: 'var(--crimson)' }}>{error}</span>}
+    </div>
   );
 }

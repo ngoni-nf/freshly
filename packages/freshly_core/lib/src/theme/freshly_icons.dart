@@ -23,6 +23,7 @@ class FreshlyIcons {
 
   // ─── Navigation and structure ────────────────────────────────────────────
   static const IconData chevronRight = CupertinoIcons.chevron_forward;
+  static const IconData chevronLeft = CupertinoIcons.chevron_back;
   static const IconData expandMore = CupertinoIcons.chevron_down;
   static const IconData close = CupertinoIcons.xmark;
   static const IconData check = CupertinoIcons.check_mark;

@@ -23,8 +23,13 @@ import '../features/booking/escrow_screen.dart';
 import '../features/tracking/tracking_screen.dart';
 import '../features/tracking/pin_screen.dart';
 import '../features/history/bookings_screen.dart';
+import '../features/history/booking_detail_screen.dart';
+import '../features/reviews/review_screen.dart';
+import '../features/support/support_screen.dart';
 import '../features/profile/profile_screen.dart' as account;
 import '../features/profile/addresses_screen.dart';
+import '../features/profile/notifications_screen.dart';
+import '../features/profile/legal_screen.dart';
 import '../widgets/main_scaffold.dart';
 import 'providers.dart';
 
@@ -118,7 +123,24 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                   path: '/bookings',
-                  builder: (_, __) => const BookingsScreen()),
+                  builder: (_, __) => const BookingsScreen(),
+                  routes: [
+                    GoRoute(
+                      path: ':id',
+                      builder: (_, s) => BookingDetailScreen(
+                          bookingId: s.pathParameters['id']!),
+                      routes: [
+                        // Above the tabs: rating a pro is a moment, not a
+                        // place to browse from.
+                        GoRoute(
+                          path: 'review',
+                          parentNavigatorKey: rootNavigatorKey,
+                          builder: (_, s) =>
+                              ReviewScreen(bookingId: s.pathParameters['id']!),
+                        ),
+                      ],
+                    ),
+                  ]),
             ],
           ),
           StatefulShellBranch(
@@ -131,6 +153,15 @@ final routerProvider = Provider<GoRouter>((ref) {
                     GoRoute(
                       path: 'addresses',
                       builder: (_, __) => const AddressesScreen(),
+                    ),
+                    GoRoute(
+                      path: 'notifications',
+                      builder: (_, __) => const NotificationsScreen(),
+                    ),
+                    GoRoute(
+                      path: 'legal/:doc',
+                      builder: (_, s) => LegalScreen(
+                          doc: LegalDoc.fromWire(s.pathParameters['doc']!)),
                     ),
                   ]),
             ],
@@ -161,8 +192,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/track/:id',
           parentNavigatorKey: rootNavigatorKey,
-          builder: (_, s) =>
-              TrackingScreen(bookingId: s.pathParameters['id']!),
+          builder: (_, s) => TrackingScreen(bookingId: s.pathParameters['id']!),
           routes: [
             GoRoute(
               path: 'chat',
@@ -186,6 +216,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/track/:id/pin',
           builder: (_, s) => PinScreen(bookingId: s.pathParameters['id']!)),
+      // Above the tabs so a push about a support reply can open it from
+      // anywhere. ?ticket= opens that thread.
+      GoRoute(
+          path: '/support',
+          parentNavigatorKey: rootNavigatorKey,
+          builder: (_, s) =>
+              SupportScreen(initialTicketId: s.uri.queryParameters['ticket'])),
     ],
     errorBuilder: (_, state) => Scaffold(
       body: Center(child: Text('Route not found: ${state.uri}')),

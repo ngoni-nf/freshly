@@ -126,6 +126,15 @@ export interface ScheduledBooking {
   destinationAddress: string;
 }
 
+export interface Invoice {
+  id: string;
+  kind: 'provider_to_client' | 'platform_to_provider';
+  number: string;
+  issuedAt: string;
+  currency: string;
+  totalMinor: number;
+}
+
 export interface CompletedJob {
   id: string;
   reference: string;
@@ -189,7 +198,11 @@ export interface SosAlert {
 }
 
 export interface PulseStats {
-  gmvTodayMinor: number;
+  /**
+   * One entry per currency, never summed: a Harare booking in USD and a
+   * Sandton one in ZAR do not add up to anything an operator can act on.
+   */
+  gmvToday: Array<{ currency: string; minor: number }>;
   bookingsToday: number;
   completionRate: number;
   onlineProviders: number;
@@ -201,8 +214,35 @@ export interface PulseStats {
 export interface BadgeCounts {
   kyc: number;
   credentials: number;
+  /** Every open alert, not only the ones nobody has picked up yet. */
   sos: number;
+  payoutAccounts: number;
   disputes: number;
+}
+
+export type PayoutMethod = 'bank_transfer' | 'ecocash' | 'onemoney' | 'innbucks';
+
+/**
+ * A payout destination waiting for a human. The account number itself never
+ * crosses the wire: ops compare the holder's name with the identity document
+ * and the last four digits with what the provider says they typed.
+ */
+export interface PendingPayoutAccount {
+  id: string;
+  method: PayoutMethod;
+  institutionName: string;
+  accountName: string;
+  last4: string;
+  currency: string;
+  createdAt: string;
+  provider: {
+    id: string;
+    displayName: string;
+    kycStatus: string;
+    phone: string;
+  };
+  /** What the provider could cash out the moment this is verified. */
+  availableMinor: number;
 }
 
 export interface SearchResult {
@@ -285,6 +325,15 @@ export const api = {
       body: JSON.stringify({ decision }),
     }),
 
+  payoutAccountsPending: () =>
+    request<PendingPayoutAccount[]>('/admin/payout-accounts/pending'),
+
+  reviewPayoutAccount: (id: string, decision: 'verified' | 'rejected', reason?: string) =>
+    request<{ id: string; decision: string }>(`/admin/payout-accounts/${id}/review`, {
+      method: 'POST',
+      body: JSON.stringify({ decision, reason }),
+    }),
+
   markets: () => request<MarketSettings[]>('/admin/markets'),
 
   updateMarket: (code: string, updates: Partial<MarketSettings>) =>
@@ -321,6 +370,20 @@ export const api = {
 
   completed: (days = 30) =>
     request<CompletedJob[]>(`/providers/schedule/completed?days=${days}`),
+
+  invoices: (bookingId: string) =>
+    request<Invoice[]>(`/bookings/${bookingId}/invoices`),
+
+  /** The PDF arrives as bytes with the bearer token; a plain link would not carry it. */
+  invoicePdf: async (invoiceId: string): Promise<Blob> => {
+    const response = await fetch(`${BASE}/invoices/${invoiceId}.pdf`, {
+      headers: { Authorization: `Bearer ${token.get() ?? ''}` },
+    });
+    if (!response.ok) {
+      throw new ApiError('invoice_unavailable', 'The invoice could not be fetched', response.status);
+    }
+    return response.blob();
+  },
 
   tickets: (side: 'clients' | 'providers', status = 'open') =>
     request<Ticket[]>(`/support/queue/${side}?status=${status}`),

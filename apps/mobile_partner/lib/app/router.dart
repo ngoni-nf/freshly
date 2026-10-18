@@ -6,11 +6,15 @@ import 'package:go_router/go_router.dart';
 import '../features/availability/availability_screen.dart';
 import '../features/dashboard/command_screen.dart';
 import '../features/dispatch/offer_overlay.dart';
+import '../features/job/addon_screen.dart';
 import '../features/job/job_screen.dart';
 import '../features/job/pin_pad_screen.dart';
+import '../features/onboarding/business_setup_screen.dart';
 import '../features/onboarding/signin_screen.dart';
 import '../features/onboarding/verification_screen.dart';
+import '../features/support/support_screen.dart';
 import '../features/wallet/wallet_screen.dart';
+import '../features/profile/business_edit_screen.dart';
 import '../features/profile/business_screen.dart';
 import '../features/profile/menu_screen.dart';
 import '../features/profile/portfolio_screen.dart';
@@ -18,6 +22,9 @@ import '../features/clients/client_list_screen.dart';
 import '../features/clients/client_detail_screen.dart';
 import '../features/dashboard/schedule_screen.dart';
 import '../features/profile/reviews_screen.dart';
+import '../features/reviews/rate_client_screen.dart';
+import '../features/staff/staff_invite_screen.dart';
+import '../features/staff/staff_screen.dart';
 import '../widgets/main_scaffold.dart';
 import 'providers.dart';
 
@@ -38,6 +45,19 @@ final partnerRouterProvider = Provider<GoRouter>((ref) {
       final onSignIn = state.matchedLocation == '/signin';
       if (signedOut && !onSignIn) return '/signin';
       if (!signedOut && onSignIn) return '/';
+
+      // A customer account can reach nothing in this app until it has a
+      // business, so the set-up screen is the only place it can be, the same
+      // way sign-in is the only place a signed-out one can be.
+      // Joining a salon is the other way such an account gets a business,
+      // so the invitation screen is the one other place it may be.
+      final needsBusiness = auth is PartnerNeedsBusiness;
+      final onSetup = state.matchedLocation == '/onboarding/business';
+      final onInvites = state.matchedLocation == '/staff/invites';
+      if (needsBusiness && !onSetup && !onInvites) {
+        return '/onboarding/business';
+      }
+      if (!needsBusiness && onSetup) return '/';
       return null;
     },
     routes: [
@@ -86,8 +106,15 @@ final partnerRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
               path: '/signin', builder: (_, __) => const PartnerSignInScreen()),
           GoRoute(
+              path: '/onboarding/business',
+              builder: (_, __) => const BusinessSetupScreen()),
+          GoRoute(
               path: '/verification',
               builder: (_, __) => const VerificationScreen()),
+          GoRoute(
+              path: '/business/edit',
+              builder: (_, __) => const BusinessEditScreen()),
+          GoRoute(path: '/support', builder: (_, __) => const SupportScreen()),
           GoRoute(
               path: '/availability',
               builder: (_, __) => const AvailabilityScreen()),
@@ -96,8 +123,11 @@ final partnerRouterProvider = Provider<GoRouter>((ref) {
               path: '/portfolio', builder: (_, __) => const PortfolioScreen()),
           // The business screen already linked here; without the route the tap
           // fell through to the error page.
+          GoRoute(path: '/reviews', builder: (_, __) => const ReviewsScreen()),
+          GoRoute(path: '/staff', builder: (_, __) => const StaffScreen()),
           GoRoute(
-              path: '/reviews', builder: (_, __) => const ReviewsScreen()),
+              path: '/staff/invites',
+              builder: (_, __) => const StaffInviteScreen()),
           GoRoute(
               path: '/clients', builder: (_, __) => const ClientListScreen()),
           GoRoute(
@@ -121,6 +151,16 @@ final partnerRouterProvider = Provider<GoRouter>((ref) {
                 path: 'pin',
                 builder: (_, s) =>
                     PinPadScreen(bookingId: s.pathParameters['id']!),
+              ),
+              GoRoute(
+                path: 'addon',
+                builder: (_, s) =>
+                    AddonScreen(bookingId: s.pathParameters['id']!),
+              ),
+              GoRoute(
+                path: 'rate',
+                builder: (_, s) =>
+                    RateClientScreen(bookingId: s.pathParameters['id']!),
               ),
               GoRoute(
                 path: 'chat',

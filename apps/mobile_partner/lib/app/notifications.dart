@@ -73,4 +73,5 @@ class PushNotificationService {
 
 final pushTokenProvider = StateProvider<String?>((ref) => null);
 
-final pushNotificationProvider = Provider((ref) => PushNotificationService(ref));
+final pushNotificationProvider =
+    Provider((ref) => PushNotificationService(ref));

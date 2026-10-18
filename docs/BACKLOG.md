@@ -8,20 +8,66 @@ Each item below is written to be pasted straight into a GitHub issue.
 
 ---
 
-## Where things are
+## QA pass of 17 October 2026
 
-**There are three apps in the plan and only two exist.**
+Found by walking the product as a new Harare barber and a new customer,
+against a local API with the real migrations and seeds. All three launch
+blockers and the smaller findings are fixed on `fix/launch-blockers`
+(`test/provider-onboarding.e2e-spec.ts` walks the whole journey). Kept here
+as the record of what was wrong, and for the two items that are decisions
+rather than bugs.
+
+### Fixed
+
+- A provider could not sign up: nothing created a `providers` row. Now
+  `POST /auth/become-provider` plus the "Set up your business" screen.
+- A provider could never cash out: nothing verified a payout account. A
+  mobile-money wallet on the provider's own number is verified at
+  creation; the rest go to the ops console's payout queue.
+- "Pick a time" never worked: nothing wrote working hours. Defaults at
+  sign-up, editable in the availability screen, `PUT
+  /providers/me/availability/rules`.
+- A refused "Complete" locked its idempotency key forever (PR #4).
+- The quote sent the commission and provider payout to customers (PR #4).
+- The outbox relay sent every booking event as a status, so "started"
+  showed as Draft in the apps.
+- `review.reveal_window_hours` was never read; an hourly job publishes
+  overdue reviews now.
+- Minimum cash-out was one global 5000 (US$50 in Harare); it is per
+  market, US$20 and R50.
+- KYC accepted a submission with no documents.
+- Admin badges queried `sos_alerts`, which does not exist, so the SOS
+  banner could never show; market edits took column names from the body
+  straight into SQL; GMV added rand and dollars together.
+- ESLint had no config and never ran; it runs in CI now.
+- "Suggest an extra service" pushed a route that did not exist; the
+  add-on screen and `POST /bookings/:id/addons` exist now.
+
+### Decisions still open
+
+- **Who confirms completion.** Today the client's code starts the job and
+  the provider's "complete" captures the money (after
+  `escrow.capture_delay_minutes`, default 0). The original plan had the
+  client's code release the money. Both are workable; pick one before
+  real money. If the client should confirm, add a second code or an
+  in-app "confirm" with a timeout, and move capture behind it.
+- **Capture delay.** `escrow.capture_delay_minutes` is wired now (it was
+  seeded and never read): above zero, a completed booking is captured by
+  `CaptureDueJob` once the window passes with no open dispute. It is 0 for
+  the pilot. With real money, set it to something (an hour?) so a client
+  has a window to dispute before the provider is paid.
+
+## Where things are
 
 | Surface | Path | State |
 |---|---|---|
 | Customer app | `apps/mobile_client` | Built, runs |
 | Provider app | `apps/mobile_partner` | Built, runs |
-| **Admin / ops portal** | `apps/admin` | **Does not exist** |
+| Admin / ops portal | `apps/admin` | Built, deployed as the Cloudflare Worker `freshly` |
 
 `command_screen.dart` in the partner app is a *provider's* dashboard — going
-online, today's jobs, earnings. It is not the ops console. The admin side has
-working API endpoints that nothing calls: KYC review, credential review,
-dispute handling, provider suspension. See issue #1.
+online, today's jobs, earnings. It is not the ops console; that is
+`apps/admin`.
 
 ### Where the API connections live
 
@@ -46,106 +92,59 @@ never call `Dio` from a screen.
 
 ---
 
-## Priority 1 — blocking a real launch
+## What is still open, in order
 
-### 1. Build the admin portal (`apps/admin`)
-Nothing can review a KYC submission, approve a practitioner credential, resolve
-a dispute or suspend a provider. The endpoints exist and are tested; there is
-no interface. Without it, onboarding a provider requires SQL.
+Everything that used to sit under "blocking a real launch" is built: the ops
+console, push and Crashlytics, document upload, the deploy, provider sign-up,
+cash-out, working hours, extras, support, reviews, invoices and salon staff.
+What follows needs an account, a contract or a decision rather than code.
 
-Endpoints already available: `POST /kyc/submissions/:id/review`,
-`GET /credentials/pending`, `POST /credentials/:id/review`.
+### 1. Real money (needs contracts)
+`PaymentsModule` runs on `MockGateway`. `StitchPayoutProvider`,
+`PaystackGateway` and `SmileIdKycProvider` are structurally complete — auth,
+idempotency, signature verification, status mapping — but refuse to run until
+their payload contract is confirmed against the live account. Enabling one is
+deleting a guard, not writing an integration. Production refuses to boot on
+mock adapters.
 
-Acceptance: an operator can list pending KYC and credentials, view the
-submitted documents via signed URLs, approve or reject with a reason, and see
-the decision recorded in `audit_log` against their user id.
+Zimbabwe is the harder half: `PaynowGateway` fails loudly on purpose. Paynow
+has no authorise-then-capture, so escrow there needs a platform-held trust
+account and an RBZ-compliant arrangement. Commercial and legal work.
 
-### 2. Wire FCM push and Crashlytics
-Bookings work; the notification telling a provider an offer has arrived does
-not. Dispatch offers currently rely on an open websocket, so a backgrounded app
-misses them entirely — which for a 60-second offer window means the job goes to
-someone else.
+### 2. Masked calling (needs a vendor)
+The chat is number-masked; calls are not. Both apps offer "Message" only
+until a voice vendor with number masking is contracted. Do not add a `tel:`
+link to the other party's real number.
 
-`FIREBASE_ENABLED`, `FIREBASE_PROJECT_ID` and the service account are already
-in the config schema. Needs `google-services.json` per app — **never commit it**.
-
-### 3. KYC document upload in the app
-`POST /kyc/submissions` accepts S3 keys and `POST /storage/uploads` issues
-signed upload URLs. Neither app calls the latter, so a provider cannot actually
-send an ID document. Same gap for `credential_document`.
-
-Acceptance: provider picks or captures an image, app requests a signed URL,
-uploads directly to storage, submits the returned key. Enforce the size and
-content-type limits the API returns rather than hardcoding them.
-
-### 4. Deploy (needs accounts — see `docs/DEPLOYMENT.md`)
-The Dockerfile, `fly.toml` and deploy workflow are written and have never been
-executed. Expect to iterate on the first run.
-
----
-
-## Priority 2 — correctness and safety
-
-Done and removed from this list: the socket.io Redis adapter, dispatch
-filters by category, checkout and
-PIN entry have their own rate limits, and `expiresIn` is read from the signed
-token.
-
-### 5. Remaining vulnerable dependencies
-The non-breaking fixes are applied (18 production advisories down to 8, the
-critical `proxy-addr` IP-spoofing one included). What is left needs a major
-upgrade or does not reach a server:
-
-- `@nestjs/swagger` 12 for `js-yaml`. Docs endpoint only.
-- `firebase` in the admin portal for `@firebase/firestore` and `@grpc/grpc-js`.
-  The portal is a browser bundle that does not use Firestore; audit's
-  suggested "fix" is a downgrade to firebase 9 and should not be taken.
-- `gaxios` / `uuid` under `firebase-admin`, waiting on an upstream release.
-
-Do **not** run `npm audit fix --force` blind: it bumps Nest majors. Gate any
-upgrade on unit tests, `test:e2e` and both smoke suites.
-
-### 10. Enable a real payment gateway
-`PaymentsModule` runs on `MockGateway`. `StitchPayoutProvider` and
-`SmileIdKycProvider` are structurally complete — auth, idempotency, signature
-verification, status mapping — but refuse to run until their payload contract
-is confirmed against the live account. Enabling one is deleting a guard, not
-writing an integration. Production refuses to boot on mock adapters.
-
-### 11. Zimbabwe
-`PaynowGateway` fails loudly on purpose: Paynow has no authorise-then-capture,
-so escrow there needs a platform-held trust account and an RBZ-compliant
-arrangement. Commercial and legal work, not code.
-
-### 12. Salon staff management
-`salon_staff` and `business_mode = 'salon_staff'` exist in the schema; nothing
-manages them.
-
-### 13. Legal review of the credential gate
+### 3. Legal review of the credential gate
 `service_category_rules` and `regulated_procedures` name HPCSA, SAHPRA and
 municipal by-laws with every category default set to `false`, so nothing is
 blocked on a guess. Someone with actual legal advice should set those flags
-before these categories open to real providers.
+before the aesthetics categories open to real providers.
 
----
+### 4. Remaining vulnerable dependencies
+The non-breaking fixes are applied. What is left needs a major upgrade or does
+not reach a server: `@nestjs/swagger` (docs endpoint only, off in
+production), `firebase` in the admin bundle (Firestore is not used), and
+`gaxios`/`uuid` under `firebase-admin` (waiting on upstream). Do **not** run
+`npm audit fix --force` blind: it bumps Nest majors. Gate any upgrade on the
+unit tests, `test:e2e` and both smoke suites.
 
-## Priority 4 — quality
+### 5. iOS
+PR #2 aligns the bundle identifiers. Building and TestFlight need an Apple
+Developer account and either a Mac or a macOS CI runner; Firebase needs the
+iOS apps and an APNs key.
 
-### 14. Split the nails category
-The taxonomy still merges acrylic/gel extensions (3A) with natural nails and
-pedicure (3B), the one place granularity is still inconsistent after migration
-008.
+### 6. Product decisions recorded above
+Who confirms completion, and the capture delay. See "Decisions still open".
 
-### 15. Widen test coverage
-70 API unit tests cover money, pricing, payout policy, KYC mapping and AI
-intent. There is no coverage of the escrow capture path, the dispatch race, or
-the booking state machine in TypeScript — those are only exercised by the shell
-smoke tests, which need a live database.
-
-### 16. Repair Android Studio's bundled JDK
-`jbr/lib` on the dev machine contains only `fonts` and `modules`; `jvm.cfg` and
-the rest are missing, so it is not a usable JDK. Temurin 21 is installed and
-Flutter points at it. Worth repairing so the bundled toolchain works again.
+### 7. Quality
+- The nails category merges extensions with natural nails and pedicure; the
+  catalogue groups them (3A/3B) but the client's category grid does not.
+- No TypeScript coverage of the dispatch race; it is exercised only by the
+  shell smoke tests against a live database.
+- Android Studio's bundled JDK on the dev machine is broken; Temurin 21 is
+  used instead.
 
 ---
 

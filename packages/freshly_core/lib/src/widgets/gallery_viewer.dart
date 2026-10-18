@@ -52,7 +52,8 @@ class _GalleryViewerState extends State<GalleryViewer> {
                 fit: BoxFit.contain,
                 loadingBuilder: (context, child, progress) {
                   if (progress == null) return child;
-                  return const Center(child: CircularProgressIndicator(color: Colors.white));
+                  return const Center(
+                      child: CircularProgressIndicator(color: Colors.white));
                 },
               ),
             ),

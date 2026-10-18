@@ -3,6 +3,7 @@ import { DatabaseService } from '../../common/database/database.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { DomainError, KycRequiredError, NotFoundError } from '../../common/errors/domain.errors';
 import { MarketsService } from '../markets/markets.service';
+import { mapBreakdown } from '../bookings/bookings.service';
 
 @Injectable()
 export class ProvidersService {
@@ -478,6 +479,169 @@ export class ProvidersService {
     return { isSuspended: suspended };
   }
 
+  /** The provider's own business details, including what the public profile hides. */
+  async myBusiness(providerId: string) {
+    const p = await this.db.queryOne<Record<string, any>>(
+      `SELECT p.id, p.display_name, p.bio, p.business_mode, p.categories, p.venue_mode,
+              p.power_backup, p.shop_address, p.travel_radius_km, p.accepts_instant,
+              p.accepts_scheduled, p.kyc_status, p.is_online, p.is_suspended, p.rating,
+              p.rating_count, p.completed_jobs, p.payout_currency,
+              ST_Y(p.base_location::geometry) AS lat, ST_X(p.base_location::geometry) AS lng,
+              a.name AS area_name, a.id AS area_id
+         FROM providers p LEFT JOIN service_areas a ON a.id = p.service_area_id
+        WHERE p.id = $1`,
+      [providerId],
+    );
+    if (!p) throw new NotFoundError('Provider', providerId);
+    return {
+      id: p.id,
+      displayName: p.display_name,
+      bio: p.bio,
+      businessMode: p.business_mode,
+      categories: p.categories,
+      venueMode: p.venue_mode,
+      powerBackup: p.power_backup,
+      shopAddress: p.shop_address,
+      travelRadiusKm: Number(p.travel_radius_km),
+      acceptsInstant: p.accepts_instant,
+      acceptsScheduled: p.accepts_scheduled,
+      kycStatus: p.kyc_status,
+      isOnline: p.is_online,
+      isSuspended: p.is_suspended,
+      rating: Number(p.rating),
+      ratingCount: p.rating_count,
+      completedJobs: p.completed_jobs,
+      currency: p.payout_currency,
+      baseLocation: p.lat == null ? null : { lat: Number(p.lat), lng: Number(p.lng) },
+      serviceArea: p.area_id ? { id: p.area_id, name: p.area_name } : null,
+    };
+  }
+
+  /**
+   * Edit business details. Only what is sent changes. Moving the base
+   * location re-resolves the service area, and a move outside every live area
+   * is refused rather than silently leaving the pro undiscoverable.
+   */
+  async updateBusiness(
+    providerId: string,
+    input: {
+      displayName?: string;
+      bio?: string | null;
+      categories?: string[];
+      venueMode?: 'mobile' | 'in_shop' | 'both';
+      powerBackup?: string[];
+      shopAddress?: string | null;
+      travelRadiusKm?: number;
+      acceptsInstant?: boolean;
+      acceptsScheduled?: boolean;
+      lat?: number;
+      lng?: number;
+    },
+  ) {
+    const current = await this.db.queryOne<{ country_code: string; venue_mode: string; shop_address: string | null }>(
+      'SELECT country_code, venue_mode, shop_address FROM providers WHERE id = $1',
+      [providerId],
+    );
+    if (!current) throw new NotFoundError('Provider', providerId);
+
+    const venue = input.venueMode ?? current.venue_mode;
+    const shop = input.shopAddress === undefined ? current.shop_address : input.shopAddress;
+    if (venue !== 'mobile' && !shop) {
+      throw new DomainError('shop_address_required', 'Tell clients where your shop is');
+    }
+
+    let areaId: string | undefined;
+    if (input.lat !== undefined && input.lng !== undefined) {
+      const area = await this.db.queryOne<{ id: string | null }>(
+        'SELECT fn_service_area_for_point($1::country_code_enum, $2, $3) AS id',
+        [current.country_code, input.lat, input.lng],
+      );
+      if (!area?.id) {
+        throw new DomainError(
+          'outside_service_area',
+          'Freshly is not live where you are based yet',
+          HttpStatus.UNPROCESSABLE_ENTITY,
+        );
+      }
+      areaId = area.id;
+    }
+
+    await this.db.query(
+      `UPDATE providers SET
+         display_name      = COALESCE($2, display_name),
+         bio               = CASE WHEN $3::boolean THEN $4 ELSE bio END,
+         categories        = COALESCE($5::service_category_enum[], categories),
+         venue_mode        = COALESCE($6::service_venue_enum, venue_mode),
+         power_backup      = COALESCE($7::power_backup_enum[], power_backup),
+         shop_address      = CASE WHEN $8::boolean THEN $9 ELSE shop_address END,
+         travel_radius_km  = COALESCE($10, travel_radius_km),
+         accepts_instant   = COALESCE($11, accepts_instant),
+         accepts_scheduled = COALESCE($12, accepts_scheduled),
+         base_location     = CASE WHEN $13::boolean
+                               THEN ST_SetSRID(ST_MakePoint($14, $15), 4326)::geography
+                               ELSE base_location END,
+         service_area_id   = COALESCE($16, service_area_id),
+         updated_at        = now()
+       WHERE id = $1`,
+      [
+        providerId,
+        input.displayName?.trim() ?? null,
+        input.bio !== undefined, input.bio?.trim() || null,
+        input.categories ?? null,
+        input.venueMode ?? null,
+        input.powerBackup ?? null,
+        input.shopAddress !== undefined, input.shopAddress?.trim() || null,
+        input.travelRadiusKm ?? null,
+        input.acceptsInstant ?? null,
+        input.acceptsScheduled ?? null,
+        areaId !== undefined, input.lng ?? null, input.lat ?? null,
+        areaId ?? null,
+      ],
+    );
+    return this.myBusiness(providerId);
+  }
+
+  /** Working hours, one row per weekday window. Weekday 0 is Sunday. */
+  async availabilityRules(providerId: string) {
+    const rows = await this.db.query<{ weekday: number; starts_at: string; ends_at: string }>(
+      `SELECT weekday, starts_at::text, ends_at::text FROM availability_rules
+        WHERE provider_id = $1 ORDER BY weekday, starts_at`,
+      [providerId],
+    );
+    return rows.map((r) => ({
+      weekday: r.weekday,
+      startsAt: r.starts_at.slice(0, 5),
+      endsAt: r.ends_at.slice(0, 5),
+    }));
+  }
+
+  /**
+   * Replace the week. The whole set at once rather than row-by-row edits, so
+   * the app can never leave a provider half-saved with Monday from the new
+   * week and Tuesday from the old.
+   */
+  async replaceAvailabilityRules(
+    providerId: string,
+    rules: Array<{ weekday: number; startsAt: string; endsAt: string }>,
+  ) {
+    for (const r of rules) {
+      if (r.endsAt <= r.startsAt) {
+        throw new DomainError('invalid_hours', `Closing time must be after opening time (${r.startsAt} to ${r.endsAt})`);
+      }
+    }
+    await this.db.transaction(async (tx) => {
+      await tx.query('DELETE FROM availability_rules WHERE provider_id = $1', [providerId]);
+      for (const r of rules) {
+        await tx.query(
+          `INSERT INTO availability_rules (provider_id, weekday, starts_at, ends_at)
+           VALUES ($1, $2, $3::time, $4::time)`,
+          [providerId, r.weekday, r.startsAt, r.endsAt],
+        );
+      }
+    });
+    return this.availabilityRules(providerId);
+  }
+
   async addAvailabilityBlock(providerId: string, start: Date, end: Date, reason: string) {
     await this.db.query(
       `INSERT INTO availability_blocks (provider_id, reason, period)
@@ -487,12 +651,30 @@ export class ProvidersService {
     return { ok: true };
   }
 
+  /**
+   * Live work. A salon sees every job on its books and who it is assigned
+   * to; a staff member sees only what has been handed to them. The payout
+   * figure is the salon's either way, since that is whose wallet it reaches.
+   */
   async todaySchedule(providerId: string) {
     const rows = await this.db.query<Record<string, any>>(
       `SELECT b.id, b.reference, b.status, b.scheduled_start, b.destination_address,
-              b.provider_payout_minor, b.currency, u.full_name AS client_name
-         FROM bookings b JOIN users u ON u.id = b.client_id
-        WHERE b.provider_id = $1
+              b.provider_payout_minor, b.currency, u.full_name AS client_name,
+              b.assigned_staff_id, s.display_name AS assigned_staff_name,
+              EXISTS (SELECT 1 FROM reviews r
+                       WHERE r.booking_id = b.id AND r.author_id = me.user_id) AS reviewed_by_me,
+              b.travel_fee_minor, b.service_fee_minor, b.discount_minor, b.travel_distance_km, b.total_minor,
+              (SELECT COALESCE(json_agg(json_build_object(
+                        'label', bi.name_snapshot,
+                        'amountMinor', bi.price_minor * bi.quantity,
+                        'isAddon', bi.is_addon) ORDER BY bi.is_addon, bi.name_snapshot), '[]'::json)
+                 FROM booking_items bi
+                WHERE bi.booking_id = b.id AND (NOT bi.is_addon OR bi.client_approved_at IS NOT NULL)) AS items
+         FROM bookings b
+         JOIN users u ON u.id = b.client_id
+         JOIN providers me ON me.id = $1
+         LEFT JOIN providers s ON s.id = b.assigned_staff_id
+        WHERE (b.provider_id = $1 OR b.assigned_staff_id = $1)
           AND b.status IN ('accepted','en_route','arrived','in_progress')
         ORDER BY COALESCE(b.scheduled_start, b.created_at)`,
       [providerId],
@@ -503,6 +685,11 @@ export class ProvidersService {
       destinationAddress: r.destination_address,
       clientName: firstNameOnly(r.client_name),
       payout: { minor: Number(r.provider_payout_minor), currency: r.currency },
+      total: { minor: Number(r.total_minor), currency: r.currency },
+      breakdown: mapBreakdown(r),
+      assignedStaffId: r.assigned_staff_id ?? null,
+      assignedStaffName: r.assigned_staff_name ?? null,
+      reviewedByMe: Boolean(r.reviewed_by_me),
     }));
   }
 

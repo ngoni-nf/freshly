@@ -60,10 +60,22 @@ result the vendor mapping does not recognise becomes `in_review`, never
 `verified` — the failure that matters is an unvetted person reaching a
 customer's door, not a delayed approval.
 
-**Capture is gated on the client's PIN.** The customer holds a four-digit code;
-the provider types it; only then does escrow capture. "The job is done" is
-asserted by the person who paid, not the person being paid. A provider can
-never self-declare `in_progress` — `advanceStatus` refuses it explicitly.
+**Starting the job is gated on the client's PIN.** The customer holds a
+four-digit code; the provider types it at the door; only then does the booking
+move to `in_progress` (`verifyPin`). It proves the person at the door is the
+pro who was booked. Capture happens when the provider marks the job complete,
+after a cooling-off delay the market can set (`escrow.capture_delay_minutes`),
+and the client has the dispute path after that. A provider can never
+self-declare `in_progress` — `advanceStatus` refuses it explicitly. The app
+copy says exactly this; an earlier version told clients not to share the code
+until the job was done, which meant the job could never start. Whether the
+client should also confirm completion before capture is an open product
+decision recorded in `docs/BACKLOG.md`; do not change the mechanics without it.
+
+**Only a successful request is replayed under an Idempotency-Key.** A claim is
+released when the handler throws, and taken over after two minutes if the
+process died mid-request. The provider app sends one fixed key per booking for
+"complete"; before this, one refused tap stranded the job forever.
 
 **Providers see the suburb, not the street, until they accept.** `maskAddress`
 in `dispatch.service.ts`. No reason to hand a client's address to eight people
@@ -83,15 +95,50 @@ Turning Zimbabwe on is an UPDATE plus a payment adapter. Do not add
 
 ## Current state
 
-Working and verified: 85 unit tests and 6 end-to-end tests green, `tsc`
+Working and verified: 91 unit tests and 29 end-to-end tests green (the
+booking flow, a provider's whole journey from a +263 number to a verified
+EcoCash wallet in `test/provider-onboarding.e2e-spec.ts`, and a Harare salon
+building a team and issuing both invoices in `test/salon-and-invoices.e2e-spec.ts`), `tsc` and ESLint
 clean, both smoke suites pass against a running API, and both Flutter apps
-analyze clean and build and run on an Android 16 emulator. Pricing reconciles
+analyze clean and build and run on an Android 16 emulator. Each app has a
+screen tour (`flutter test test_screens --update-goldens`) that renders real
+screens with real fonts against a fake API, and the client app has a
+router-level test of the booking journey. Pricing reconciles
 across a swept range of prices and distances; payout gross always splits into
 exactly fee plus net across the same kind of sweep.
 
+A provider signs up in the partner app (`POST /auth/become-provider`), which
+creates the row with `kyc_status = 'pending'`, resolves the service area from
+their base location, writes Monday-Saturday hours, and issues a session that
+carries the role. A mobile-money payout account on their own verified number
+is verified at creation; anything else waits in the ops console's payout
+queue. The minimum cash-out is per market (`countries.min_payout_minor`).
+
 Modules: `payouts` (wallet, cash-out, accounts, settlement webhooks), `kyc`
 (submission, manual review, signed callbacks), `safety` (SOS and emergency
-contacts — both apps were already calling these and getting 404s).
+contacts — both apps were already calling these and getting 404s), `invoices`
+and `providers/staff`.
+
+**Invoices are written in the completion transaction.** Two rows per completed
+booking (`provider_to_client`, `platform_to_provider`), numbered per market and
+year from `invoice_sequences`, rendered to PDF on request with pdfkit. The
+figures are the booking's frozen checkout figures plus client-approved add-ons
+(`bookingBreakdown` in `pricing.service.ts`), never current menu prices. A
+client sees only the invoice addressed to them. Migration 023 reshapes the
+unused `invoices` table from 004 rather than creating a second one — a
+`CREATE TABLE IF NOT EXISTS` there silently no-ops and every completion 500s.
+
+**A salon is a provider with staff.** `business_mode = 'salon'` owns the menu,
+the wallet and the dispatch offers; staff are `salon_staff` rows invited by
+phone (`staff_invites`) and assigned per booking (`bookings.assigned_staff_id`).
+`canOperate(booking, providerId)` in `bookings.service.ts` is the one predicate
+every provider-side job operation uses; staff never appear in discovery, must
+be KYC-verified before they can be assigned, and are never paid directly —
+capture credits `bookings.provider_id`, which stays the salon.
+
+`countries.emergency_number` (ZA 10111, ZW 999) is what both apps' SOS
+buttons dial; after an alert the person who raised it stands it down with
+`POST /safety/sos/:id/abort`.
 
 Adapters follow the `PaynowGateway` precedent: the mock is fully functional so
 the whole flow works locally, and the real vendor adapters are structurally
@@ -106,10 +153,13 @@ to Storage directly. Keys are derived server-side and namespaced under the
 owner's id — a client-supplied path is a traversal and an overwrite of someone
 else's identity document waiting to happen.
 
-Not built yet: a canonical service catalogue (providers type service names by
-hand, so a client cannot browse "Knotless Braids" across providers and
-`services.requires_credential` has nothing to derive from), salon staff
-management, Firebase FCM and Crashlytics wiring in the apps.
+The service catalogue is canonical (seed `003_service_catalogue`): a provider
+builds their menu from templates, so a client can browse "Knotless Braids"
+across providers and `services.requires_credential` is derived from the
+template. Firebase push and Crashlytics are wired in both apps; the API sends
+a push on a dispatch offer, a status change and a chat message when
+`PUSH_ENABLED=true`. Identity documents are captured in the app and uploaded
+through signed URLs.
 
 The API is deployed on Fly as `freshly-api` (London, two machines,
 `NODE_ENV=staging`), serving https://freshly-api.fly.dev since 21 August.
@@ -132,6 +182,8 @@ real demo traffic: every migration through 021 is applied and recorded in
 `schema_migrations`, with checksums matching the files exactly. Its security advisor is clean apart from the findings
 explained under "Things that have already bitten us": `spatial_ref_sys`,
 extensions installed in `public`, and PostGIS's own `st_estimatedextent`.
+Migrations 022 and 023 ship with this branch; `scripts/release-api.ps1`
+applies them on release.
 
 GitHub Actions has not run since 21 August 2026: the account is locked for
 billing, so every CI job fails at startup without running a step. Until that

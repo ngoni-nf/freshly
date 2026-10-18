@@ -1,22 +1,36 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import { CurrentUser, Idempotent, Roles } from '../../common/decorators';
+import { AuthenticatedUser, CurrentUser, Idempotent, Roles } from '../../common/decorators';
+import { InvoicesService } from '../invoices/invoices.service';
 import { BookingsService } from './bookings.service';
 import {
-  AddonResponseDto, AdvanceStatusDto, CancelBookingDto, ChangeDestinationDto, ChatMessageDto, CheckoutDto,
-  CreateBookingDto, QuoteBookingDto, ReviewDto, VerifyPinDto,
+  AddonRequestDto, AddonResponseDto, AdvanceStatusDto, AssignBookingDto, CancelBookingDto, ChangeDestinationDto,
+  ChatMessageDto, CheckoutDto, CreateBookingDto, QuoteBookingDto, ReviewDto, VerifyPinDto,
 } from './dto/bookings.dto';
 
 @ApiTags('bookings')
 @Controller('bookings')
 export class BookingsController {
-  constructor(private readonly bookings: BookingsService) {}
+  constructor(
+    private readonly bookings: BookingsService,
+    private readonly invoices: InvoicesService,
+  ) {}
 
   @Post('quote')
   @ApiOperation({ summary: 'Price a basket without creating anything' })
-  quote(@Body() dto: QuoteBookingDto) {
-    return this.bookings.quote(dto);
+  async quote(@Body() dto: QuoteBookingDto) {
+    // The customer sees what they pay. How that splits between the provider
+    // and the platform is the provider's business and ours, not a number to
+    // ship to every phone: the full quote stays server-side for the ledger.
+    const {
+      commissionBps: _commissionBps,
+      commissionMinor: _commissionMinor,
+      vatOnFeesMinor: _vatOnFeesMinor,
+      providerPayoutMinor: _providerPayoutMinor,
+      ...customerFacing
+    } = await this.bookings.quote(dto);
+    return customerFacing;
   }
 
   @Post()
@@ -51,6 +65,12 @@ export class BookingsController {
   @ApiOperation({ summary: "The client's own completion code" })
   pin(@CurrentUser('userId') userId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.bookings.completionPin(userId, id);
+  }
+
+  @Get(':id/invoices')
+  @ApiOperation({ summary: 'The invoices a completed job left behind; each party sees their own' })
+  listInvoices(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.invoices.listForBooking(user, id);
   }
 
   @Post(':id/destination')
@@ -118,6 +138,17 @@ export class BookingsController {
   }
 
   @Roles('provider')
+  @Post(':id/assign')
+  @ApiOperation({ summary: 'Salon only: hand the job to a staff member, or take it back with null' })
+  assign(
+    @CurrentUser('providerId') providerId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AssignBookingDto,
+  ) {
+    return this.bookings.assign(providerId, id, dto.staffId);
+  }
+
+  @Roles('provider')
   @Post(':id/complete')
   @Idempotent()
   @ApiOperation({ summary: 'Finish the job and release escrow' })
@@ -147,6 +178,17 @@ export class BookingsController {
     @Body() dto: ChatMessageDto,
   ) {
     return this.bookings.sendChatMessage(userId, id, dto.body);
+  }
+
+  @Roles('provider')
+  @Post(':id/addons')
+  @ApiOperation({ summary: 'Suggest an extra service mid-job; the client approves it in their app' })
+  requestAddon(
+    @CurrentUser('providerId') providerId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AddonRequestDto,
+  ) {
+    return this.bookings.requestAddon(providerId, id, dto.serviceId);
   }
 
   @Post(':id/addons/:itemId/respond')

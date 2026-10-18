@@ -19,8 +19,6 @@ import '../../app/providers.dart';
 class CountryScreen extends ConsumerWidget {
   const CountryScreen({super.key});
 
-  static const _flags = {'ZA': '🇿🇦', 'ZW': '🇿🇼'};
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final markets = ref.watch(marketsProvider);
@@ -28,32 +26,38 @@ class CountryScreen extends ConsumerWidget {
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(FreshlySpacing.lg),
+          padding: const EdgeInsets.fromLTRB(FreshlySpacing.lg,
+              FreshlySpacing.lg, FreshlySpacing.lg, FreshlySpacing.md),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const FreshlyWordmark(size: 26, onDark: false),
               const SizedBox(height: FreshlySpacing.xl),
-              Text('Where are you?',
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineMedium
-                      ?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: FreshlySpacing.sm),
-              const Text(
-                'So we show you the right pros, the right prices and the right '
-                'currency.',
-                style: TextStyle(color: FreshlyColors.inkMuted, height: 1.4),
+              const ScreenIntro(
+                eyebrow: 'Welcome',
+                title: 'Where are you?',
+                subtitle: 'So we show you the right pros, the right prices '
+                    'and the right currency.',
               ),
               const SizedBox(height: FreshlySpacing.xl),
               Expanded(
                 child: markets.when(
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (e, __) => _Retry(
+                  loading: () => const Column(
+                    children: [
+                      Skeleton(height: 76, radius: FreshlySpacing.radius),
+                      SizedBox(height: FreshlySpacing.sm),
+                      Skeleton(height: 76, radius: FreshlySpacing.radius),
+                    ],
+                  ),
+                  error: (e, __) => EmptyState(
+                    compact: true,
+                    icon: FreshlyIcons.error,
+                    title: 'Countries did not load',
                     message: e is ApiException
                         ? e.message
-                        : 'We could not load the list of countries',
-                    onRetry: () => ref.invalidate(marketsProvider),
+                        : 'Check your connection and try again.',
+                    actionLabel: 'Try again',
+                    onAction: () => ref.invalidate(marketsProvider),
                   ),
                   data: (list) => ListView.separated(
                     itemCount: list.length,
@@ -62,56 +66,51 @@ class CountryScreen extends ConsumerWidget {
                     itemBuilder: (context, i) {
                       final market = list[i];
                       return Card(
-                        margin: EdgeInsets.zero,
-                        child: ListTile(
-                          leading: Text(_flags[market.code] ?? '🌍',
-                              style: const TextStyle(fontSize: 28)),
-                          title: Text(market.name,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w700)),
-                          subtitle: Text(
-                              '${market.dialPrefix} · prices in ${market.currency}'),
-                          trailing: const Icon(FreshlyIcons.chevronRight),
+                        child: InkWell(
                           onTap: () {
                             ref.read(countryCodeProvider.notifier).state =
                                 market.code;
                             context.push('/auth/phone');
                           },
+                          child: Padding(
+                            padding: const EdgeInsets.all(FreshlySpacing.md),
+                            child: Row(
+                              children: [
+                                CountryBadge(code: market.code),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(market.name,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                          '${market.dialPrefix} · prices in ${market.currency}',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(FreshlyIcons.chevronRight, size: 18),
+                              ],
+                            ),
+                          ),
                         ),
                       );
                     },
                   ),
                 ),
               ),
-              const Text(
-                'Not in the list? We are not open there yet.',
-                style: TextStyle(color: FreshlyColors.inkMuted, fontSize: 12),
-              ),
+              Text('Not in the list? We are not open there yet.',
+                  style: Theme.of(context).textTheme.bodySmall),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _Retry extends StatelessWidget {
-  const _Retry({required this.message, required this.onRetry});
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: FreshlyColors.inkMuted)),
-          const SizedBox(height: FreshlySpacing.md),
-          OutlinedButton(onPressed: onRetry, child: const Text('Try again')),
-        ],
       ),
     );
   }

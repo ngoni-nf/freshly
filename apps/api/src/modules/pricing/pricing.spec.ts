@@ -1,4 +1,4 @@
-import { PricingService } from './pricing.service';
+import { bookingBreakdown, PricingService } from './pricing.service';
 import { MarketConfig } from '../markets/markets.service';
 
 const ZA: MarketConfig = {
@@ -7,14 +7,15 @@ const ZA: MarketConfig = {
   commissionBps: 1250, serviceFeeMinor: 1000, travelFeePerKmMinor: 700, travelFeeFreeKm: 3,
   vatBps: 1500, vatLabel: 'VAT', taxAuthority: 'SARS', paymentProvider: 'stitch',
   kycProvider: 'smileid', sosProvider: 'aura', gridStatusProvider: 'eskom_se_push',
-  cancellationWindowMinutes: 120, cancellationFeeBps: 5000, noShowGraceMinutes: 10,
+  cancellationWindowMinutes: 120, cancellationFeeBps: 5000, noShowGraceMinutes: 10, minPayoutMinor: 5000,
+  emergencyNumber: '10111',
   referralRefereeDiscountMinor: 5000, referralReferrerCreditMinor: 5000, referralCreditTtlDays: 90,
   dispatchOfferSeconds: 60, maxSearchRadiusKm: 25, isLive: true,
 };
 
 const ZW: MarketConfig = {
   ...ZA, code: 'ZW', name: 'Zimbabwe', defaultCurrency: 'USD', supportedCurrencies: ['USD', 'ZWG'],
-  dialPrefix: '+263', serviceFeeMinor: 50, travelFeePerKmMinor: 40,
+  dialPrefix: '+263', serviceFeeMinor: 50, travelFeePerKmMinor: 40, emergencyNumber: '999',
   taxAuthority: 'ZIMRA', paymentProvider: 'paynow', sosProvider: 'mock', isLive: false,
 };
 
@@ -158,5 +159,35 @@ describe('PricingService', () => {
       expect(r.feeMinor).toBe(0);
       expect(r.refundMinor).toBe(19_900);
     });
+  });
+});
+
+describe('bookingBreakdown', () => {
+  const pricing = new PricingService();
+
+  it('rebuilds exactly the lines the quote showed, from the frozen figures alone', () => {
+    for (let price = 1_000; price <= 120_000; price += 4_111) {
+      for (const km of [0, 7.5]) {
+        for (const surgeBps of [0, 2000]) {
+          for (const discountMinor of [0, 1_500]) {
+            const q = pricing.quote({
+              market: ZA, venueMode: 'mobile', travelDistanceKm: km, surgeBps, discountMinor,
+              services: [{ id: 's1', name: 'Cut', priceMinor: price, durationMinutes: 30 }],
+              addons: [{ id: 'a1', name: 'Beard', priceMinor: 2_500, durationMinutes: 10 }],
+            });
+            const rebuilt = bookingBreakdown({
+              items: [
+                { label: 'Cut', amountMinor: price, isAddon: false },
+                { label: 'Beard', amountMinor: 2_500, isAddon: true },
+              ],
+              travelFeeMinor: q.travelFeeMinor, serviceFeeMinor: q.serviceFeeMinor,
+              discountMinor: q.discountMinor, totalMinor: q.totalMinor, travelDistanceKm: km,
+            });
+            expect(rebuilt).toEqual(q.breakdown);
+            expect(rebuilt.reduce((acc, l) => acc + l.amountMinor, 0)).toBe(q.totalMinor);
+          }
+        }
+      }
+    }
   });
 });

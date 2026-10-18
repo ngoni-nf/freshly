@@ -4,9 +4,8 @@ import 'package:freshly_core/freshly_core.dart';
 
 import '../../app/providers.dart';
 
-final savedAddressesProvider =
-    FutureProvider.autoDispose<List<SavedAddress>>((ref) =>
-        ref.watch(apiProvider).savedAddresses());
+final savedAddressesProvider = FutureProvider.autoDispose<List<SavedAddress>>(
+    (ref) => ref.watch(apiProvider).savedAddresses());
 
 /// Places you book to, managed.
 ///
@@ -40,7 +39,7 @@ class AddressesScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(picked.formatted,
-                  style: const TextStyle(color: FreshlyColors.inkMuted)),
+                  style: Theme.of(context).textTheme.bodySmall),
               const SizedBox(height: FreshlySpacing.md),
               TextField(
                 controller: controller,
@@ -127,58 +126,58 @@ class AddressesScreen extends ConsumerWidget {
         label: const Text('Add address'),
       ),
       body: addresses.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, __) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(FreshlySpacing.lg),
-            child: Text(
-              e is ApiException ? e.message : 'We could not load your addresses',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: FreshlyColors.inkMuted),
-            ),
-          ),
+        loading: () => ListView(
+          padding: const EdgeInsets.all(FreshlySpacing.md),
+          children: const [
+            Skeleton(height: 76, radius: FreshlySpacing.radius),
+            SizedBox(height: FreshlySpacing.sm),
+            Skeleton(height: 76, radius: FreshlySpacing.radius),
+          ],
+        ),
+        error: (e, __) => EmptyState(
+          icon: FreshlyIcons.error,
+          title: 'Addresses did not load',
+          message: e is ApiException
+              ? e.message
+              : 'We could not load your addresses.',
+          actionLabel: 'Try again',
+          onAction: () => ref.invalidate(savedAddressesProvider),
         ),
         data: (list) {
           if (list.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(FreshlySpacing.xl),
-                child: Text(
-                  'No saved addresses yet.\n\nSave the places you book to often '
-                  'and they will be one tap at checkout.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: FreshlyColors.inkMuted, height: 1.5),
-                ),
-              ),
+            return const EmptyState(
+              icon: FreshlyIcons.location,
+              title: 'No saved addresses yet',
+              message: 'Save the places you book to often and they will be '
+                  'one tap at checkout.',
             );
           }
 
           return ListView(
-            padding: const EdgeInsets.only(
-                top: FreshlySpacing.sm, bottom: 96),
+            padding: const EdgeInsets.only(top: FreshlySpacing.sm, bottom: 96),
             children: list
                 .map((a) => Card(
                       margin: const EdgeInsets.fromLTRB(FreshlySpacing.md, 0,
                           FreshlySpacing.md, FreshlySpacing.sm),
                       child: ListTile(
-                        leading: Icon(
-                          a.isDefault
-                              ? FreshlyIcons.checkCircle
-                              : FreshlyIcons.location,
-                          color: a.isDefault
-                              ? FreshlyColors.mint
-                              : FreshlyColors.inkMuted,
+                        leading: IconBadge(
+                          icon: FreshlyIcons.location,
+                          size: 40,
+                          tone: a.isDefault
+                              ? FreshlyTone.brand
+                              : FreshlyTone.neutral,
                         ),
                         title: Row(children: [
-                          Text(a.label,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w700)),
+                          Flexible(
+                            child:
+                                Text(a.label, overflow: TextOverflow.ellipsis),
+                          ),
                           if (a.isDefault) ...[
                             const SizedBox(width: 8),
-                            const Text('Default',
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    color: FreshlyColors.mintDark)),
+                            const StatusPill(
+                                label: 'Default',
+                                tone: FreshlyTone.brand,
+                                dense: true),
                           ],
                         ]),
                         subtitle: Column(
@@ -188,9 +187,7 @@ class AddressesScreen extends ConsumerWidget {
                             if (a.accessNotes != null &&
                                 a.accessNotes!.isNotEmpty)
                               Text(a.accessNotes!,
-                                  style: const TextStyle(
-                                      fontSize: 12,
-                                      color: FreshlyColors.inkMuted)),
+                                  style: Theme.of(context).textTheme.bodySmall),
                           ],
                         ),
                         isThreeLine: a.accessNotes?.isNotEmpty ?? false,

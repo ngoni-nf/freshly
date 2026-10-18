@@ -66,7 +66,7 @@ export class MockGateway implements PaymentGateway {
     return { refundedMinor: amountMinor, status: 'refunded' };
   }
 
-  async payout(request: PayoutRequest): Promise<PayoutResult> {
+  async payout(_request: PayoutRequest): Promise<PayoutResult> {
     return { externalReference: `mockpo_${randomUUID()}`, status: 'paid' };
   }
 

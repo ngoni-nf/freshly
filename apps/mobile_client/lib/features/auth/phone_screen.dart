@@ -31,8 +31,21 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
       ref.read(countryCodeProvider.notifier).state = value;
 
   static const _markets = {
-    'ZW': (prefix: '+263', digits: 9, label: 'Zimbabwe', flag: '🇿🇼'),
-    'ZA': (prefix: '+27', digits: 9, label: 'South Africa', flag: '🇿🇦'),
+    'ZW': (
+      prefix: '+263',
+      digits: 9,
+      label: 'Zimbabwe',
+      hint: '77 123 4567',
+      // Zimbabwe's Cyber and Data Protection Act; POPIA is South Africa's.
+      law: 'the Cyber and Data Protection Act',
+    ),
+    'ZA': (
+      prefix: '+27',
+      digits: 9,
+      label: 'South Africa',
+      hint: '82 123 4567',
+      law: 'POPIA',
+    ),
   };
 
   String get _digits => _controller.text
@@ -120,122 +133,140 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
   @override
   Widget build(BuildContext context) {
     final market = _markets[_country]!;
+    final text = Theme.of(context).textTheme;
 
     return Scaffold(
+      appBar: AppBar(),
       body: SafeArea(
+        top: false,
         child: Padding(
-          padding: const EdgeInsets.all(FreshlySpacing.lg),
+          padding: const EdgeInsets.fromLTRB(
+              FreshlySpacing.lg, 0, FreshlySpacing.lg, FreshlySpacing.md),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: FreshlySpacing.xl),
-              Text('Welcome to Freshly',
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineMedium
-                      ?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: FreshlySpacing.sm),
-              Text(
-                'Enter your mobile number. We will send you a 6-digit code to sign in.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyLarge
-                    ?.copyWith(color: FreshlyColors.inkMuted),
+              const ScreenIntro(
+                eyebrow: 'Sign in',
+                title: 'What is your number?',
+                subtitle: 'We will text you a 6-digit code. No passwords.',
               ),
               const SizedBox(height: FreshlySpacing.xl),
-              Row(
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: FreshlyColors.line),
-                      borderRadius:
-                          BorderRadius.circular(FreshlySpacing.radius),
-                    ),
+              TextField(
+                controller: _controller,
+                autofocus: true,
+                keyboardType: TextInputType.phone,
+                textInputAction: TextInputAction.done,
+                style: FreshlyType.style(20, weight: FontWeight.w700),
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(market.digits + 1),
+                ],
+                decoration: InputDecoration(
+                  hintText: market.hint,
+                  hintStyle: FreshlyType.style(20,
+                      weight: FontWeight.w500, color: FreshlyColors.inkMuted),
+                  prefixIcon: Padding(
+                    padding: const EdgeInsets.only(left: 8, right: 4),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         value: _country,
+                        borderRadius:
+                            BorderRadius.circular(FreshlySpacing.radius),
+                        icon: const Icon(FreshlyIcons.expandMore, size: 16),
                         items: _markets.entries
                             .map((e) => DropdownMenuItem(
                                   value: e.key,
-                                  child: Text(
-                                      '${e.value.flag}  ${e.value.prefix}'),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      CountryBadge(code: e.key, size: 28),
+                                      const SizedBox(width: 8),
+                                      Text(e.value.prefix,
+                                          style: FreshlyType.style(17,
+                                              weight: FontWeight.w700)),
+                                    ],
+                                  ),
                                 ))
                             .toList(),
                         onChanged: (v) => setState(() => _country = v!),
                       ),
                     ),
                   ),
-                  const SizedBox(width: FreshlySpacing.sm),
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      autofocus: true,
-                      keyboardType: TextInputType.phone,
-                      textInputAction: TextInputAction.done,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(market.digits + 1),
-                      ],
-                      decoration:
-                          const InputDecoration(hintText: '82 123 4567'),
-                      onChanged: (_) => setState(() {}),
-                      onSubmitted: (_) => _submit(),
-                    ),
-                  ),
-                ],
+                  suffixIcon: _valid
+                      ? const Icon(FreshlyIcons.checkCircle,
+                          color: FreshlyColors.mintDark)
+                      : null,
+                ),
+                onChanged: (_) => setState(() {}),
+                onSubmitted: (_) => _submit(),
               ),
               if (_error != null) ...[
                 const SizedBox(height: FreshlySpacing.md),
-                Text(_error!,
-                    style: const TextStyle(color: FreshlyColors.crimson)),
+                Row(
+                  children: [
+                    const Icon(FreshlyIcons.error,
+                        size: 18, color: FreshlyColors.crimson),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(_error!,
+                          style: FreshlyType.style(14,
+                              weight: FontWeight.w600,
+                              color: FreshlyColors.crimson)),
+                    ),
+                  ],
+                ),
               ],
               const Spacer(),
-              Text(
-                'By continuing you agree to the Freshly Terms and Privacy Notice. '
-                'We process your information in line with POPIA.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: FreshlyColors.inkMuted),
-              ),
-              const SizedBox(height: FreshlySpacing.md),
               FilledButton(
                 onPressed: _valid && !_busy ? _submit : null,
                 child: _busy
                     ? const SizedBox(
-                        width: 20,
-                        height: 20,
+                        width: 22,
+                        height: 22,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
+                            strokeWidth: 2.5, color: FreshlyColors.obsidian))
                     : const Text('Send code'),
               ),
               const SizedBox(height: FreshlySpacing.md),
-              const Row(
+              Row(
                 children: [
-                  Expanded(child: Divider()),
+                  const Expanded(child: Divider()),
                   Padding(
-                    padding: EdgeInsets.symmetric(
+                    padding: const EdgeInsets.symmetric(
                         horizontal: FreshlySpacing.md),
-                    child: Text('or',
-                        style: TextStyle(color: FreshlyColors.inkMuted)),
+                    child: Text('or', style: text.bodySmall),
                   ),
-                  Expanded(child: Divider()),
+                  const Expanded(child: Divider()),
                 ],
               ),
               const SizedBox(height: FreshlySpacing.md),
-              OutlinedButton.icon(
-                onPressed: _busy ? null : _google,
-                icon: const Icon(Icons.account_circle_outlined, size: 18),
-                label: const Text('Continue with Google'),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _busy ? null : _google,
+                      icon: const Icon(Icons.account_circle_outlined, size: 20),
+                      label: const Text('Google'),
+                    ),
+                  ),
+                  const SizedBox(width: FreshlySpacing.sm),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed:
+                          _busy ? null : () => context.push('/auth/email'),
+                      icon: const Icon(Icons.mail_outline, size: 20),
+                      label: const Text('Email'),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: FreshlySpacing.sm),
-              OutlinedButton.icon(
-                onPressed:
-                    _busy ? null : () => context.push('/auth/email'),
-                icon: const Icon(Icons.mail_outline, size: 18),
-                label: const Text('Continue with email'),
+              const SizedBox(height: FreshlySpacing.md),
+              Text(
+                'By continuing you agree to the Freshly Terms and Privacy '
+                'Notice. We process your information in line with '
+                '${market.law}.',
+                textAlign: TextAlign.center,
+                style: text.bodySmall,
               ),
             ],
           ),

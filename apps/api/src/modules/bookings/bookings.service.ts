@@ -9,12 +9,13 @@ import { RedisService } from '../../common/redis/redis.service';
 import { applyBps, formatMoney, taxIncludedIn } from '../../common/money/money';
 import { maskAddress } from '../dispatch/dispatch.service';
 import { MarketsService } from '../markets/markets.service';
-import { PricingService, Quote } from '../pricing/pricing.service';
+import { bookingBreakdown, PricingService, Quote } from '../pricing/pricing.service';
 import { EscrowService } from '../payments/escrow.service';
 import { DispatchService } from '../dispatch/dispatch.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { PushService } from '../notifications/push.service';
 import { ReferralsService } from '../referrals/referrals.service';
+import { InvoicesService } from '../invoices/invoices.service';
 import { CreateBookingDto, QuoteBookingDto } from './dto/bookings.dto';
 
 /**
@@ -35,6 +36,42 @@ interface ServiceRow {
   provider_id: string;
 }
 
+/**
+ * Who may run a job. The booking belongs to the provider dispatch or the
+ * client chose — for a salon, the salon — and the money will land in that
+ * wallet. A salon owner can hand the work to a staff member, who then runs
+ * it exactly as the salon could. Every provider-side job operation checks
+ * this one predicate rather than `provider_id` directly, so the staff case
+ * cannot be forgotten by the next endpoint.
+ */
+export function canOperate(
+  booking: { provider_id: string | null; assigned_staff_id?: string | null },
+  providerId: string,
+): boolean {
+  return booking.provider_id === providerId || booking.assigned_staff_id === providerId;
+}
+
+/**
+ * The frozen figures a booking's breakdown is rebuilt from, as SELECT-list
+ * columns on an alias `b`. An extra is listed only once the client has said
+ * yes to it; a pending suggestion is not yet part of what they agreed to.
+ */
+const BOOKING_FIGURES = `
+              b.travel_fee_minor, b.service_fee_minor, b.discount_minor, b.travel_distance_km,
+              (SELECT COALESCE(json_agg(json_build_object(
+                        'label', bi.name_snapshot,
+                        'amountMinor', bi.price_minor * bi.quantity,
+                        'isAddon', bi.is_addon) ORDER BY bi.is_addon, bi.name_snapshot), '[]'::json)
+                 FROM booking_items bi
+                WHERE bi.booking_id = b.id AND (NOT bi.is_addon OR bi.client_approved_at IS NOT NULL)) AS items`;
+
+/** Statuses a salon may still reassign; once the PIN is in, the person at
+ *  the door is the person who does the job. */
+export const ASSIGNABLE_STATUSES = ['authorized', 'accepted', 'en_route'];
+
+/** Open work, for un-assigning when a staff member leaves. */
+export const OPEN_STATUSES = ['authorized', 'accepted', 'en_route', 'arrived', 'in_progress'];
+
 @Injectable()
 export class BookingsService {
   private readonly logger = new Logger(BookingsService.name);
@@ -50,6 +87,7 @@ export class BookingsService {
     private readonly realtime: RealtimeGateway,
     private readonly push: PushService,
     private readonly referrals: ReferralsService,
+    private readonly invoices: InvoicesService,
   ) {}
 
   // ─── Quoting ───────────────────────────────────────────────────────────────
@@ -173,7 +211,7 @@ export class BookingsService {
       });
     }
 
-    const { services, area, market, distanceKm } = await this.resolveContext(dto);
+    const { services, area, distanceKm } = await this.resolveContext(dto);
     const quote = await this.quote(dto);
 
     const durationMinutes = services.reduce((sum, s) => sum + s.duration_minutes, 0);
@@ -250,8 +288,12 @@ export class BookingsService {
         status: 'pending_auth',
         destinationAddress: dto.destinationAddress,
         total: { minor: quote.totalMinor, currency: quote.currency },
+        breakdown: quote.breakdown,
         providerId: dto.providerId,
         providerName: null,
+        assignedStaffId: null,
+        assignedStaffName: null,
+        reviewedByMe: false,
         scheduledStart: scheduledStart?.toISOString() ?? null,
         createdAt: new Date().toISOString(),
       };
@@ -287,13 +329,7 @@ export class BookingsService {
   // ─── Lifecycle ─────────────────────────────────────────────────────────────
 
   async advanceStatus(providerId: string, bookingId: string, to: 'en_route' | 'arrived' | 'in_progress') {
-    const booking = await this.db.queryOne<{ status: string; provider_id: string }>(
-      'SELECT status, provider_id FROM bookings WHERE id = $1', [bookingId],
-    );
-    if (!booking) throw new NotFoundError('Booking', bookingId);
-    if (booking.provider_id !== providerId) {
-      throw new ForbiddenException({ code: 'not_your_booking', message: 'This booking is not assigned to you' });
-    }
+    await this.requireOperableBooking(bookingId, providerId);
 
     // in_progress is reachable only through PIN verification. Letting a
     // provider self-declare it would make the completion code decorative.
@@ -310,17 +346,9 @@ export class BookingsService {
   }
 
   async verifyPin(providerId: string, bookingId: string, pin: string) {
-    const booking = await this.db.queryOne<{
-      status: string; provider_id: string; completion_pin_hash: string; pin_verified_at: Date | null;
-    }>(
-      `SELECT status, provider_id, completion_pin_hash, pin_verified_at
-         FROM bookings WHERE id = $1`,
-      [bookingId],
+    const booking = await this.requireOperableBooking<{ completion_pin_hash: string }>(
+      bookingId, providerId, 'completion_pin_hash',
     );
-    if (!booking) throw new NotFoundError('Booking', bookingId);
-    if (booking.provider_id !== providerId) {
-      throw new ForbiddenException({ code: 'not_your_booking', message: 'This booking is not assigned to you' });
-    }
 
     // Rate limited per booking, before the code is even compared.
     //
@@ -368,18 +396,17 @@ export class BookingsService {
 
   /** The provider marks the job finished; this is what triggers escrow capture. */
   async complete(providerId: string, bookingId: string) {
-    const booking = await this.db.queryOne<{ status: string; provider_id: string; client_id: string }>(
-      'SELECT status, provider_id, client_id FROM bookings WHERE id = $1', [bookingId],
-    );
-    if (!booking) throw new NotFoundError('Booking', bookingId);
-    if (booking.provider_id !== providerId) {
-      throw new ForbiddenException({ code: 'not_your_booking', message: 'This booking is not assigned to you' });
-    }
+    const booking = await this.requireOperableBooking<{ client_id: string }>(bookingId, providerId, 'client_id');
     if (booking.status !== 'in_progress') {
       throw new IllegalTransitionError(booking.status, 'completed');
     }
 
-    await this.escrow.capture(bookingId);
+    // `escrow.capture_delay_minutes` is the client's window to dispute before
+    // the provider is paid. At zero the capture happens here, as it always
+    // has; above zero the booking completes now and CaptureDueJob captures it
+    // once the window has passed with no open dispute.
+    const delayMinutes = this.markets.setting<number>('escrow.capture_delay_minutes', 0);
+    if (delayMinutes <= 0) await this.escrow.capture(bookingId);
     await this.db.transaction(async (tx) => {
       await tx.query(`UPDATE bookings SET status = 'completed' WHERE id = $1`, [bookingId]);
       await tx.emitEvent('booking', bookingId, 'booking.completed', { providerId });
@@ -390,9 +417,76 @@ export class BookingsService {
       // together — a reward against a booking that then rolled back is free
       // money.
       await this.referrals.onBookingCompleted(tx, booking.client_id, bookingId);
+
+      // The invoices describe the job, not the capture: the figures were
+      // frozen at checkout and the client has agreed to every add-on on them.
+      // So they are written here whether the money moved a moment ago or
+      // will move when the dispute window closes.
+      await this.invoices.issueForBooking(tx, bookingId);
     });
 
     return { status: 'completed' };
+  }
+
+  /**
+   * Screen B.11: the provider proposes one more service from their own menu
+   * while the job is in progress. Nothing is charged here. The item sits
+   * unapproved until the client says yes in their app, and only then does
+   * the escrow hold grow (respondToAddon). A provider can never raise what a
+   * customer pays on their own.
+   */
+  async requestAddon(providerId: string, bookingId: string, serviceId: string) {
+    const booking = await this.requireOperableBooking<{ currency: string }>(bookingId, providerId, 'currency');
+    if (booking.status !== 'in_progress') {
+      throw new DomainError('addon_not_allowed', 'Extras can be suggested once the service has started');
+    }
+
+    // The booking's provider's menu, not the caller's: a staff member works
+    // from the salon's price list and has none of their own.
+    const service = await this.db.queryOne<{
+      id: string; name: string; price_minor: string; currency: string; duration_minutes: number;
+    }>(
+      `SELECT id, name, price_minor, currency, duration_minutes FROM services
+        WHERE id = $1 AND provider_id = $2 AND is_active`,
+      [serviceId, booking.provider_id],
+    );
+    if (!service) throw new NotFoundError('Service', serviceId);
+    if (service.currency !== booking.currency) {
+      throw new DomainError('currency_mismatch', 'That service is priced in a different currency');
+    }
+
+    const pending = await this.db.queryOne<{ id: string }>(
+      `SELECT id FROM booking_items
+        WHERE booking_id = $1 AND is_addon AND client_approved_at IS NULL LIMIT 1`,
+      [bookingId],
+    );
+    if (pending) {
+      throw new DomainError('addon_pending', 'Wait for the client to answer the last suggestion first', HttpStatus.CONFLICT);
+    }
+
+    return this.db.transaction(async (tx) => {
+      const item = await tx.queryOne<{ id: string }>(
+        `INSERT INTO booking_items
+           (booking_id, service_id, name_snapshot, price_minor, duration_minutes, is_addon, added_mid_service)
+         VALUES ($1, $2, $3, $4, $5, true, true)
+         RETURNING id`,
+        [bookingId, service.id, service.name, Number(service.price_minor), service.duration_minutes],
+      );
+      await tx.emitEvent('booking', bookingId, 'booking.addon_requested', {
+        itemId: item!.id,
+        name: service.name,
+        priceMinor: Number(service.price_minor),
+        currency: service.currency,
+        durationMinutes: service.duration_minutes,
+      });
+      return {
+        itemId: item!.id,
+        name: service.name,
+        priceMinor: Number(service.price_minor),
+        currency: service.currency,
+        status: 'awaiting_client',
+      };
+    });
   }
 
   async respondToAddon(clientId: string, bookingId: string, itemId: string, approve: boolean) {
@@ -632,6 +726,7 @@ export class BookingsService {
   async cancel(userId: string, bookingId: string, reason: string) {
     const booking = await this.db.queryOne<{
       status: string; client_id: string; provider_id: string | null; provider_user_id: string | null;
+      staff_user_id: string | null;
       country_code: 'ZA' | 'ZW';
       total_minor: string; service_fee_minor: string; scheduled_start: Date | null;
       arrived_at: Date | null; currency: string;
@@ -642,17 +737,21 @@ export class BookingsService {
       // own job was refused. It went unnoticed while nothing but the client
       // could cancel; declaring a no-show is the first thing that needed it.
       `SELECT b.status, b.client_id, b.provider_id, p.user_id AS provider_user_id,
+              s.user_id AS staff_user_id,
               b.country_code, b.total_minor, b.service_fee_minor, b.scheduled_start,
               b.arrived_at, b.currency
          FROM bookings b
          LEFT JOIN providers p ON p.id = b.provider_id
+         LEFT JOIN providers s ON s.id = b.assigned_staff_id
         WHERE b.id = $1`,
       [bookingId],
     );
     if (!booking) throw new NotFoundError('Booking', bookingId);
 
     const isClient = booking.client_id === userId;
-    if (!isClient && booking.provider_user_id !== userId) {
+    // The staff member standing at the door is the one who knows nobody
+    // answered, so a no-show may come from them as well as from the salon.
+    if (!isClient && booking.provider_user_id !== userId && booking.staff_user_id !== userId) {
       throw new ForbiddenException({ code: 'not_your_booking', message: 'Not permitted' });
     }
     if (['completed', 'cancelled', 'expired'].includes(booking.status)) {
@@ -743,7 +842,8 @@ export class BookingsService {
     const allowed = await this.db.queryOne<{ id: string }>(
       `SELECT b.id FROM bookings b
          LEFT JOIN providers p ON p.id = b.provider_id
-        WHERE b.id = $1 AND (b.client_id = $2 OR p.user_id = $2)`,
+         LEFT JOIN providers s ON s.id = b.assigned_staff_id
+        WHERE b.id = $1 AND (b.client_id = $2 OR p.user_id = $2 OR s.user_id = $2)`,
       [bookingId, userId],
     );
     if (!allowed) throw new ForbiddenException({ code: 'not_your_booking', message: 'Not permitted' });
@@ -768,19 +868,23 @@ export class BookingsService {
 
   async sendChatMessage(authorId: string, bookingId: string, body: string) {
     const booking = await this.db.queryOne<{
-      status: string; client_id: string; provider_user_id: string | null;
+      status: string; client_id: string; provider_user_id: string | null; staff_user_id: string | null;
+      provider_name: string | null;
       completed_at: Date | null; cancelled_at: Date | null; expires_at: Date | null;
     }>(
-      `SELECT b.status, b.client_id, p.user_id as provider_user_id,
+      `SELECT b.status, b.client_id, p.user_id AS provider_user_id, s.user_id AS staff_user_id,
+              COALESCE(s.display_name, p.display_name) AS provider_name,
               b.completed_at, b.cancelled_at, b.expires_at
          FROM bookings b
          LEFT JOIN providers p ON p.id = b.provider_id
+         LEFT JOIN providers s ON s.id = b.assigned_staff_id
         WHERE b.id = $1`,
       [bookingId],
     );
     if (!booking) throw new NotFoundError('Booking', bookingId);
 
-    if (booking.client_id !== authorId && booking.provider_user_id !== authorId) {
+    const isClient = booking.client_id === authorId;
+    if (!isClient && booking.provider_user_id !== authorId && booking.staff_user_id !== authorId) {
       throw new ForbiddenException({ code: 'not_your_booking', message: 'Not permitted' });
     }
 
@@ -816,15 +920,20 @@ export class BookingsService {
     // Push to realtime
     this.realtime.emitToBooking(bookingId, 'chat.message', message);
 
-    // Push notification to the recipient
-    const recipientId = authorId === booking.client_id ? booking.provider_user_id : booking.client_id;
-    if (recipientId) {
-      const senderName = authorId === booking.client_id ? 'Client' : (booking as any).provider_name || 'Professional';
+    // A client's message goes to everyone on the provider side: the staff
+    // member doing the job and the salon that answers for it. Anything from
+    // that side goes to the client.
+    const recipients = isClient
+      ? new Set([booking.provider_user_id, booking.staff_user_id].filter((id): id is string => Boolean(id)))
+      : new Set([booking.client_id]);
+    const senderName = isClient ? 'Client' : booking.provider_name || 'Professional';
+    for (const recipientId of recipients) {
+      if (recipientId === authorId) continue;
       this.push.sendToUser(recipientId, {
         title: `Message from ${senderName}`,
         body,
         data: { type: 'chat', bookingId },
-        channelId: authorId === booking.client_id ? 'freshly_dispatch' : 'freshly_bookings',
+        channelId: isClient ? 'freshly_dispatch' : 'freshly_bookings',
       });
     }
 
@@ -838,7 +947,8 @@ export class BookingsService {
     const allowed = await this.db.queryOne<{ id: string }>(
       `SELECT b.id FROM bookings b
          LEFT JOIN providers p ON p.id = b.provider_id
-        WHERE b.id = $1 AND (b.client_id = $2 OR p.user_id = $2)`,
+         LEFT JOIN providers s ON s.id = b.assigned_staff_id
+        WHERE b.id = $1 AND (b.client_id = $2 OR p.user_id = $2 OR s.user_id = $2)`,
       [bookingId, userId],
     );
     if (!allowed) {
@@ -887,17 +997,34 @@ export class BookingsService {
     return { pin: this.crypto.decrypt(row.completion_pin_enc) };
   }
 
-  async findOne(userId: string, bookingId: string) {
-    const row = await this.db.queryOne<Record<string, any>>(
-      `SELECT b.id, b.reference, b.status, b.booking_type, b.venue_mode, b.scheduled_start,
+  /**
+   * One SELECT list for every booking read, so the shape the apps parse is
+   * the same whichever endpoint produced it. `$1` is always the caller's
+   * user id: it decides whether they are a participant, and `reviewed_by_me`
+   * is "did this person write a review", not "has anyone".
+   */
+  private static readonly BOOKING_SELECT = `
+       SELECT b.id, b.reference, b.status, b.booking_type, b.venue_mode, b.scheduled_start,
               b.destination_address, b.total_minor, b.currency, b.provider_id, b.created_at,
               b.arrived_at, b.completed_at, b.cancelled_at,
+              b.assigned_staff_id,
               p.display_name AS provider_name,
-              ARRAY(SELECT service_id FROM booking_items WHERE booking_id = b.id AND NOT is_addon) AS service_ids
+              s.display_name AS assigned_staff_name,
+              EXISTS (SELECT 1 FROM reviews r WHERE r.booking_id = b.id AND r.author_id = $1) AS reviewed_by_me,
+              ARRAY(SELECT service_id FROM booking_items WHERE booking_id = b.id AND NOT is_addon) AS service_ids,
+              ${BOOKING_FIGURES}
          FROM bookings b
          LEFT JOIN providers p ON p.id = b.provider_id
-        WHERE b.id = $1 AND (b.client_id = $2 OR p.user_id = $2)`,
-      [bookingId, userId],
+         LEFT JOIN providers s ON s.id = b.assigned_staff_id`;
+
+  /** The salon sees everything on its books; a staff member only what is theirs. */
+  private static readonly PARTICIPANT_WHERE = '(b.client_id = $1 OR p.user_id = $1 OR s.user_id = $1)';
+
+  async findOne(userId: string, bookingId: string) {
+    const row = await this.db.queryOne<Record<string, any>>(
+      `${BookingsService.BOOKING_SELECT}
+        WHERE b.id = $2 AND ${BookingsService.PARTICIPANT_WHERE}`,
+      [userId, bookingId],
     );
     if (!row) throw new NotFoundError('Booking', bookingId);
     return mapBooking(row);
@@ -905,12 +1032,8 @@ export class BookingsService {
 
   async listMine(userId: string, status?: string) {
     const rows = await this.db.query<Record<string, any>>(
-      `SELECT b.id, b.reference, b.status, b.booking_type, b.venue_mode, b.scheduled_start,
-              b.destination_address, b.total_minor, b.currency, b.provider_id, b.created_at,
-              p.display_name AS provider_name
-         FROM bookings b
-         LEFT JOIN providers p ON p.id = b.provider_id
-        WHERE (b.client_id = $1 OR p.user_id = $1)
+      `${BookingsService.BOOKING_SELECT}
+        WHERE ${BookingsService.PARTICIPANT_WHERE}
           AND ($2::text IS NULL OR b.status = $2::booking_status_enum)
         ORDER BY b.created_at DESC
         LIMIT 50`,
@@ -920,15 +1043,31 @@ export class BookingsService {
   }
 
   async review(userId: string, bookingId: string, rating: number, tags: string[], comment?: string) {
-    const booking = await this.db.queryOne<{ client_id: string; provider_id: string | null; status: string }>(
-      'SELECT client_id, provider_id, status FROM bookings WHERE id = $1', [bookingId],
+    const booking = await this.db.queryOne<{
+      client_id: string; provider_id: string | null; status: string;
+      provider_user_id: string | null; staff_user_id: string | null;
+    }>(
+      `SELECT b.client_id, b.provider_id, b.status, p.user_id AS provider_user_id, s.user_id AS staff_user_id
+         FROM bookings b
+         LEFT JOIN providers p ON p.id = b.provider_id
+         LEFT JOIN providers s ON s.id = b.assigned_staff_id
+        WHERE b.id = $1`,
+      [bookingId],
     );
     if (!booking) throw new NotFoundError('Booking', bookingId);
+    const isClient = booking.client_id === userId;
+    // Anyone else used to land in the provider branch and could rate a
+    // stranger's client. The staff member who did the job may; nobody else.
+    if (!isClient && booking.provider_user_id !== userId && booking.staff_user_id !== userId) {
+      throw new ForbiddenException({ code: 'not_your_booking', message: 'Not permitted' });
+    }
     if (booking.status !== 'completed') {
       throw new DomainError('not_reviewable', 'You can review a booking once it is completed');
     }
 
-    const isClient = booking.client_id === userId;
+    // A client's review is about the business they booked, which is the
+    // salon even when a staff member did the work: that is whose rating it
+    // moves and whose profile shows it.
     const subject = await this.db.queryOne<{ user_id: string }>(
       'SELECT user_id FROM providers WHERE id = $1', [booking.provider_id],
     );
@@ -968,6 +1107,129 @@ export class BookingsService {
     }
     return booking;
   }
+
+  /**
+   * The provider-side counterpart of requireOwnedBooking: the booking, if the
+   * caller is allowed to work it (see canOperate). Extra columns are named
+   * explicitly so each caller fetches what it needs and nothing more.
+   */
+  private async requireOperableBooking<T extends Record<string, unknown> = Record<string, never>>(
+    bookingId: string,
+    providerId: string,
+    ...columns: string[]
+  ): Promise<T & { id: string; status: string; provider_id: string | null; assigned_staff_id: string | null }> {
+    for (const c of columns) {
+      if (!/^[a-z_]+$/.test(c)) throw new Error(`refusing unsafe column name "${c}"`);
+    }
+    const extra = columns.length ? `, ${columns.join(', ')}` : '';
+    const booking = await this.db.queryOne<
+      T & { id: string; status: string; provider_id: string | null; assigned_staff_id: string | null }
+    >(
+      `SELECT id, status, provider_id, assigned_staff_id${extra} FROM bookings WHERE id = $1`,
+      [bookingId],
+    );
+    if (!booking) throw new NotFoundError('Booking', bookingId);
+    if (!canOperate(booking, providerId)) {
+      throw new ForbiddenException({ code: 'not_your_booking', message: 'This booking is not assigned to you' });
+    }
+    return booking;
+  }
+
+  // ─── Salon staff ───────────────────────────────────────────────────────────
+
+  /**
+   * Hand a job to a member of staff, or take it back (`staffId` null).
+   *
+   * Only the salon that owns the booking may do this — a staff member cannot
+   * pass work sideways — and only before the PIN has been entered, because
+   * from that point the person at the door is the person doing the job. The
+   * staff member must be verified for the same reason any provider must be:
+   * the whole point of KYC is that nobody unvetted reaches a client's home,
+   * and an assignment is how a staff member gets there.
+   */
+  async assign(providerId: string, bookingId: string, staffId: string | null) {
+    const booking = await this.db.queryOne<{
+      status: string; provider_id: string | null; assigned_staff_id: string | null; business_mode: string;
+    }>(
+      `SELECT b.status, b.provider_id, b.assigned_staff_id, p.business_mode
+         FROM bookings b LEFT JOIN providers p ON p.id = b.provider_id
+        WHERE b.id = $1`,
+      [bookingId],
+    );
+    if (!booking) throw new NotFoundError('Booking', bookingId);
+    if (booking.provider_id !== providerId) {
+      throw new ForbiddenException({ code: 'not_your_booking', message: 'This booking is not assigned to you' });
+    }
+    if (booking.business_mode !== 'salon') {
+      throw new DomainError('salon_only', 'Only a salon can assign work to staff', HttpStatus.FORBIDDEN);
+    }
+    if (!ASSIGNABLE_STATUSES.includes(booking.status)) {
+      throw new DomainError(
+        'booking_not_assignable',
+        'This job can no longer be reassigned',
+        HttpStatus.CONFLICT,
+        { status: booking.status },
+      );
+    }
+
+    let staffName: string | null = null;
+    if (staffId !== null) {
+      const staff = await this.db.queryOne<{ display_name: string; kyc_status: string; is_suspended: boolean }>(
+        `SELECT display_name, kyc_status, is_suspended FROM providers
+          WHERE id = $1 AND salon_parent_id = $2 AND business_mode = 'salon_staff'`,
+        [staffId, providerId],
+      );
+      if (!staff) throw new DomainError('staff_not_found', 'That person is not on your team', HttpStatus.NOT_FOUND);
+      if (staff.kyc_status !== 'verified' || staff.is_suspended) {
+        throw new DomainError(
+          'staff_unverified',
+          `${staff.display_name} must complete identity verification before taking jobs`,
+          HttpStatus.FORBIDDEN,
+        );
+      }
+      staffName = staff.display_name;
+    }
+
+    const previous = booking.assigned_staff_id;
+    await this.db.transaction(async (tx) => {
+      await tx.query(
+        'UPDATE bookings SET assigned_staff_id = $2, updated_at = now() WHERE id = $1',
+        [bookingId, staffId],
+      );
+      await tx.emitEvent('booking', bookingId, 'booking.assigned', {
+        assignedStaffId: staffId, assignedStaffName: staffName, previousStaffId: previous,
+      });
+    });
+
+    // The person gaining the job needs to know now, and the person losing it
+    // needs their screen to stop showing it.
+    for (const target of new Set([staffId, previous].filter((id): id is string => Boolean(id)))) {
+      this.realtime.emitToProvider(target, 'booking.updated', { bookingId, reason: 'assignment_changed' });
+    }
+    if (staffId) {
+      void this.push.sendToProvider(staffId, {
+        title: 'New job assigned to you',
+        body: 'Your salon has put a booking in your diary. Open the app to see it.',
+        data: { type: 'booking.updated', bookingId },
+        channelId: 'freshly_dispatch',
+      });
+    }
+
+    return { assignedStaffId: staffId };
+  }
+}
+
+export function mapBreakdown(r: Record<string, any>) {
+  return bookingBreakdown({
+    items: (r.items ?? []).map((i: Record<string, any>) => ({
+      label: i.label, amountMinor: Number(i.amountMinor), isAddon: Boolean(i.isAddon),
+    })),
+    travelFeeMinor: Number(r.travel_fee_minor ?? 0),
+    serviceFeeMinor: Number(r.service_fee_minor ?? 0),
+    discountMinor: Number(r.discount_minor ?? 0),
+    totalMinor: Number(r.total_minor),
+    travelDistanceKm: Number(r.travel_distance_km ?? 0),
+  });
 }
 
 function mapBooking(r: Record<string, any>) {
@@ -980,8 +1242,12 @@ function mapBooking(r: Record<string, any>) {
     scheduledStart: r.scheduled_start?.toISOString() ?? null,
     destinationAddress: r.destination_address,
     total: { minor: Number(r.total_minor), currency: r.currency },
+    breakdown: mapBreakdown(r),
     providerId: r.provider_id,
     providerName: r.provider_name ?? null,
+    assignedStaffId: r.assigned_staff_id ?? null,
+    assignedStaffName: r.assigned_staff_name ?? null,
+    reviewedByMe: Boolean(r.reviewed_by_me),
     serviceIds: r.service_ids ?? [],
     arrivedAt: r.arrived_at?.toISOString() ?? null,
     completedAt: r.completed_at?.toISOString() ?? null,

@@ -202,27 +202,37 @@ class ParallaxHero extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          _layer(0.55, top: -90, right: -70, shape: Container(
-            width: 220,
-            height: 220,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: accent, width: 32),
-            ),
-          )),
-          _layer(0.3, bottom: -70, left: -50, shape: Container(
-            width: 170,
-            height: 170,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: accent.withValues(alpha: 0.16),
-            ),
-          )),
-          _layer(-0.2, top: 28, right: 150, shape: Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: accent),
-          )),
+          _layer(0.55,
+              top: -90,
+              right: -70,
+              shape: Container(
+                width: 220,
+                height: 220,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: accent, width: 32),
+                ),
+              )),
+          _layer(0.3,
+              bottom: -70,
+              left: -50,
+              shape: Container(
+                width: 170,
+                height: 170,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: accent.withValues(alpha: 0.16),
+                ),
+              )),
+          _layer(-0.2,
+              top: 28,
+              right: 150,
+              shape: Container(
+                width: 10,
+                height: 10,
+                decoration:
+                    BoxDecoration(shape: BoxShape.circle, color: accent),
+              )),
           Parallax(factor: 0.25, fadeOutExtent: 200, child: child),
         ],
       ),
@@ -247,16 +257,16 @@ class ParallaxHero extends StatelessWidget {
         child: IgnorePointer(
           child: ExcludeSemantics(
             child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned(
-                  top: top,
-                  right: right,
-                  bottom: bottom,
-                  left: left,
-                  child: shape),
-            ],
-          ),
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(
+                    top: top,
+                    right: right,
+                    bottom: bottom,
+                    left: left,
+                    child: shape),
+              ],
+            ),
           ),
         ),
       ),

@@ -55,6 +55,9 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit -p apps/api/tsconfig.json
 
+      - name: Lint
+        run: npm run lint -w @freshly/api
+
       - name: Unit tests
         run: npm run test -w @freshly/api
 

@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { randomInt } from 'node:crypto';
 import { DatabaseService, TransactionContext } from '../../common/database/database.service';
 import { DomainError } from '../../common/errors/domain.errors';

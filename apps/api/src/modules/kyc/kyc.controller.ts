@@ -13,9 +13,11 @@ class SubmitKycDto {
   idNumber!: string;
   @IsString() @Length(2, 120) fullName!: string;
   @IsOptional() @IsISO8601() dateOfBirth?: string;
-  @IsOptional() @IsString() documentFrontKey?: string;
+  // The document and a selfie are what verification is. The app always
+  // sends both; the API no longer accepts a submission without them.
+  @IsString() @Length(8, 400) documentFrontKey!: string;
   @IsOptional() @IsString() documentBackKey?: string;
-  @IsOptional() @IsString() selfieKey?: string;
+  @IsString() @Length(8, 400) selfieKey!: string;
 }
 
 class ReviewKycDto {
