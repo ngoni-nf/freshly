@@ -59,49 +59,60 @@ class MenuScreen extends ConsumerWidget {
               if (i == 0) {
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Text('Tap a service to change its price.',
+                  child: Text(
+                      'Tap a service to change its price. Swipe left to '
+                      'remove it.',
                       style: text.bodySmall),
                 );
               }
               final item = items[i - 1];
-              return Card(
-                child: InkWell(
-                  onTap: () => _showEditPriceDialog(context, ref, item),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        IconBadge(icon: categoryIcon(item.category), size: 44),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(item.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: text.titleMedium),
-                              const SizedBox(height: 2),
-                              Text(
-                                  '${item.category.label} · ${formatDuration(item.durationMinutes)}',
-                                  style: text.bodySmall),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(item.price.format(),
-                            style: text.titleMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.primary)),
-                      ],
-                    ),
-                  ),
-                ),
+              return _MenuRow(
+                item: item,
+                onEdit: () => _showEditPriceDialog(context, ref, item),
+                onRemove: () => _confirmRemove(context, ref, item),
               );
             },
           );
         },
       ),
     );
+  }
+
+  /// Taking a service off the menu is reversible only by adding it again at
+  /// a price, so it is confirmed. Past bookings keep their own copy of the
+  /// name and price; nothing the client already paid for changes.
+  Future<void> _confirmRemove(
+      BuildContext context, WidgetRef ref, ProviderMenuItem item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Remove ${item.name}?'),
+        content: const Text(
+          'Clients will no longer be able to book it. You can add it back '
+          'from the catalogue at any time.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Keep')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: FreshlyColors.crimson),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(apiProvider).removeMenuItem(item.id);
+      ref.invalidate(myMenuProvider);
+    } on ApiException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
   }
 
   void _showAddServiceSheet(BuildContext context, WidgetRef ref) {
@@ -115,6 +126,16 @@ class MenuScreen extends ConsumerWidget {
 
   void _showEditPriceDialog(
       BuildContext context, WidgetRef ref, ProviderMenuItem item) {
+    // Repricing re-posts the template at the new price. A service that was
+    // not built from the catalogue has no template to post, so the only way
+    // to change it is to remove it and add the catalogue version.
+    final templateId = item.catalogServiceId;
+    if (templateId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('This service predates the catalogue. Remove it and '
+              'add it again from the catalogue to set a new price.')));
+      return;
+    }
     final controller =
         TextEditingController(text: minorToInput(item.price.minor));
     showDialog<void>(
@@ -141,7 +162,7 @@ class MenuScreen extends ConsumerWidget {
               if (val == null) return;
               try {
                 await ref.read(apiProvider).updateMenuItem(
-                      catalogServiceId: item.catalogServiceId,
+                      templateId: templateId,
                       priceMinor: val,
                     );
                 ref.invalidate(myMenuProvider);
@@ -156,6 +177,89 @@ class MenuScreen extends ConsumerWidget {
             child: const Text('Save'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// One service on the menu. Tap to reprice; swipe or use the menu to remove.
+class _MenuRow extends StatelessWidget {
+  const _MenuRow(
+      {required this.item, required this.onEdit, required this.onRemove});
+  final ProviderMenuItem item;
+  final VoidCallback onEdit;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    return Dismissible(
+      key: ValueKey('menu-${item.id}'),
+      direction: DismissDirection.endToStart,
+      // The confirmation dialog owns the removal, so the row is never
+      // dismissed optimistically and then put back when the call fails.
+      confirmDismiss: (_) async {
+        onRemove();
+        return false;
+      },
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: FreshlySpacing.lg),
+        decoration: BoxDecoration(
+          color: FreshlyColors.crimsonSoft,
+          borderRadius: BorderRadius.circular(FreshlySpacing.radius),
+        ),
+        child:
+            const Icon(FreshlyIcons.delete, color: Color(0xFFB4232A), size: 22),
+      ),
+      child: Card(
+        child: InkWell(
+          onTap: onEdit,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+            child: Row(
+              children: [
+                IconBadge(icon: categoryIcon(item.category), size: 44),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(item.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: text.titleMedium),
+                      const SizedBox(height: 2),
+                      Text(
+                          '${item.category.label} · ${formatDuration(item.durationMinutes)}',
+                          style: text.bodySmall),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(item.price.format(),
+                    style: text.titleMedium?.copyWith(color: scheme.primary)),
+                PopupMenuButton<String>(
+                  tooltip: 'More',
+                  icon: Icon(Icons.more_horiz, color: scheme.onSurfaceVariant),
+                  onSelected: (v) => v == 'remove' ? onRemove() : onEdit(),
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(
+                        value: 'price', child: Text('Change price')),
+                    PopupMenuItem(
+                      value: 'remove',
+                      child: Text('Remove from menu',
+                          style: FreshlyType.style(15,
+                              weight: FontWeight.w600,
+                              color: FreshlyColors.crimson)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -276,7 +380,7 @@ class _AddServiceSheetState extends ConsumerState<_AddServiceSheet> {
               if (val == null) return;
               try {
                 await ref.read(apiProvider).updateMenuItem(
-                      catalogServiceId: service.id,
+                      templateId: service.id,
                       priceMinor: val,
                     );
                 ref.invalidate(myMenuProvider);
