@@ -9,7 +9,7 @@ import { RedisService } from '../../common/redis/redis.service';
 import { applyBps, formatMoney, taxIncludedIn } from '../../common/money/money';
 import { maskAddress } from '../dispatch/dispatch.service';
 import { MarketsService } from '../markets/markets.service';
-import { PricingService, Quote } from '../pricing/pricing.service';
+import { bookingBreakdown, PricingService, Quote } from '../pricing/pricing.service';
 import { EscrowService } from '../payments/escrow.service';
 import { DispatchService } from '../dispatch/dispatch.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
@@ -50,6 +50,20 @@ export function canOperate(
 ): boolean {
   return booking.provider_id === providerId || booking.assigned_staff_id === providerId;
 }
+
+/**
+ * The frozen figures a booking's breakdown is rebuilt from, as SELECT-list
+ * columns on an alias `b`. An extra is listed only once the client has said
+ * yes to it; a pending suggestion is not yet part of what they agreed to.
+ */
+const BOOKING_FIGURES = `
+              b.travel_fee_minor, b.service_fee_minor, b.discount_minor, b.travel_distance_km,
+              (SELECT COALESCE(json_agg(json_build_object(
+                        'label', bi.name_snapshot,
+                        'amountMinor', bi.price_minor * bi.quantity,
+                        'isAddon', bi.is_addon) ORDER BY bi.is_addon, bi.name_snapshot), '[]'::json)
+                 FROM booking_items bi
+                WHERE bi.booking_id = b.id AND (NOT bi.is_addon OR bi.client_approved_at IS NOT NULL)) AS items`;
 
 /** Statuses a salon may still reassign; once the PIN is in, the person at
  *  the door is the person who does the job. */
@@ -274,6 +288,7 @@ export class BookingsService {
         status: 'pending_auth',
         destinationAddress: dto.destinationAddress,
         total: { minor: quote.totalMinor, currency: quote.currency },
+        breakdown: quote.breakdown,
         providerId: dto.providerId,
         providerName: null,
         assignedStaffId: null,
@@ -996,7 +1011,8 @@ export class BookingsService {
               p.display_name AS provider_name,
               s.display_name AS assigned_staff_name,
               EXISTS (SELECT 1 FROM reviews r WHERE r.booking_id = b.id AND r.author_id = $1) AS reviewed_by_me,
-              ARRAY(SELECT service_id FROM booking_items WHERE booking_id = b.id AND NOT is_addon) AS service_ids
+              ARRAY(SELECT service_id FROM booking_items WHERE booking_id = b.id AND NOT is_addon) AS service_ids,
+              ${BOOKING_FIGURES}
          FROM bookings b
          LEFT JOIN providers p ON p.id = b.provider_id
          LEFT JOIN providers s ON s.id = b.assigned_staff_id`;
@@ -1203,6 +1219,19 @@ export class BookingsService {
   }
 }
 
+export function mapBreakdown(r: Record<string, any>) {
+  return bookingBreakdown({
+    items: (r.items ?? []).map((i: Record<string, any>) => ({
+      label: i.label, amountMinor: Number(i.amountMinor), isAddon: Boolean(i.isAddon),
+    })),
+    travelFeeMinor: Number(r.travel_fee_minor ?? 0),
+    serviceFeeMinor: Number(r.service_fee_minor ?? 0),
+    discountMinor: Number(r.discount_minor ?? 0),
+    totalMinor: Number(r.total_minor),
+    travelDistanceKm: Number(r.travel_distance_km ?? 0),
+  });
+}
+
 function mapBooking(r: Record<string, any>) {
   return {
     id: r.id,
@@ -1213,6 +1242,7 @@ function mapBooking(r: Record<string, any>) {
     scheduledStart: r.scheduled_start?.toISOString() ?? null,
     destinationAddress: r.destination_address,
     total: { minor: Number(r.total_minor), currency: r.currency },
+    breakdown: mapBreakdown(r),
     providerId: r.provider_id,
     providerName: r.provider_name ?? null,
     assignedStaffId: r.assigned_staff_id ?? null,

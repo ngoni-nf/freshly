@@ -3,6 +3,7 @@ import { DatabaseService } from '../../common/database/database.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { DomainError, KycRequiredError, NotFoundError } from '../../common/errors/domain.errors';
 import { MarketsService } from '../markets/markets.service';
+import { mapBreakdown } from '../bookings/bookings.service';
 
 @Injectable()
 export class ProvidersService {
@@ -661,7 +662,14 @@ export class ProvidersService {
               b.provider_payout_minor, b.currency, u.full_name AS client_name,
               b.assigned_staff_id, s.display_name AS assigned_staff_name,
               EXISTS (SELECT 1 FROM reviews r
-                       WHERE r.booking_id = b.id AND r.author_id = me.user_id) AS reviewed_by_me
+                       WHERE r.booking_id = b.id AND r.author_id = me.user_id) AS reviewed_by_me,
+              b.travel_fee_minor, b.service_fee_minor, b.discount_minor, b.travel_distance_km, b.total_minor,
+              (SELECT COALESCE(json_agg(json_build_object(
+                        'label', bi.name_snapshot,
+                        'amountMinor', bi.price_minor * bi.quantity,
+                        'isAddon', bi.is_addon) ORDER BY bi.is_addon, bi.name_snapshot), '[]'::json)
+                 FROM booking_items bi
+                WHERE bi.booking_id = b.id AND (NOT bi.is_addon OR bi.client_approved_at IS NOT NULL)) AS items
          FROM bookings b
          JOIN users u ON u.id = b.client_id
          JOIN providers me ON me.id = $1
@@ -677,6 +685,8 @@ export class ProvidersService {
       destinationAddress: r.destination_address,
       clientName: firstNameOnly(r.client_name),
       payout: { minor: Number(r.provider_payout_minor), currency: r.currency },
+      total: { minor: Number(r.total_minor), currency: r.currency },
+      breakdown: mapBreakdown(r),
       assignedStaffId: r.assigned_staff_id ?? null,
       assignedStaffName: r.assigned_staff_name ?? null,
       reviewedByMe: Boolean(r.reviewed_by_me),

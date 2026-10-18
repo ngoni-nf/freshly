@@ -46,6 +46,7 @@ maybeDescribe('salon staff and invoices (e2e)', () => {
   let salonId: string;
   let staffId: string;
   let serviceId: string;
+  let extraServiceId: string;
   let inviteId: string;
   let bookingId: string;
   let invoices: Array<{ id: string; kind: string; number: string }>;
@@ -114,10 +115,13 @@ maybeDescribe('salon staff and invoices (e2e)', () => {
 
     const inserted = await db.query(
       `INSERT INTO services (provider_id, name, category, venue_mode, price_minor, currency, duration_minutes, requires_power, sort_order)
-       VALUES ($1, 'Skin fade', 'barber', 'mobile', 1000, 'USD', 45, true, 1) RETURNING id`,
+       VALUES ($1, 'Skin fade', 'barber', 'mobile', 1000, 'USD', 45, true, 1),
+              ($1, 'Beard trim', 'beard', 'mobile', 500, 'USD', 20, false, 2)
+       RETURNING id`,
       [salonId],
     );
     serviceId = inserted.rows[0].id;
+    extraServiceId = inserted.rows[1].id;
 
     const rival = await api()
       .post('/auth/become-provider')
@@ -270,6 +274,14 @@ maybeDescribe('salon staff and invoices (e2e)', () => {
       .expect(201);
     bookingId = booking.body.id;
     expect(booking.body).toMatchObject({ assignedStaffId: null, assignedStaffName: null, reviewedByMe: false });
+    // The breakdown is the quote's own lines: the service, the travel, our
+    // fee, in the shape the app already renders at checkout.
+    expect(booking.body.breakdown.map((l: { label: string }) => l.label)).toEqual([
+      'Skin fade', expect.stringMatching(/^Travel \(\d+\.\d km\)$/), 'Platform fee',
+    ]);
+    expect(booking.body.breakdown[0]).toEqual({ label: 'Skin fade', amountMinor: 1000, kind: 'charge' });
+    expect(booking.body.breakdown.reduce((acc: number, l: { amountMinor: number }) => acc + l.amountMinor, 0))
+      .toBe(booking.body.total.minor);
 
     await api()
       .post(`/bookings/${bookingId}/checkout`)
@@ -365,6 +377,38 @@ maybeDescribe('salon staff and invoices (e2e)', () => {
       .set('Authorization', `Bearer ${staffToken}`)
       .send({ pin: pin.body.pin })
       .expect(201);
+
+    // The stylist suggests an extra off the salon's menu; until the client
+    // says yes it is not part of what they agreed to and stays off the
+    // breakdown. A price change on the menu afterwards changes nothing: the
+    // lines are the figures frozen on the booking.
+    const addon = await api()
+      .post(`/bookings/${bookingId}/addons`)
+      .set('Authorization', `Bearer ${staffToken}`)
+      .send({ serviceId: extraServiceId })
+      .expect(201);
+    const pending = await api().get(`/bookings/${bookingId}`).set('Authorization', `Bearer ${clientToken}`).expect(200);
+    expect(pending.body.breakdown.map((l: { label: string }) => l.label)).not.toContain('Beard trim (extra)');
+    await api()
+      .post(`/bookings/${bookingId}/addons/${addon.body.itemId}/respond`)
+      .set('Authorization', `Bearer ${clientToken}`)
+      .set('Idempotency-Key', `addon-${bookingId}`)
+      .send({ approve: true })
+      .expect(201);
+    await db.query('UPDATE services SET price_minor = 9999 WHERE id IN ($1, $2)', [serviceId, extraServiceId]);
+    const agreed = await api().get(`/bookings/${bookingId}`).set('Authorization', `Bearer ${clientToken}`).expect(200);
+    const labels = agreed.body.breakdown.map((l: { label: string }) => l.label);
+    expect(labels.slice(0, 2)).toEqual(['Skin fade', 'Beard trim (extra)']);
+    expect(labels).toContain('Platform fee');
+    expect(agreed.body.breakdown[0].amountMinor).toBe(1000);
+    expect(agreed.body.breakdown[1].amountMinor).toBe(500);
+    expect(agreed.body.breakdown.reduce((acc: number, l: { amountMinor: number }) => acc + l.amountMinor, 0))
+      .toBe(agreed.body.total.minor);
+    const diary = await api().get('/providers/me/schedule').set('Authorization', `Bearer ${staffToken}`).expect(200);
+    expect(diary.body.find((b: { id: string }) => b.id === bookingId).breakdown).toEqual(agreed.body.breakdown);
+    const listed = await api().get('/bookings').set('Authorization', `Bearer ${salonToken}`).expect(200);
+    expect(listed.body.find((b: { id: string }) => b.id === bookingId).breakdown).toEqual(agreed.body.breakdown);
+
     await api()
       .post(`/bookings/${bookingId}/complete`)
       .set('Authorization', `Bearer ${staffToken}`)
