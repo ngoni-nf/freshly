@@ -88,11 +88,8 @@ class _BookingCard extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: FreshlySpacing.sm),
       child: Card(
         child: InkWell(
-          onTap: b.status.isLive
-              ? () => context.push('/track/${b.id}')
-              : b.providerId != null
-                  ? () => context.push('/provider/${b.providerId}')
-                  : null,
+          onTap: () => context
+              .push(b.status.isLive ? '/track/${b.id}' : '/bookings/${b.id}'),
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Row(
@@ -119,11 +116,41 @@ class _BookingCard extends StatelessWidget {
                           '${b.status.isLive ? formatSlot(when) : formatDate(when)} · ${b.reference}',
                           style: text.bodySmall),
                       const SizedBox(height: 8),
-                      StatusPill(
-                        label: b.status.clientLabel,
-                        tone: toneForBooking(b.status),
-                        icon: b.status.isLive ? FreshlyIcons.navigation : null,
-                        dense: true,
+                      Row(
+                        children: [
+                          StatusPill(
+                            label: b.status.clientLabel,
+                            tone: toneForBooking(b.status),
+                            icon: b.status.isLive
+                                ? FreshlyIcons.navigation
+                                : null,
+                            dense: true,
+                          ),
+                          if (b.status == BookingStatus.completed) ...[
+                            const Spacer(),
+                            if (b.reviewedByMe)
+                              const StatusPill(
+                                  label: 'Rated',
+                                  icon: FreshlyIcons.star,
+                                  tone: FreshlyTone.success,
+                                  dense: true)
+                            else
+                              // Visually a pill; the tap target is still the
+                              // theme's padded 48 around it.
+                              FilledButton.icon(
+                                style: FilledButton.styleFrom(
+                                    minimumSize: const Size(0, 36),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 14),
+                                    textStyle: FreshlyType.style(13,
+                                        weight: FontWeight.w700)),
+                                onPressed: () =>
+                                    context.push('/bookings/${b.id}/review'),
+                                icon: const Icon(FreshlyIcons.star, size: 14),
+                                label: const Text('Rate'),
+                              ),
+                          ],
+                        ],
                       ),
                     ],
                   ),
