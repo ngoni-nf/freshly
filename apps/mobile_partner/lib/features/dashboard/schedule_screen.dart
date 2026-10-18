@@ -12,6 +12,7 @@ class ScheduleScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final schedule = ref.watch(scheduleProvider);
+    final recent = ref.watch(recentJobsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -26,7 +27,10 @@ class ScheduleScreen extends ConsumerWidget {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(scheduleProvider),
+        onRefresh: () async {
+          ref.invalidate(scheduleProvider);
+          ref.invalidate(recentJobsProvider);
+        },
         child: schedule.when(
           loading: () => ListView(
             padding: const EdgeInsets.all(FreshlySpacing.md),
@@ -46,8 +50,11 @@ class ScheduleScreen extends ConsumerWidget {
             ],
           ),
           data: (jobs) {
+            final recentJobs = recent.valueOrNull ?? const [];
             if (jobs.isEmpty) {
               return ListView(
+                padding: const EdgeInsets.fromLTRB(
+                    FreshlySpacing.md, 0, FreshlySpacing.md, FreshlySpacing.xl),
                 children: [
                   SizedBox(height: MediaQuery.of(context).size.height * 0.1),
                   EmptyState(
@@ -58,6 +65,7 @@ class ScheduleScreen extends ConsumerWidget {
                     actionLabel: 'Set availability',
                     onAction: () => context.push('/availability'),
                   ),
+                  if (recentJobs.isNotEmpty) _RecentSection(jobs: recentJobs),
                 ],
               );
             }
@@ -110,6 +118,7 @@ class ScheduleScreen extends ConsumerWidget {
                     ],
                   );
                 }),
+                if (recentJobs.isNotEmpty) _RecentSection(jobs: recentJobs),
               ],
             );
           },
@@ -152,6 +161,24 @@ class _DayHeader extends StatelessWidget {
             Text('$count job${count == 1 ? '' : 's'}', style: text.labelMedium),
         ],
       ),
+    );
+  }
+}
+
+/// Finished jobs, so a client can be rated and an invoice shared after the
+/// fact. It trails the live schedule because it is never the first question.
+class _RecentSection extends StatelessWidget {
+  const _RecentSection({required this.jobs});
+  final List<Map<String, dynamic>> jobs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _DayHeader(label: 'Recently done', count: jobs.length),
+        ...jobs.map((j) => _ScheduleCard(job: j)),
+      ],
     );
   }
 }

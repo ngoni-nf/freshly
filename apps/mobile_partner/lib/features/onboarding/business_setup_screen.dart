@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freshly_core/freshly_core.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../app/providers.dart';
 import '../../app/router.dart';
@@ -25,6 +26,10 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
   bool _busy = false;
   bool _tried = false;
   String? _error;
+
+  /// The invitation screen is pushed once, the first time invites arrive. If
+  /// they come back here they chose to, and the banner stays as the way in.
+  bool _offeredInvites = false;
 
   @override
   void initState() {
@@ -71,6 +76,18 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Someone a salon invited before they ever opened the app should see the
+    // invitation before a form about a business they may not want.
+    ref.listen(staffInvitesProvider, (_, next) {
+      final list = next.valueOrNull;
+      if (_offeredInvites || list == null || list.isEmpty) return;
+      _offeredInvites = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.push('/staff/invites');
+      });
+    });
+    final invites = ref.watch(staffInvitesProvider).valueOrNull ?? const [];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Set up your business'),
@@ -96,6 +113,10 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                   subtitle: 'A few questions so the right clients can find '
                       'you. You can change any of this later.',
                 ),
+                if (invites.isNotEmpty) ...[
+                  const SizedBox(height: FreshlySpacing.md),
+                  _InviteBanner(invites: invites),
+                ],
                 const SizedBox(height: FreshlySpacing.lg),
                 BusinessForm(
                   draft: _draft,
@@ -128,6 +149,55 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A salon is waiting on this number. Shown above the form rather than
+/// instead of it, because joining a team and opening a business are both
+/// valid answers and the person decides which.
+class _InviteBanner extends StatelessWidget {
+  const _InviteBanner({required this.invites});
+  final List<StaffInvite> invites;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final first = invites.first;
+    return Card(
+      child: InkWell(
+        onTap: () => context.push('/staff/invites'),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              const IconBadge(icon: FreshlyIcons.people, size: 44),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      invites.length == 1
+                          ? '${first.salonName} invited you'
+                          : '${invites.length} salons invited you',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: text.titleMedium,
+                    ),
+                    const SizedBox(height: 2),
+                    Text('Join their team instead of opening your own',
+                        style: text.bodySmall),
+                  ],
+                ),
+              ),
+              Icon(FreshlyIcons.chevronRight,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ],
+          ),
+        ),
       ),
     );
   }

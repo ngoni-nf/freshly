@@ -168,6 +168,21 @@ final marketsProvider = FutureProvider<List<Market>>(
   (ref) => ref.watch(apiProvider).markets(),
 );
 
+/// The market the signed-in provider works in, once the list has loaded.
+///
+/// Everything that used to default to South Africa (currency labels, the
+/// emergency number) reads this instead, so a Harare provider never sees a
+/// rand sign or a Johannesburg police line because a response was slow.
+final currentMarketProvider = Provider<Market?>((ref) {
+  final code = ref.watch(countryCodeProvider);
+  final markets = ref.watch(marketsProvider).valueOrNull;
+  if (markets == null || markets.isEmpty) return null;
+  for (final m in markets) {
+    if (m.code == code) return m;
+  }
+  return null;
+});
+
 // ─── Presence and location streaming ─────────────────────────────────────────
 
 /// Going online starts a position stream; going offline stops it and purges
@@ -244,23 +259,39 @@ final presenceProvider =
 
 // ─── Work queues ─────────────────────────────────────────────────────────────
 
+/// The row shape the dashboard and schedule tiles render.
+Map<String, dynamic> jobRow(Booking b) => {
+      'id': b.id,
+      'reference': b.reference,
+      'status': b.status,
+      'address': b.destinationAddress,
+      'total': b.total,
+      'scheduledStart': b.scheduledStart,
+      'completedAt': b.completedAt,
+      'assignedStaffId': b.assignedStaffId,
+      'assignedStaffName': b.assignedStaffName,
+      'reviewedByMe': b.reviewedByMe,
+    };
+
 final scheduleProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>(
   (ref) async {
     final api = ref.watch(apiProvider);
     final raw = await api.myBookings();
-    return raw
-        .where((b) => b.status.isLive)
-        .map((b) => {
-              'id': b.id,
-              'reference': b.reference,
-              'status': b.status,
-              'address': b.destinationAddress,
-              'total': b.total,
-              'scheduledStart': b.scheduledStart,
-            })
-        .toList();
+    return raw.where((b) => b.status.isLive).map(jobRow).toList();
   },
 );
+
+/// Finished jobs, newest first. This is where a provider comes back to rate
+/// a client or share an invoice, so it is a short list rather than a ledger;
+/// the wallet has the money view.
+final recentJobsProvider =
+    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+  final raw = await ref.watch(apiProvider).myBookings(status: 'completed');
+  final done = raw.where((b) => b.status == BookingStatus.completed).toList()
+    ..sort((a, b) =>
+        (b.completedAt ?? b.createdAt).compareTo(a.completedAt ?? a.createdAt));
+  return done.take(10).map(jobRow).toList();
+});
 
 final walletProvider = FutureProvider.autoDispose<Map<String, dynamic>>(
   (ref) => ref.watch(apiProvider).wallet(),
@@ -283,6 +314,38 @@ final myBusinessProvider = FutureProvider.autoDispose<ProviderBusiness>(
 
 final workingHoursProvider = FutureProvider.autoDispose<List<WorkingHours>>(
   (ref) => ref.watch(apiProvider).workingHours(),
+);
+
+/// Whether the signed-in provider runs a salon, and so can hand jobs to
+/// staff. False until the business has loaded: a tap that appears a moment
+/// late is better than one that appears for a solo provider and then errors.
+final isSalonProvider = Provider.autoDispose<bool>((ref) =>
+    ref.watch(myBusinessProvider).valueOrNull?.businessMode == 'salon');
+
+/// Whether the signed-in provider works for a salon rather than for
+/// themselves. Their jobs are assigned by the salon and their pay settles
+/// with the salon, so wallet copy and earnings make no sense to them.
+final isSalonStaffProvider = Provider.autoDispose<bool>((ref) =>
+    ref.watch(myBusinessProvider).valueOrNull?.businessMode == 'salon_staff');
+
+// ─── Salon staff ─────────────────────────────────────────────────────────────
+
+final myStaffProvider = FutureProvider.autoDispose<List<StaffMember>>(
+  (ref) => ref.watch(apiProvider).myStaff(),
+);
+
+/// Invitations waiting on this account. Checked at business set-up, where a
+/// new account may have been invited before it ever signed in, and on the
+/// dashboard for a solo provider a salon wants to take on.
+final staffInvitesProvider = FutureProvider.autoDispose<List<StaffInvite>>(
+  (ref) => ref.watch(apiProvider).staffInvites(),
+);
+
+// ─── Invoices ────────────────────────────────────────────────────────────────
+
+final invoicesProvider =
+    FutureProvider.autoDispose.family<List<Invoice>, String>(
+  (ref, bookingId) => ref.watch(apiProvider).invoices(bookingId),
 );
 
 // ─── Menu ────────────────────────────────────────────────────────────────────

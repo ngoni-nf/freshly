@@ -8,6 +8,7 @@ import 'package:freshly_core/freshly_core.dart';
 import '../../app/notifications.dart';
 import '../../app/phone_auth.dart';
 import '../../app/providers.dart';
+import '../../widgets/phone_field.dart';
 
 /// Partner sign-in. Same phone-first flow as the client app, with copy that
 /// speaks to someone deciding whether this is worth their time.
@@ -58,18 +59,8 @@ class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
   bool _busy = false;
   String? _error;
 
-  static const _markets = {
-    'ZW': (prefix: '+263', digits: 9, name: 'Zimbabwe', hint: '77 123 4567'),
-    'ZA': (prefix: '+27', digits: 9, name: 'South Africa', hint: '82 123 4567'),
-  };
-
   /// The number as Firebase and the backend expect it.
-  String get _e164 {
-    final digits = _phone.text
-        .replaceAll(RegExp(r'\D'), '')
-        .replaceFirst(RegExp(r'^0+'), '');
-    return '${_markets[_country]!.prefix}$digits';
-  }
+  String get _e164 => toE164(_country, _phone.text);
 
   Future<void> _sendCode() async {
     setState(() {
@@ -159,13 +150,13 @@ class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final market = _markets[_country]!;
+    final market = phoneMarkets[_country]!;
     final text = Theme.of(context).textTheme;
     final muted = Theme.of(context).colorScheme.onSurfaceVariant;
 
     final canSubmit = _codeSent
         ? _code.text.length == 6
-        : _phone.text.replaceFirst(RegExp(r'^0+'), '').length == market.digits;
+        : isCompleteNumber(_country, _phone.text);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
@@ -213,67 +204,13 @@ class _PartnerSignInScreenState extends ConsumerState<PartnerSignInScreen> {
                           Text('We will text you a code to sign in.',
                               style: text.bodyMedium?.copyWith(color: muted)),
                           const SizedBox(height: FreshlySpacing.md),
-                          Row(
-                            children: [
-                              Container(
-                                height: 56,
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 12),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .surfaceContainer,
-                                  borderRadius: BorderRadius.circular(
-                                      FreshlySpacing.buttonRadius),
-                                ),
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButton<String>(
-                                    value: _country,
-                                    borderRadius: BorderRadius.circular(
-                                        FreshlySpacing.radius),
-                                    icon: const Icon(FreshlyIcons.expandMore,
-                                        size: 16),
-                                    selectedItemBuilder: (_) => _markets.entries
-                                        .map((e) => Center(
-                                              child: Text(e.value.prefix,
-                                                  style: FreshlyType.style(16,
-                                                      weight: FontWeight.w700,
-                                                      color:
-                                                          FreshlyColors.ink)),
-                                            ))
-                                        .toList(),
-                                    items: _markets.entries
-                                        .map((e) => DropdownMenuItem(
-                                              value: e.key,
-                                              child: Text(
-                                                  '${e.value.name}  ${e.value.prefix}'),
-                                            ))
-                                        .toList(),
-                                    onChanged: (v) =>
-                                        setState(() => _country = v!),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: FreshlySpacing.sm),
-                              Expanded(
-                                child: TextField(
-                                  controller: _phone,
-                                  autofocus: true,
-                                  keyboardType: TextInputType.phone,
-                                  style: FreshlyType.style(17,
-                                      weight: FontWeight.w600,
-                                      color: FreshlyColors.ink),
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                    LengthLimitingTextInputFormatter(
-                                        market.digits + 1),
-                                  ],
-                                  decoration:
-                                      InputDecoration(hintText: market.hint),
-                                  onChanged: (_) => setState(() {}),
-                                ),
-                              ),
-                            ],
+                          PhoneNumberField(
+                            country: _country,
+                            controller: _phone,
+                            autofocus: true,
+                            onCountryChanged: (v) =>
+                                setState(() => _country = v),
+                            onChanged: (_) => setState(() {}),
                           ),
                         ] else ...[
                           Text('Enter your code', style: text.titleMedium),
