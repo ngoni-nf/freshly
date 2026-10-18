@@ -510,11 +510,21 @@ export class AuthService {
       );
     });
 
-    const fresh = (await this.db.queryOne<UserRow>(
+    return this.sessionFor(userId);
+  }
+
+  /**
+   * A fresh session for an account whose roles just changed. The JWT carries
+   * the roles and the provider id, so after any change to either the old
+   * token is a lie and the caller needs a new one before the next request.
+   */
+  async sessionFor(userId: string): Promise<AuthResult> {
+    const user = await this.db.queryOne<UserRow>(
       `SELECT ${USER_COLUMNS} FROM users WHERE id = $1`,
       [userId],
-    ))!;
-    return this.issueTokens(fresh, false);
+    );
+    if (!user) throw new NotFoundError('User', userId);
+    return this.issueTokens(user, false);
   }
 
   /** A readable, unique slug for the public profile URL. */

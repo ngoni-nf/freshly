@@ -650,12 +650,23 @@ export class ProvidersService {
     return { ok: true };
   }
 
+  /**
+   * Live work. A salon sees every job on its books and who it is assigned
+   * to; a staff member sees only what has been handed to them. The payout
+   * figure is the salon's either way, since that is whose wallet it reaches.
+   */
   async todaySchedule(providerId: string) {
     const rows = await this.db.query<Record<string, any>>(
       `SELECT b.id, b.reference, b.status, b.scheduled_start, b.destination_address,
-              b.provider_payout_minor, b.currency, u.full_name AS client_name
-         FROM bookings b JOIN users u ON u.id = b.client_id
-        WHERE b.provider_id = $1
+              b.provider_payout_minor, b.currency, u.full_name AS client_name,
+              b.assigned_staff_id, s.display_name AS assigned_staff_name,
+              EXISTS (SELECT 1 FROM reviews r
+                       WHERE r.booking_id = b.id AND r.author_id = me.user_id) AS reviewed_by_me
+         FROM bookings b
+         JOIN users u ON u.id = b.client_id
+         JOIN providers me ON me.id = $1
+         LEFT JOIN providers s ON s.id = b.assigned_staff_id
+        WHERE (b.provider_id = $1 OR b.assigned_staff_id = $1)
           AND b.status IN ('accepted','en_route','arrived','in_progress')
         ORDER BY COALESCE(b.scheduled_start, b.created_at)`,
       [providerId],
@@ -666,6 +677,9 @@ export class ProvidersService {
       destinationAddress: r.destination_address,
       clientName: firstNameOnly(r.client_name),
       payout: { minor: Number(r.provider_payout_minor), currency: r.currency },
+      assignedStaffId: r.assigned_staff_id ?? null,
+      assignedStaffName: r.assigned_staff_name ?? null,
+      reviewedByMe: Boolean(r.reviewed_by_me),
     }));
   }
 
