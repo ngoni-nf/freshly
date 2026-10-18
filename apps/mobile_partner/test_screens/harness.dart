@@ -20,9 +20,9 @@ import 'package:freshly_partner/app/providers.dart';
 import 'package:freshly_partner/widgets/main_scaffold.dart';
 
 Future<void> loadFonts() async {
-  final config = jsonDecode(
-          File('.dart_tool/package_config.json').readAsStringSync())
-      as Map<String, dynamic>;
+  final config =
+      jsonDecode(File('.dart_tool/package_config.json').readAsStringSync())
+          as Map<String, dynamic>;
   String root(String name) {
     final pkg = (config['packages'] as List)
         .cast<Map<String, dynamic>>()
@@ -60,7 +60,8 @@ Future<void> loadFonts() async {
   await load('packages/cupertino_icons/CupertinoIcons',
       ['$cupertino/assets/CupertinoIcons.ttf']);
 
-  final flutterRoot = Platform.environment['FLUTTER_ROOT'] ?? '/opt/sdk/flutter';
+  final flutterRoot =
+      Platform.environment['FLUTTER_ROOT'] ?? '/opt/sdk/flutter';
   final material = '$flutterRoot/bin/cache/artifacts/material_fonts';
   await load('MaterialIcons', ['$material/MaterialIcons-Regular.otf']);
   await load('Roboto', [
@@ -85,6 +86,10 @@ Map<String, dynamic> bookingJson(
   int totalMinor = 1050,
   DateTime? start,
   DateTime? arrivedAt,
+  DateTime? completedAt,
+  String? staffId,
+  String? staffName,
+  bool reviewed = false,
 }) =>
     {
       'id': id,
@@ -97,7 +102,11 @@ Map<String, dynamic> bookingJson(
       'serviceIds': ['s1'],
       'scheduledStart': start?.toIso8601String(),
       'arrivedAt': arrivedAt?.toIso8601String(),
+      'completedAt': completedAt?.toIso8601String(),
       'createdAt': _today(8).toIso8601String(),
+      'assignedStaffId': staffId,
+      'assignedStaffName': staffName,
+      'reviewedByMe': reviewed,
     };
 
 DispatchOffer sampleOffer() => DispatchOffer(
@@ -115,22 +124,39 @@ DispatchOffer sampleOffer() => DispatchOffer(
     );
 
 class FakeApi extends FreshlyApi {
-  FakeApi({this.kyc = 'verified', this.online = false, this.empty = false})
-      : super(baseUrl: 'http://fake.invalid', session: SessionStore());
+  FakeApi({
+    this.kyc = 'verified',
+    this.online = false,
+    this.empty = false,
+    this.businessMode = 'solo',
+    this.hasBusiness = true,
+    this.invited = false,
+  }) : super(baseUrl: 'http://fake.invalid', session: SessionStore());
 
   final String kyc;
   final bool online;
   final bool empty;
+
+  /// 'solo', 'salon' or 'salon_staff'.
+  final String businessMode;
+
+  /// False renders the app as a customer account that has not opened a
+  /// business yet, which is who sees a salon's invitation.
+  final bool hasBusiness;
+  final bool invited;
+
+  bool get _salon => businessMode == 'salon';
 
   @override
   Future<CurrentUser> me() async => CurrentUser.fromJson({
         'id': 'u1',
         'fullName': 'Tendai Moyo',
         'phone': '+263771234567',
-        'roles': ['provider'],
+        'roles': [hasBusiness ? 'provider' : 'client'],
         'countryCode': 'ZW',
         'profileComplete': true,
-        'provider': {'id': 'p1', 'kycStatus': kyc, 'isOnline': online},
+        if (hasBusiness)
+          'provider': {'id': 'p1', 'kycStatus': kyc, 'isOnline': online},
       });
 
   @override
@@ -141,30 +167,162 @@ class FakeApi extends FreshlyApi {
           'currency': 'USD',
           'dialPrefix': '+263',
           'noShowGraceMinutes': 10,
+          'emergencyNumber': '999',
         }),
       ];
 
   @override
+  Future<ProviderBusiness> myBusiness() async => ProviderBusiness.fromJson({
+        'id': 'p1',
+        'displayName': _salon ? 'Blush & Blade Salon' : 'Tendai Moyo',
+        'businessMode': businessMode,
+        'categories': ['barber', 'beard'],
+        'venueMode': _salon ? 'in_shop' : 'mobile',
+        'powerBackup': ['inverter'],
+        'kycStatus': kyc,
+        'isOnline': online,
+        'rating': 4.9,
+        'ratingCount': 38,
+        'completedJobs': 112,
+        'currency': 'USD',
+        'serviceArea': {'name': 'Avondale'},
+      });
+
+  // ─── Salon staff ──────────────────────────────────────────────────────
+
+  @override
+  Future<List<StaffMember>> myStaff() async => [
+        for (final (id, name, phone, status, week, done) in [
+          ('st1', 'Rudo Chikafu', '+263 77 ••• 0003', 'active', 6, 41),
+          ('st2', 'Blessing Moyo', '+263 71 ••• 2210', 'active', 2, 9),
+          ('inv1', null, '+263 78 ••• 7781', 'pending', 0, 0),
+        ])
+          StaffMember.fromJson({
+            'id': id,
+            'kind': status == 'pending' ? 'invite' : 'staff',
+            'displayName': name,
+            'phone': phone,
+            'status': status,
+            'jobsThisWeek': week,
+            'completedJobs': done,
+          }),
+      ];
+
+  @override
+  Future<void> inviteStaff(String phoneE164) async {}
+
+  @override
+  Future<void> removeStaff(String id) async {}
+
+  @override
+  Future<void> assignBooking(String bookingId, String? staffId) async {}
+
+  @override
+  Future<List<StaffInvite>> staffInvites() async => invited
+      ? [
+          StaffInvite.fromJson({
+            'id': 'inv1',
+            'salonName': 'Blush & Blade Salon',
+            'salonSuburb': 'Avondale',
+          }),
+        ]
+      : [];
+
+  @override
+  Future<AuthSession> acceptStaffInvite(String id) async => const AuthSession(
+        accessToken: 'token',
+        refreshToken: 'refresh',
+        userId: 'u1',
+        fullName: 'Tendai Moyo',
+        phone: '+263771234567',
+        roles: ['client', 'provider'],
+        countryCode: 'ZW',
+        profileComplete: true,
+        needsPhone: false,
+        isNewUser: false,
+      );
+
+  // ─── Reviews, invoices, safety ────────────────────────────────────────
+
+  @override
+  Future<void> submitReview(String bookingId,
+      {required int rating,
+      List<String> tags = const [],
+      String? comment}) async {}
+
+  @override
+  Future<List<Invoice>> invoices(String bookingId) async => [
+        Invoice.fromJson({
+          'id': 'i1',
+          'kind': 'provider_to_client',
+          'number': 'FR-ZW-2026-000412',
+          'issuedAt': _today(11, 40).toIso8601String(),
+          'currency': 'USD',
+          'totalMinor': 1050,
+        }),
+        Invoice.fromJson({
+          'id': 'i2',
+          'kind': 'platform_to_provider',
+          'number': 'FR-ZW-2026-000413',
+          'issuedAt': _today(11, 40).toIso8601String(),
+          'currency': 'USD',
+          'totalMinor': 226,
+        }),
+      ];
+
+  @override
+  Future<List<int>> downloadInvoice(String invoiceId) async =>
+      '%PDF-1.4 fake'.codeUnits;
+
+  @override
+  Future<Map<String, dynamic>> triggerSos(
+          {String? bookingId,
+          required double lat,
+          required double lng,
+          double? accuracyM,
+          int? batteryPct}) async =>
+      {'id': 'sos1', 'dispatched': true, 'emergencyNumber': '999'};
+
+  @override
+  Future<void> abortSos(String sosId) async {}
+
+  @override
   Future<List<Booking>> myBookings({String? status}) async => empty
       ? []
-      : [
-          Booking.fromJson(bookingJson('b1', 'en_route')),
-          Booking.fromJson(bookingJson('b2', 'accepted',
-              ref: 'FR-3XHD',
-              address: 'Borrowdale Brooke, Harare',
-              totalMinor: 2500,
-              start: _today(16))),
-          Booking.fromJson(bookingJson('b3', 'accepted',
-              ref: 'FR-8KQW',
-              address: 'Greendale, Harare',
-              totalMinor: 800,
-              start: _today(10, 30).add(const Duration(days: 1)))),
-          Booking.fromJson(bookingJson('b4', 'accepted',
-              ref: 'FR-2PLA',
-              address: 'Highlands, Harare',
-              totalMinor: 1500,
-              start: _today(14).add(const Duration(days: 3)))),
-        ];
+      : status == 'completed'
+          ? [
+              Booking.fromJson(bookingJson('done', 'completed',
+                  ref: 'FR-5RTM',
+                  address: 'Belgravia, Harare',
+                  totalMinor: 1200,
+                  completedAt: _today(11, 35))),
+              Booking.fromJson(bookingJson('done_rated', 'completed',
+                  ref: 'FR-6NBC',
+                  address: 'Milton Park, Harare',
+                  totalMinor: 900,
+                  completedAt: _today(17).subtract(const Duration(days: 1)),
+                  reviewed: true)),
+            ]
+          : [
+              Booking.fromJson(bookingJson('b1', 'en_route')),
+              Booking.fromJson(bookingJson('b2', 'accepted',
+                  ref: 'FR-3XHD',
+                  address: 'Borrowdale Brooke, Harare',
+                  totalMinor: 2500,
+                  start: _today(16),
+                  staffId: _salon ? 'st1' : null,
+                  staffName: _salon ? 'Rudo Chikafu' : null)),
+              Booking.fromJson(bookingJson('b3', 'accepted',
+                  ref: 'FR-8KQW',
+                  address: 'Greendale, Harare',
+                  totalMinor: 800,
+                  start: _today(10, 30).add(const Duration(days: 1)))),
+              Booking.fromJson(bookingJson('b4', 'accepted',
+                  ref: 'FR-2PLA',
+                  address: 'Highlands, Harare',
+                  totalMinor: 1500,
+                  start: _today(14).add(const Duration(days: 3)))),
+            ];
 
   @override
   Future<Booking> booking(String id) async => Booking.fromJson(switch (id) {
@@ -172,6 +330,24 @@ class FakeApi extends FreshlyApi {
             arrivedAt: DateTime.now().subtract(const Duration(minutes: 4))),
         'working' => bookingJson(id, 'in_progress'),
         'scheduled' => bookingJson(id, 'accepted', start: _today(16)),
+        'done' => bookingJson(id, 'completed',
+            ref: 'FR-5RTM',
+            address: 'Belgravia, Harare',
+            totalMinor: 1200,
+            completedAt: _today(11, 35)),
+        'done_rated' => bookingJson(id, 'completed',
+            ref: 'FR-6NBC',
+            address: 'Milton Park, Harare',
+            totalMinor: 900,
+            completedAt: _today(17).subtract(const Duration(days: 1)),
+            reviewed: true),
+        'b2' => bookingJson(id, 'accepted',
+            ref: 'FR-3XHD',
+            address: 'Borrowdale Brooke, Harare',
+            totalMinor: 2500,
+            start: _today(16),
+            staffId: _salon ? 'st1' : null,
+            staffName: _salon ? 'Rudo Chikafu' : null),
         _ => bookingJson(id, 'en_route'),
       });
 
@@ -198,9 +374,8 @@ class FakeApi extends FreshlyApi {
             EarningsTransaction.fromJson({
               'bookingId': 'e$i',
               'reference': ref,
-              'completedAt': DateTime.now()
-                  .subtract(Duration(days: i))
-                  .toIso8601String(),
+              'completedAt':
+                  DateTime.now().subtract(Duration(days: i)).toIso8601String(),
               'serviceMinor': svc,
               'travelMinor': travel,
               'commissionMinor': (svc * 12) ~/ 100,
@@ -370,10 +545,18 @@ List<Override> partnerOverrides({
   String kyc = 'verified',
   bool online = false,
   bool empty = false,
+  String businessMode = 'solo',
+  bool hasBusiness = true,
+  bool invited = false,
 }) =>
     [
-      apiProvider.overrideWithValue(
-          FakeApi(kyc: kyc, online: online, empty: empty)),
+      apiProvider.overrideWithValue(FakeApi(
+          kyc: kyc,
+          online: online,
+          empty: empty,
+          businessMode: businessMode,
+          hasBusiness: hasBusiness,
+          invited: invited)),
       sessionStoreProvider.overrideWithValue(FakeSessionStore()),
       realtimeProvider.overrideWithValue(FakeRealtime()),
       presenceProvider.overrideWith((ref) => FakePresence(ref, online)),
