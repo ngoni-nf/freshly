@@ -17,6 +17,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:freshly_core/freshly_core.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
+import 'package:freshly_client/app/notifications.dart'
+    show scaffoldMessengerKey;
 import 'package:freshly_client/app/phone_auth.dart';
 import 'package:freshly_client/app/providers.dart';
 import 'package:freshly_client/features/booking/booking_draft.dart';
@@ -166,7 +168,7 @@ final sampleServices = [
 ];
 
 Map<String, dynamic> sampleBookingJson(String status,
-        {String id = 'b1', String ref = 'FR-7Q2K'}) =>
+        {String id = 'b1', String ref = 'FR-7Q2K', bool reviewed = false}) =>
     {
       'id': id,
       'reference': ref,
@@ -178,6 +180,39 @@ Map<String, dynamic> sampleBookingJson(String status,
       'serviceIds': ['s1'],
       'scheduledStart': DateTime(2026, 10, 18, 16).toIso8601String(),
       'createdAt': DateTime(2026, 10, 17, 9).toIso8601String(),
+      'reviewedByMe': reviewed,
+      'breakdown': [
+        {'label': 'Skin fade', 'amountMinor': 1000, 'kind': 'charge'},
+        {'label': 'Travel (2.4 km)', 'amountMinor': 0, 'kind': 'charge'},
+        {'label': 'Platform fee', 'amountMinor': 50, 'kind': 'charge'},
+      ],
+    };
+
+/// The bookings the tour knows by id, so the detail, review and tracking
+/// screens all agree on what b1, b2 and the rest are.
+Map<String, dynamic> sampleBookingById(String id) => switch (id) {
+      'b0' => sampleBookingJson('en_route', id: 'b0', ref: 'FR-9LMA'),
+      'b2' => sampleBookingJson('completed', id: 'b2', ref: 'FR-3XHD'),
+      'b3' => sampleBookingJson('cancelled', id: 'b3', ref: 'FR-1ZZT'),
+      'b4' => sampleBookingJson('completed',
+          id: 'b4', ref: 'FR-5PQW', reviewed: true),
+      _ => sampleBookingJson('authorized', id: id),
+    };
+
+Map<String, dynamic> sampleTicketJson({
+  required String id,
+  required String subject,
+  required String body,
+  String status = 'open',
+  List<Map<String, dynamic>> messages = const [],
+}) =>
+    {
+      'id': id,
+      'subject': subject,
+      'body': body,
+      'status': status,
+      'createdAt': DateTime(2026, 10, 16, 14, 20).toIso8601String(),
+      'messages': messages,
     };
 
 class FakeApi extends FreshlyApi {
@@ -252,6 +287,7 @@ class FakeApi extends FreshlyApi {
           'phoneLength': 9,
           'cancellationWindowMinutes': 120,
           'cancellationFeeBps': 5000,
+          'emergencyNumber': '999',
         }),
       ];
 
@@ -274,7 +310,99 @@ class FakeApi extends FreshlyApi {
 
   @override
   Future<Booking> booking(String id) async =>
-      Booking.fromJson(sampleBookingJson('authorized'));
+      Booking.fromJson(sampleBookingById(id));
+
+  @override
+  Future<List<Invoice>> invoices(String bookingId) async => [
+        Invoice.fromJson({
+          'id': 'inv1',
+          'kind': 'provider_to_client',
+          'number': 'FR-ZW-2026-000041',
+          'issuedAt': DateTime(2026, 10, 18, 17, 5).toIso8601String(),
+          'currency': 'USD',
+          'totalMinor': 1000,
+        }),
+      ];
+
+  /// Not a real PDF, just bytes: the tour never opens a share sheet.
+  @override
+  Future<List<int>> downloadInvoice(String invoiceId) async =>
+      '%PDF-1.4 fake'.codeUnits;
+
+  final reviews = <(String, int, List<String>, String?)>[];
+
+  @override
+  Future<void> submitReview(String bookingId,
+      {required int rating,
+      List<String> tags = const [],
+      String? comment}) async {
+    reviews.add((bookingId, rating, tags, comment));
+  }
+
+  final tickets = <Map<String, dynamic>>[
+    sampleTicketJson(
+      id: 't1',
+      subject: 'Problem with booking FR-3XHD',
+      body: 'My pro arrived forty minutes after the slot and did not message '
+          'to say he was late.',
+      messages: [
+        {
+          'id': 'm1',
+          'isStaff': true,
+          'body': 'Sorry about that, Rudo. We have spoken to Tendai and '
+              'refunded the travel fee to your EcoCash. Give it an hour to '
+              'show.',
+          'createdAt': DateTime(2026, 10, 16, 16, 2).toIso8601String(),
+        },
+      ],
+    ),
+    sampleTicketJson(
+      id: 't2',
+      subject: 'Change my phone number',
+      body: 'I have a new SIM and want to move my account to it.',
+      status: 'closed',
+    ),
+  ];
+
+  @override
+  Future<List<SupportTicket>> myTickets() async =>
+      tickets.map(SupportTicket.fromJson).toList();
+
+  @override
+  Future<void> raiseTicket(
+      {required String subject,
+      required String body,
+      required String raisedBy,
+      String? bookingId}) async {
+    tickets.insert(
+        0,
+        sampleTicketJson(
+            id: 't${tickets.length + 1}', subject: subject, body: body));
+  }
+
+  @override
+  Future<void> addTicketMessage(String ticketId, String body) async {}
+
+  final sosCalls = <String>[];
+
+  @override
+  Future<Map<String, dynamic>> triggerSos(
+      {String? bookingId,
+      required double lat,
+      required double lng,
+      double? accuracyM,
+      int? batteryPct}) async {
+    sosCalls.add('trigger');
+    return {
+      'id': 'sos1',
+      'status': 'dispatched',
+      'dispatched': true,
+      'emergencyNumber': '999',
+    };
+  }
+
+  @override
+  Future<void> abortSos(String sosId) async => sosCalls.add('abort:$sosId');
 
   @override
   Future<GridStatus> gridStatus(String countryCode) async =>
@@ -290,13 +418,8 @@ class FakeApi extends FreshlyApi {
 
   @override
   Future<List<Booking>> myBookings({String? status}) async => [
-        Booking.fromJson(
-            sampleBookingJson('en_route', id: 'b0', ref: 'FR-9LMA')),
-        Booking.fromJson(sampleBookingJson('completed')),
-        Booking.fromJson(
-            sampleBookingJson('cancelled', id: 'b3', ref: 'FR-1ZZT')),
-        Booking.fromJson(
-            sampleBookingJson('completed', id: 'b2', ref: 'FR-3XHD')),
+        for (final id in ['b0', 'b2', 'b3', 'b4'])
+          Booking.fromJson(sampleBookingById(id)),
       ];
 
   @override
@@ -423,6 +546,7 @@ Future<void> shoot(
     overrides: [...baseOverrides(), ...overrides],
     child: MaterialApp.router(
       debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: scaffoldMessengerKey,
       theme: FreshlyTheme.light(),
       darkTheme: FreshlyTheme.dark(),
       themeMode: mode,

@@ -164,4 +164,64 @@ void main() {
     // Leave the waiting room so its poll timer is cancelled with it.
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('rate a completed booking from the bookings tab', (tester) async {
+    tester.view.devicePixelRatio = 2;
+    tester.view.physicalSize = const Size(390 * 2, 844 * 2);
+    addTearDown(tester.view.reset);
+    final api = _FlowApi();
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        ...baseOverrides(),
+        apiProvider.overrideWithValue(api),
+        sessionStoreProvider.overrideWithValue(SessionStore(_StoredSession())),
+        realtimeProvider.overrideWithValue(_NoSocket()),
+      ],
+      child: Consumer(builder: (context, ref, _) {
+        return MaterialApp.router(
+          theme: FreshlyTheme.light(),
+          routerConfig: ref.watch(routerProvider),
+        );
+      }),
+    ));
+    Future<void> settle() async {
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 250));
+      }
+    }
+
+    await settle();
+    await tester.tap(find.text('Bookings'));
+    await settle();
+    expect(find.text('Past'), findsOneWidget, reason: 'bookings tab');
+    // One completed booking is unrated and one already rated.
+    expect(find.text('Rate'), findsOneWidget);
+    expect(find.text('Rated'), findsOneWidget);
+
+    await tester.tap(find.text('Rate'));
+    await settle();
+    expect(find.text('Submit review'), findsOneWidget, reason: 'review');
+    final submit = find.widgetWithText(FilledButton, 'Submit review');
+    expect(tester.widget<FilledButton>(submit).enabled, isFalse,
+        reason: 'no stars yet');
+
+    await tester.tap(find.byTooltip('5 stars'));
+    await tester.pump();
+    await tester.tap(find.text('Clean kit'));
+    await tester.pump();
+    await tester.tap(submit);
+    await settle();
+
+    expect(api.reviews, hasLength(1));
+    final (bookingId, rating, tags, comment) = api.reviews.single;
+    expect(bookingId, 'b2');
+    expect(rating, 5);
+    expect(tags, ['Clean kit']);
+    expect(comment, isNull);
+    expect(find.text('Review sent'), findsOneWidget);
+    await tester.tap(find.text('Done'));
+    await settle();
+    expect(find.text('Past'), findsOneWidget, reason: 'back on the list');
+  });
 }
