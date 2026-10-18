@@ -7,9 +7,12 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/providers.dart';
+import '../../widgets/assign_sheet.dart';
 import '../../widgets/job_status.dart';
+import '../../widgets/job_tile.dart' show AssigneePill;
 import '../../widgets/slide_to_confirm.dart';
 import '../../widgets/sos_button.dart';
+import 'invoices_section.dart';
 import 'job_providers.dart';
 
 /// Screens B.10 to B.12 — the job itself.
@@ -70,7 +73,12 @@ class _JobScreenState extends ConsumerState<JobScreen> {
           );
       ref.invalidate(walletProvider);
       ref.invalidate(scheduleProvider);
+      ref.invalidate(jobProvider(widget.bookingId));
       if (mounted) {
+        final isStaff = ref.read(isSalonStaffProvider);
+        // The screen stays on the finished job rather than bouncing home:
+        // the invoices and the client rating live here, and the provider is
+        // standing next to the person they are about to rate.
         await showDialog<void>(
           context: context,
           builder: (_) => AlertDialog(
@@ -78,9 +86,12 @@ class _JobScreenState extends ConsumerState<JobScreen> {
                 icon: FreshlyIcons.checkCircle,
                 tone: FreshlyTone.success,
                 size: 64),
-            title: const Text('Paid'),
-            content: const Text(
-              'The client\'s payment has been released and your earnings are in your wallet.',
+            title: Text(isStaff ? 'Job done' : 'Paid'),
+            content: Text(
+              isStaff
+                  ? 'The client\'s payment has been released to the salon.'
+                  : 'The client\'s payment has been released and your '
+                      'earnings are in your wallet.',
             ),
             actions: [
               TextButton(
@@ -90,7 +101,6 @@ class _JobScreenState extends ConsumerState<JobScreen> {
             ],
           ),
         );
-        if (mounted) context.go('/');
       }
     } on ApiException catch (e) {
       if (mounted) {
@@ -150,6 +160,13 @@ class _JobScreenState extends ConsumerState<JobScreen> {
     final job = ref.watch(jobProvider(widget.bookingId));
     final booking = job.valueOrNull;
     final text = Theme.of(context).textTheme;
+    final isSalon = ref.watch(isSalonProvider);
+    final isStaff = ref.watch(isSalonStaffProvider);
+    final status = booking?.status;
+    final finished = status == BookingStatus.completed;
+    // SOS belongs to a job that is still happening. On a closed one the
+    // button would sit over the invoices and mean nothing.
+    final live = status != null && status.isLive;
 
     return Scaffold(
       appBar: AppBar(
@@ -205,9 +222,10 @@ class _JobScreenState extends ConsumerState<JobScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_headline(booking.status), style: text.headlineSmall),
+                    Text(_headline(booking.status, isStaff: isStaff),
+                        style: text.headlineSmall),
                     const SizedBox(height: 4),
-                    Text(_hint(booking.status),
+                    Text(_hint(booking.status, isStaff: isStaff),
                         style: text.bodyMedium?.copyWith(
                             color: Theme.of(context)
                                 .colorScheme
@@ -254,6 +272,21 @@ class _JobScreenState extends ConsumerState<JobScreen> {
                         ],
                       ),
                     ],
+                    if (isSalon || booking.assignedStaffName != null) ...[
+                      const SizedBox(height: 12),
+                      _AssignedRow(
+                        booking: booking,
+                        canChange: isSalon && canAssign(booking.status),
+                        onChange: () async {
+                          final changed = await showAssignSheet(context,
+                              bookingId: widget.bookingId,
+                              currentStaffId: booking.assignedStaffId);
+                          if (changed) {
+                            ref.invalidate(jobProvider(widget.bookingId));
+                          }
+                        },
+                      ),
+                    ],
                     const Divider(height: FreshlySpacing.xl),
                     Row(
                       children: [
@@ -272,25 +305,35 @@ class _JobScreenState extends ConsumerState<JobScreen> {
               ),
             ),
             const SizedBox(height: FreshlySpacing.sm),
-            Row(
-              children: [
-                Expanded(
-                  child: _ActionTile(
-                    icon: FreshlyIcons.navigation,
-                    label: 'Navigate',
-                    onTap: () => _openNavigation(booking),
+            if (booking.status.isLive)
+              Row(
+                children: [
+                  Expanded(
+                    child: _ActionTile(
+                      icon: FreshlyIcons.navigation,
+                      label: 'Navigate',
+                      onTap: () => _openNavigation(booking),
+                    ),
                   ),
-                ),
-                const SizedBox(width: FreshlySpacing.sm),
-                Expanded(
-                  child: _ActionTile(
-                    icon: FreshlyIcons.chat,
-                    label: 'Message',
-                    onTap: () => context.push('/job/${widget.bookingId}/chat'),
+                  const SizedBox(width: FreshlySpacing.sm),
+                  Expanded(
+                    child: _ActionTile(
+                      icon: FreshlyIcons.chat,
+                      label: 'Message',
+                      onTap: () =>
+                          context.push('/job/${widget.bookingId}/chat'),
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            if (finished) ...[
+              _RateCard(
+                reviewed: booking.reviewedByMe,
+                onRate: () => context.push('/job/${widget.bookingId}/rate'),
+              ),
+              const SizedBox(height: FreshlySpacing.lg),
+              InvoicesSection(bookingId: widget.bookingId, isStaff: isStaff),
+            ],
             if (booking.status == BookingStatus.arrived) ...[
               const SizedBox(height: FreshlySpacing.md),
               _NoShowButton(
@@ -309,44 +352,170 @@ class _JobScreenState extends ConsumerState<JobScreen> {
           ],
         ),
       ),
-      floatingActionButton: SosButton(bookingId: widget.bookingId),
+      floatingActionButton:
+          live ? SosButton(bookingId: widget.bookingId) : null,
       bottomNavigationBar: job.maybeWhen(
-        data: (booking) => StickyActionBar(
-          child: _PrimaryAction(
-            status: booking.status,
-            busy: _busy,
-            onEnRoute: () => _advance('en_route'),
-            onArrived: () => _advance('arrived'),
-            onEnterPin: () => context.push('/job/${widget.bookingId}/pin'),
-            onComplete: _complete,
-          ),
-        ),
+        data: (booking) {
+          if (booking.status == BookingStatus.completed) {
+            // Rating is the one thing left to do on a finished job; once it
+            // is done the bar goes, so the invoices get the whole screen.
+            if (booking.reviewedByMe) return const SizedBox.shrink();
+            return StickyActionBar(
+              child: FilledButton(
+                onPressed: () => context.push('/job/${widget.bookingId}/rate'),
+                child: const Text('Rate your client'),
+              ),
+            );
+          }
+          if (!booking.status.isLive) return const SizedBox.shrink();
+          return StickyActionBar(
+            child: _PrimaryAction(
+              status: booking.status,
+              busy: _busy,
+              onEnRoute: () => _advance('en_route'),
+              onArrived: () => _advance('arrived'),
+              onEnterPin: () => context.push('/job/${widget.bookingId}/pin'),
+              onComplete: _complete,
+            ),
+          );
+        },
         orElse: () => const SizedBox.shrink(),
       ),
     );
   }
 
-  static String _headline(BookingStatus status) => switch (status) {
+  /// A staff member's pay comes from the salon, not from this app, so the
+  /// money lines are reworded for them rather than hidden.
+  static String _headline(BookingStatus status, {required bool isStaff}) =>
+      switch (status) {
+        BookingStatus.authorized => 'Booked and paid for',
         BookingStatus.accepted => 'Head to your client',
         BookingStatus.enRoute => 'On your way',
         BookingStatus.arrived => 'You are at the door',
         BookingStatus.inProgress => 'Working',
-        BookingStatus.completed => 'Paid',
+        BookingStatus.completed => isStaff ? 'Job done' : 'Paid',
+        BookingStatus.cancelled => 'Cancelled',
         _ => 'Job closed',
       };
 
-  static String _hint(BookingStatus status) => switch (status) {
+  static String _hint(BookingStatus status, {required bool isStaff}) =>
+      switch (status) {
+        BookingStatus.authorized =>
+          'The client\'s payment is held. You will be offered this job '
+              'when it is time to leave.',
         BookingStatus.accepted =>
           'Tap start driving when you leave so your client can follow you.',
         BookingStatus.enRoute =>
           'Slide when you are outside. Your client is told to open up.',
         BookingStatus.arrived =>
           'Ask your client for their 4-digit code to start the job.',
-        BookingStatus.inProgress =>
-          'When you are done, finish the job to release your payment.',
-        BookingStatus.completed => 'The money for this job is in your wallet.',
+        BookingStatus.inProgress => isStaff
+            ? 'When you are done, finish the job to release the client\'s '
+                'payment to the salon.'
+            : 'When you are done, finish the job to release your payment.',
+        BookingStatus.completed => isStaff
+            ? 'The client\'s payment has gone to the salon.'
+            : 'The money for this job is in your wallet.',
+        BookingStatus.cancelled => 'This booking was cancelled.',
         _ => 'Nothing more to do on this booking.',
       };
+}
+
+/// Who is doing a salon's job, with the one tap that changes it while the
+/// job is still ahead of them.
+class _AssignedRow extends StatelessWidget {
+  const _AssignedRow(
+      {required this.booking, required this.canChange, required this.onChange});
+  final Booking booking;
+  final bool canChange;
+  final VoidCallback onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final name = booking.assignedStaffName;
+    return Row(
+      children: [
+        const IconBadge(
+            icon: FreshlyIcons.person, tone: FreshlyTone.dark, size: 40),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Assigned to', style: text.labelMedium),
+              const SizedBox(height: 4),
+              name == null
+                  ? Text('You', style: text.titleMedium)
+                  : AssigneePill(name: name),
+            ],
+          ),
+        ),
+        if (canChange)
+          TextButton(
+            onPressed: onChange,
+            child: Text(name == null ? 'Assign' : 'Change'),
+          ),
+      ],
+    );
+  }
+}
+
+/// The double-sided review, from the provider's side. Other pros see the
+/// rating before they accept this client, which is the reason to ask.
+class _RateCard extends StatelessWidget {
+  const _RateCard({required this.reviewed, required this.onRate});
+  final bool reviewed;
+  final VoidCallback onRate;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Card(
+      child: InkWell(
+        onTap: reviewed ? null : onRate,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
+          child: Row(
+            children: [
+              IconBadge(
+                  icon: FreshlyIcons.star,
+                  tone: reviewed ? FreshlyTone.success : FreshlyTone.warning,
+                  size: 44),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                        reviewed ? 'You rated this client' : 'Rate your client',
+                        style: text.titleMedium),
+                    const SizedBox(height: 2),
+                    Text(
+                      reviewed
+                          ? 'Thanks. It helps other pros decide.'
+                          : 'Other pros see it before they accept them.',
+                      style: text.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              reviewed
+                  ? const StatusPill(
+                      label: 'Rated',
+                      icon: FreshlyIcons.check,
+                      tone: FreshlyTone.success,
+                      dense: true)
+                  : Icon(FreshlyIcons.chevronRight,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _ActionTile extends StatelessWidget {
@@ -471,6 +640,7 @@ class _PrimaryAction extends StatelessWidget {
       BookingStatus.enRoute => ('I have arrived', onArrived),
       BookingStatus.arrived => ('Enter client code to start', onEnterPin),
       BookingStatus.inProgress => ('Finish and get paid', onComplete),
+      BookingStatus.authorized => ('Confirmed, offer to come', null),
       _ => ('Job closed', null),
     };
 
