@@ -95,9 +95,10 @@ Turning Zimbabwe on is an UPDATE plus a payment adapter. Do not add
 
 ## Current state
 
-Working and verified: 85 unit tests and 17 end-to-end tests green (the
-booking flow, and a provider's whole journey from a +263 number to a verified
-EcoCash wallet in `test/provider-onboarding.e2e-spec.ts`), `tsc` and ESLint
+Working and verified: 91 unit tests and 29 end-to-end tests green (the
+booking flow, a provider's whole journey from a +263 number to a verified
+EcoCash wallet in `test/provider-onboarding.e2e-spec.ts`, and a Harare salon
+building a team and issuing both invoices in `test/salon-and-invoices.e2e-spec.ts`), `tsc` and ESLint
 clean, both smoke suites pass against a running API, and both Flutter apps
 analyze clean and build and run on an Android 16 emulator. Each app has a
 screen tour (`flutter test test_screens --update-goldens`) that renders real
@@ -115,7 +116,29 @@ queue. The minimum cash-out is per market (`countries.min_payout_minor`).
 
 Modules: `payouts` (wallet, cash-out, accounts, settlement webhooks), `kyc`
 (submission, manual review, signed callbacks), `safety` (SOS and emergency
-contacts — both apps were already calling these and getting 404s).
+contacts — both apps were already calling these and getting 404s), `invoices`
+and `providers/staff`.
+
+**Invoices are written in the completion transaction.** Two rows per completed
+booking (`provider_to_client`, `platform_to_provider`), numbered per market and
+year from `invoice_sequences`, rendered to PDF on request with pdfkit. The
+figures are the booking's frozen checkout figures plus client-approved add-ons
+(`bookingBreakdown` in `pricing.service.ts`), never current menu prices. A
+client sees only the invoice addressed to them. Migration 023 reshapes the
+unused `invoices` table from 004 rather than creating a second one — a
+`CREATE TABLE IF NOT EXISTS` there silently no-ops and every completion 500s.
+
+**A salon is a provider with staff.** `business_mode = 'salon'` owns the menu,
+the wallet and the dispatch offers; staff are `salon_staff` rows invited by
+phone (`staff_invites`) and assigned per booking (`bookings.assigned_staff_id`).
+`canOperate(booking, providerId)` in `bookings.service.ts` is the one predicate
+every provider-side job operation uses; staff never appear in discovery, must
+be KYC-verified before they can be assigned, and are never paid directly —
+capture credits `bookings.provider_id`, which stays the salon.
+
+`countries.emergency_number` (ZA 10111, ZW 999) is what both apps' SOS
+buttons dial; after an alert the person who raised it stands it down with
+`POST /safety/sos/:id/abort`.
 
 Adapters follow the `PaynowGateway` precedent: the mock is fully functional so
 the whole flow works locally, and the real vendor adapters are structurally
@@ -159,6 +182,8 @@ real demo traffic: every migration through 021 is applied and recorded in
 `schema_migrations`, with checksums matching the files exactly. Its security advisor is clean apart from the findings
 explained under "Things that have already bitten us": `spatial_ref_sys`,
 extensions installed in `public`, and PostGIS's own `st_estimatedextent`.
+Migrations 022 and 023 ship with this branch; `scripts/release-api.ps1`
+applies them on release.
 
 GitHub Actions has not run since 21 August 2026: the account is locked for
 billing, so every CI job fails at startup without running a step. Until that
